@@ -27,7 +27,7 @@ type AuthContextValue = {
   token: string | null;
   restoring: boolean;
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string) => Promise<void>;
+  signUp: (email: string, password: string, fullName: string, phone: string) => Promise<void>;
   updateProfile: (profile: { email: string; fullName?: string; phone?: string }) => Promise<void>;
   signOut: () => Promise<void>;
 };
@@ -66,8 +66,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await saveSession(response.token, response.user);
   };
 
-  const signUp = async (email: string, password: string) => {
-    const response = await register(email, password);
+  const signUp = async (email: string, password: string, fullName: string, phone: string) => {
+    const response = await register(email, password, fullName, phone);
     await saveSession(response.token, response.user);
   };
 

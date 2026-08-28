@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Image,
   FlatList,
+  ScrollView,
   Pressable,
   SafeAreaView,
   StyleSheet,
@@ -9,8 +10,9 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import { CatalogMovie, getCatalog } from '../api/client';
+import { CatalogMovie, getCatalog, getMatches, StadiumMatch } from '../api/client';
 import { colors, typography } from '../theme';
 import AppState from '../components/AppState';
 import ProfileAvatar from '../components/ProfileAvatar';
@@ -22,6 +24,7 @@ export default function HomeScreen() {
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('Todos');
   const [movies, setMovies] = useState<CatalogMovie[]>([]);
+  const [matches, setMatches] = useState<StadiumMatch[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -30,8 +33,9 @@ export default function HomeScreen() {
     setError(null);
 
     try {
-      const response = await getCatalog();
-      setMovies(response.movies);
+      const [catalogResponse, matchesResponse] = await Promise.all([getCatalog(), getMatches()]);
+      setMovies(catalogResponse.movies);
+      setMatches(matchesResponse.matches);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : 'No se pudo cargar la cartelera.');
     } finally {
@@ -72,20 +76,29 @@ export default function HomeScreen() {
         ListHeaderComponent={<>
         <View style={styles.headerRow}>
           <View>
-            <Text style={styles.overline}>Centro cultural</Text>
-            <Text style={styles.title}>TiKetSafe</Text>
+            <Text style={styles.greeting}>Buenas tardes</Text>
+            <Text style={styles.title}>Tu agenda cultural</Text>
           </View>
-          <ProfileAvatar />
+          <View style={styles.headerActions}>
+            <Pressable accessibilityRole="button" accessibilityLabel="Abrir notificaciones" style={styles.iconButton}>
+              <Ionicons name="notifications-outline" size={21} color={colors.text} />
+              <View style={styles.notificationDot} />
+            </Pressable>
+            <ProfileAvatar />
+          </View>
         </View>
 
-        <TextInput
-          accessibilityLabel="Buscar evento o película"
-          style={styles.searchInput}
-          value={search}
-          onChangeText={setSearch}
-          placeholder="Buscar evento o película"
-          placeholderTextColor={colors.textSecondary}
-        />
+        <View style={styles.searchWrap}>
+          <Ionicons name="search-outline" size={19} color={colors.textSecondary} />
+          <TextInput
+            accessibilityLabel="Buscar evento o película"
+            style={styles.searchInput}
+            value={search}
+            onChangeText={setSearch}
+            placeholder="Busca una experiencia"
+            placeholderTextColor={colors.textSecondary}
+          />
+        </View>
 
         <View style={styles.filters}>
           {categories.map((item) => (
@@ -108,13 +121,71 @@ export default function HomeScreen() {
             style={styles.heroImage}
           />
           <View style={styles.heroOverlay}>
-            <Text style={styles.heroTag}>Estreno destacado</Text>
-            <Text style={styles.heroTitle}>Noche de estreno</Text>
-            <Text style={styles.heroDescription}>3 películas, 2 obras y un concierto esta semana.</Text>
+            <View style={styles.heroBadge}><Text style={styles.heroTag}>RECOMENDADO</Text></View>
+            <Text style={styles.heroTitle}>Una noche para recordar</Text>
+            <Text style={styles.heroDescription}>Descubre cine, música y fútbol en un solo lugar.</Text>
           </View>
         </View>
 
-        <Text style={styles.sectionTitle}>Cartelera disponible</Text>
+        <View style={styles.sectionHeading}>
+          <View>
+            <Text style={styles.kicker}>PARA TI</Text>
+            <Text style={styles.sectionTitle}>Explora por experiencia</Text>
+          </View>
+          <Text style={styles.countLabel}>{movies.length} eventos</Text>
+        </View>
+
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.quickActions}>
+          <Pressable style={[styles.quickCard, styles.quickCardBlue]} onPress={() => setCategory('CINE')}>
+            <Ionicons name="film-outline" size={24} color={colors.text} />
+            <Text style={styles.quickTitle}>Cine</Text>
+            <Text style={styles.quickMeta}>Historias en pantalla</Text>
+          </Pressable>
+          <Pressable style={[styles.quickCard, styles.quickCardCoral]} onPress={() => setCategory('TEATRO')}>
+            <Ionicons name="sparkles-outline" size={24} color={colors.text} />
+            <Text style={styles.quickTitle}>Teatro</Text>
+            <Text style={styles.quickMeta}>Vive la escena</Text>
+          </Pressable>
+          <Pressable style={[styles.quickCard, styles.quickCardGreen]} onPress={() => navigation.navigate('Estadios')}>
+            <Ionicons name="football-outline" size={24} color={colors.text} />
+            <Text style={styles.quickTitle}>Estadios</Text>
+            <Text style={styles.quickMeta}>Siente el partido</Text>
+          </Pressable>
+        </ScrollView>
+
+        {matches.length > 0 && (
+          <>
+            <View style={styles.sectionHeading}>
+              <View>
+                <Text style={styles.kicker}>EN VIVO PRÓXIMAMENTE</Text>
+                <Text style={styles.sectionTitle}>Partidos destacados</Text>
+              </View>
+              <Pressable onPress={() => navigation.navigate('Estadios')}><Text style={styles.linkText}>Ver todos</Text></Pressable>
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.matchRow}>
+              {matches.slice(0, 4).map((match) => (
+                <Pressable key={match.id} style={styles.matchCard} onPress={() => navigation.navigate('Estadios')}>
+                  <Text style={styles.matchLeague}>{match.stadium.city.toUpperCase()} · {match.status === 'LIVE' ? 'EN VIVO' : 'PRÓXIMO'}</Text>
+                  <Text style={styles.matchTeams}>{match.homeTeam}</Text>
+                  <Text style={styles.matchVs}>VS</Text>
+                  <Text style={styles.matchTeams}>{match.awayTeam}</Text>
+                  <View style={styles.matchFooter}>
+                    <Ionicons name="location-outline" size={14} color={colors.textSecondary} />
+                    <Text style={styles.matchVenue}>{match.stadium.name}</Text>
+                  </View>
+                </Pressable>
+              ))}
+            </ScrollView>
+          </>
+        )}
+
+        <View style={styles.sectionHeading}>
+          <View>
+            <Text style={styles.kicker}>SELECCIÓN DE HOY</Text>
+            <Text style={styles.sectionTitle}>Cartelera disponible</Text>
+          </View>
+          <Text style={styles.countLabel}>{filteredMovies.length} resultados</Text>
+        </View>
 
         {loading && (
           <AppState loading title="Cargando cartelera..." />
@@ -181,22 +252,22 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.background },
   container: { flex: 1, backgroundColor: colors.background },
-  content: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 24 },
-  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
-  overline: { color: colors.primary, fontSize: 12, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1.4 },
-  title: { color: colors.text, fontSize: 30, fontWeight: '800', fontFamily: typography.display },
+  content: { paddingHorizontal: 18, paddingTop: 18, paddingBottom: 30 },
+  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 },
+  greeting: { color: colors.textSecondary, fontSize: 13, fontWeight: '600', marginBottom: 4 },
+  title: { color: colors.text, fontSize: 28, fontWeight: '800', fontFamily: typography.display },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  iconButton: { width: 42, height: 42, borderRadius: 21, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.border },
+  notificationDot: { position: 'absolute', top: 9, right: 10, width: 6, height: 6, borderRadius: 3, backgroundColor: colors.critical },
   avatar: { width: 42, height: 42, borderRadius: 21, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
   avatarText: { color: colors.text, fontWeight: '700' },
   searchInput: {
-    backgroundColor: colors.input,
-    borderColor: colors.borderStrong,
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 14,
+    flex: 1,
     height: 48,
     color: colors.text,
-    marginBottom: 14,
+    paddingHorizontal: 0,
   },
+  searchWrap: { height: 50, flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: colors.input, borderColor: colors.borderStrong, borderWidth: 1, borderRadius: 14, paddingHorizontal: 14, marginBottom: 14 },
   filters: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 18 },
   chip: {
     backgroundColor: colors.surface,
@@ -209,7 +280,7 @@ const styles = StyleSheet.create({
   chipSelected: { backgroundColor: colors.primary, borderColor: colors.primary },
   chipText: { color: colors.text, fontSize: 13, fontWeight: '600' },
   chipTextSelected: { color: colors.text },
-  heroCard: { height: 180, borderRadius: 18, overflow: 'hidden', marginBottom: 22, backgroundColor: colors.surface },
+  heroCard: { height: 205, borderRadius: 20, overflow: 'hidden', marginBottom: 24, backgroundColor: colors.surface },
   heroImage: { width: '100%', height: '100%' },
   heroOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -217,10 +288,29 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     padding: 16,
   },
-  heroTag: { color: colors.primary, fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1 },
-  heroTitle: { color: colors.text, fontSize: 28, fontWeight: '800', marginTop: 4, fontFamily: typography.display },
-  heroDescription: { color: colors.text, fontSize: 13, marginTop: 6, width: '75%' },
-  sectionTitle: { color: colors.text, fontSize: 22, fontWeight: '700', marginBottom: 16 },
+  heroBadge: { alignSelf: 'flex-start', backgroundColor: colors.primary, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 5, marginBottom: 5 },
+  heroTag: { color: colors.background, fontSize: 10, fontWeight: '800', letterSpacing: 1 },
+  heroTitle: { color: colors.text, fontSize: 29, fontWeight: '800', marginTop: 4, fontFamily: typography.display },
+  heroDescription: { color: colors.text, fontSize: 13, marginTop: 6, width: '78%', lineHeight: 19 },
+  sectionHeading: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 13 },
+  kicker: { color: colors.primary, fontSize: 10, fontWeight: '800', letterSpacing: 1.4, marginBottom: 4 },
+  sectionTitle: { color: colors.text, fontSize: 21, fontWeight: '700' },
+  countLabel: { color: colors.textSecondary, fontSize: 12, marginBottom: 2 },
+  linkText: { color: colors.primary, fontSize: 12, fontWeight: '800', marginBottom: 2 },
+  quickActions: { gap: 10, paddingBottom: 25 },
+  quickCard: { width: 145, height: 125, borderRadius: 16, padding: 15, justifyContent: 'space-between' },
+  quickCardBlue: { backgroundColor: '#1769AA' },
+  quickCardCoral: { backgroundColor: '#B9475C' },
+  quickCardGreen: { backgroundColor: '#137A70' },
+  quickTitle: { color: colors.text, fontSize: 17, fontWeight: '800' },
+  quickMeta: { color: 'rgba(248,250,252,0.75)', fontSize: 11 },
+  matchRow: { gap: 10, paddingBottom: 26 },
+  matchCard: { width: 215, minHeight: 145, borderRadius: 16, backgroundColor: colors.surfaceRaised, borderWidth: 1, borderColor: colors.border, padding: 15 },
+  matchLeague: { color: colors.success, fontSize: 9, fontWeight: '800', letterSpacing: 0.8, marginBottom: 12 },
+  matchTeams: { color: colors.text, fontSize: 15, fontWeight: '800' },
+  matchVs: { color: colors.textSecondary, fontSize: 10, fontWeight: '800', marginVertical: 2 },
+  matchFooter: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 'auto' },
+  matchVenue: { color: colors.textSecondary, fontSize: 10, flex: 1 },
   card: { flexDirection: 'row', backgroundColor: colors.surface, borderRadius: 18, overflow: 'hidden', borderWidth: 1, borderColor: colors.border, marginBottom: 18 },
   poster: { width: 112, height: 190 },
   cardContent: { flex: 1, padding: 14 },

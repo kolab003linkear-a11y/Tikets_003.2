@@ -37,6 +37,8 @@ app.use((req, res, next) => {
 const registerSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
+  fullName: z.string().trim().min(2).max(100),
+  phone: z.string().trim().min(7).max(30),
 });
 
 const loginSchema = z.object({
@@ -195,6 +197,8 @@ app.post('/api/auth/register', async (req, res, next) => {
       data: {
         email,
         passwordHash,
+        fullName: payload.fullName.trim(),
+        phone: payload.phone.trim(),
         role: UserRole.CLIENT,
       },
       select: {

@@ -10,15 +10,28 @@ import AppInput from '../components/AppInput';
 export default function AuthScreen() {
   const { signIn, signUp } = useAuth();
   const [registerMode, setRegisterMode] = useState(false);
+    const [fullName, setFullName] = useState('');
+    const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+    const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const submit = async () => {
     const normalizedEmail = email.trim().toLowerCase();
+      const normalizedName = fullName.trim();
+      const normalizedPhone = phone.trim();
+      if (registerMode && normalizedName.length < 2) {
+        setError('Escribe tu nombre completo.');
+        return;
+      }
+      if (registerMode && normalizedPhone.length < 7) {
+        setError('Escribe un teléfono válido.');
+        return;
+      }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail) || !password) {
       setError('Completa un correo electrónico válido y tu contraseña.');
       return;
@@ -31,11 +44,15 @@ export default function AuthScreen() {
       setError('Las contraseñas no coinciden.');
       return;
     }
+      if (registerMode && !acceptedTerms) {
+        setError('Debes aceptar los términos y condiciones.');
+        return;
+      }
 
     setBusy(true);
     setError(null);
     try {
-      if (registerMode) await signUp(normalizedEmail, password);
+      if (registerMode) await signUp(normalizedEmail, password, normalizedName, normalizedPhone);
       else await signIn(normalizedEmail, password);
     } catch (authError) {
       setError(authError instanceof Error ? authError.message : 'No se pudo completar la operación.');
@@ -59,6 +76,28 @@ export default function AuthScreen() {
         </View>
 
         <AppCard style={styles.form}>
+            {registerMode && <>
+              <AppInput
+                label="Nombre completo"
+                autoCapitalize="words"
+                autoComplete="name"
+                style={styles.input}
+                value={fullName}
+                onChangeText={setFullName}
+                placeholder="Ej. Ana García"
+                placeholderTextColor={colors.textSecondary}
+              />
+              <AppInput
+                label="Teléfono"
+                autoComplete="tel"
+                keyboardType="phone-pad"
+                style={styles.input}
+                value={phone}
+                onChangeText={setPhone}
+                placeholder="099 123 4567"
+                placeholderTextColor={colors.textSecondary}
+              />
+            </>}
           <AppInput
             label="Correo electrónico"
             autoCapitalize="none"
@@ -75,6 +114,10 @@ export default function AuthScreen() {
             <Pressable accessibilityRole="button" accessibilityLabel={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'} style={styles.eyeButton} onPress={() => setShowPassword((visible) => !visible)}><Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={19} color={colors.textSecondary} /></Pressable>
           </View>
           {registerMode && <AppInput label="Confirmar contraseña" autoCapitalize="none" autoComplete="password" secureTextEntry={!showPassword} style={styles.input} value={confirmPassword} onChangeText={setConfirmPassword} placeholder="Repite tu contraseña" placeholderTextColor={colors.textSecondary} />}
+            {registerMode && <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: acceptedTerms }} style={styles.termsRow} onPress={() => setAcceptedTerms((accepted) => !accepted)}>
+              <View style={[styles.checkbox, acceptedTerms && styles.checkboxActive]}>{acceptedTerms && <Ionicons name="checkmark" size={14} color={colors.background} />}</View>
+              <Text style={styles.termsText}>Acepto los términos y condiciones y el uso de mis datos.</Text>
+            </Pressable>}
           {error && <Text style={styles.error}>{error}</Text>}
           <AppButton
             label={registerMode ? 'Crear cuenta' : 'Iniciar sesión'}
@@ -113,6 +156,10 @@ const styles = StyleSheet.create({
   passwordWrap: { position: 'relative' },
   passwordInput: { paddingRight: 48 },
   eyeButton: { position: 'absolute', right: 10, bottom: 21, width: 34, height: 34, alignItems: 'center', justifyContent: 'center' },
+  termsRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 14, gap: 10 },
+  checkbox: { width: 20, height: 20, borderRadius: 5, borderWidth: 1, borderColor: colors.borderStrong, alignItems: 'center', justifyContent: 'center' },
+  checkboxActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  termsText: { flex: 1, color: colors.textSecondary, fontSize: 12, lineHeight: 17 },
   error: { color: colors.critical, fontSize: 13, lineHeight: 19, marginBottom: 12 },
   primaryButton: { minHeight: 50, backgroundColor: colors.primary, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginTop: 4 },
   disabled: { opacity: 0.65 },
