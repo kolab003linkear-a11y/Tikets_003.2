@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
-import { AuthUser, getMe, login, register, updateMe } from '../api/client';
+import { AuthResponse, AuthUser, createGuestSession, getMe, login, register, updateMe } from '../api/client';
 
 const TOKEN_KEY = 'tiKets.auth.token';
 const USER_KEY = 'tiKets.auth.user';
@@ -27,7 +27,8 @@ type AuthContextValue = {
   token: string | null;
   restoring: boolean;
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string, fullName: string, phone: string) => Promise<void>;
+  signUp: (email: string, password: string) => Promise<void>;
+  startGuestSession: (email: string, fullName: string, phone: string) => Promise<AuthResponse>;
   updateProfile: (profile: { email: string; fullName?: string; phone?: string }) => Promise<void>;
   signOut: () => Promise<void>;
 };
@@ -66,9 +67,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await saveSession(response.token, response.user);
   };
 
-  const signUp = async (email: string, password: string, fullName: string, phone: string) => {
-    const response = await register(email, password, fullName, phone);
+  const signUp = async (email: string, password: string) => {
+    const response = await register(email, password);
     await saveSession(response.token, response.user);
+  };
+
+  const startGuestSession = async (email: string, fullName: string, phone: string) => {
+    const response = await createGuestSession(email, fullName, phone);
+    await saveSession(response.token, response.user);
+    return response;
   };
 
   const updateProfile = async (profile: { email: string; fullName?: string; phone?: string }) => {
@@ -84,7 +91,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
   };
 
-  return <AuthContext.Provider value={{ user, token, restoring, signIn, signUp, updateProfile, signOut }}>{children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={{ user, token, restoring, signIn, signUp, startGuestSession, updateProfile, signOut }}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {

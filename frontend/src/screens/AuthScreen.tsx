@@ -10,8 +10,6 @@ import AppInput from '../components/AppInput';
 export default function AuthScreen() {
   const { signIn, signUp } = useAuth();
   const [registerMode, setRegisterMode] = useState(false);
-    const [fullName, setFullName] = useState('');
-    const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -22,16 +20,6 @@ export default function AuthScreen() {
 
   const submit = async () => {
     const normalizedEmail = email.trim().toLowerCase();
-      const normalizedName = fullName.trim();
-      const normalizedPhone = phone.trim();
-      if (registerMode && normalizedName.length < 2) {
-        setError('Escribe tu nombre completo.');
-        return;
-      }
-      if (registerMode && normalizedPhone.length < 7) {
-        setError('Escribe un teléfono válido.');
-        return;
-      }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail) || !password) {
       setError('Completa un correo electrónico válido y tu contraseña.');
       return;
@@ -52,7 +40,7 @@ export default function AuthScreen() {
     setBusy(true);
     setError(null);
     try {
-      if (registerMode) await signUp(normalizedEmail, password, normalizedName, normalizedPhone);
+      if (registerMode) await signUp(normalizedEmail, password);
       else await signIn(normalizedEmail, password);
     } catch (authError) {
       setError(authError instanceof Error ? authError.message : 'No se pudo completar la operación.');
@@ -68,7 +56,7 @@ export default function AuthScreen() {
         <View style={styles.brandRow}><View style={styles.brandMark}><Ionicons name="ticket" size={23} color={colors.text} /></View><View style={styles.brandLine} /></View>
         <Text style={styles.overline}>Tu experiencia, a un toque</Text>
         <Text style={styles.title}>Bienvenido a <Text style={styles.titleAccent}>TiKetSafe</Text></Text>
-        <Text style={styles.subtitle}>{registerMode ? 'Crea tu cuenta y guarda tus entradas en un solo lugar.' : 'Inicia sesión para descubrir tus próximas experiencias.'}</Text>
+        <Text style={styles.subtitle}>{registerMode ? 'Crea tu cuenta en pocos segundos. Te pediremos tus datos al reservar.' : 'Inicia sesión para descubrir tus próximas experiencias.'}</Text>
 
         <View style={styles.modeSwitch}>
           <Pressable accessibilityRole="button" accessibilityState={{ selected: !registerMode }} style={[styles.modeOption, !registerMode && styles.modeOptionActive]} onPress={() => { setRegisterMode(false); setError(null); }}><Text style={[styles.modeText, !registerMode && styles.modeTextActive]}>Iniciar sesión</Text></Pressable>
@@ -76,28 +64,6 @@ export default function AuthScreen() {
         </View>
 
         <AppCard style={styles.form}>
-            {registerMode && <>
-              <AppInput
-                label="Nombre completo"
-                autoCapitalize="words"
-                autoComplete="name"
-                style={styles.input}
-                value={fullName}
-                onChangeText={setFullName}
-                placeholder="Ej. Ana García"
-                placeholderTextColor={colors.textSecondary}
-              />
-              <AppInput
-                label="Teléfono"
-                autoComplete="tel"
-                keyboardType="phone-pad"
-                style={styles.input}
-                value={phone}
-                onChangeText={setPhone}
-                placeholder="099 123 4567"
-                placeholderTextColor={colors.textSecondary}
-              />
-            </>}
           <AppInput
             label="Correo electrónico"
             autoCapitalize="none"

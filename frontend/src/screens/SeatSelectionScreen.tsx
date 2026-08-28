@@ -5,6 +5,7 @@ import { cancelReservation, createReservation } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { colors, typography } from '../theme';
 import AppButton from '../components/AppButton';
+import AppInput from '../components/AppInput';
 
 const defaultRows = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
 const defaultColumns = 8;
@@ -12,13 +13,17 @@ const defaultColumns = 8;
 export default function SeatSelectionScreen() {
   const route = useRoute<any>();
   const navigation = useNavigation<any>();
-  const { user, token } = useAuth();
+  const { user, token, startGuestSession } = useAuth();
   const { showtimeId, movieTitle, price, seatLayout, occupiedSeats = [] } = route.params;
   const [selectedSeats, setSelectedSeats] = useState<string[]>([]);
   const [timeLeft, setTimeLeft] = useState(300);
   const [reserving, setReserving] = useState(false);
   const reservingRef = useRef(false);
   const [pendingReservationId, setPendingReservationId] = useState<string | null>(null);
+  const [fullName, setFullName] = useState(user?.fullName ?? '');
+  const [phone, setPhone] = useState(user?.phone ?? '');
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [email, setEmail] = useState(user?.email ?? '');
 
   const layout = useMemo(() => {
     const rows = Array.isArray(seatLayout?.rows) && seatLayout.rows.length > 0 ? seatLayout.rows : defaultRows;
@@ -104,12 +109,18 @@ export default function SeatSelectionScreen() {
       return;
     }
 
-    if (!token || !user) return;
+    if (!/^\S+@\S+\.\S+$/.test(email.trim()) || fullName.trim().length < 2 || !/^[+\d\s()-]{7,30}$/.test(phone.trim())) {
+      Alert.alert('Completa tus datos', 'Necesitamos tu nombre completo y teléfono para continuar con la compra.');
+      return;
+    }
 
     reservingRef.current = true;
     setReserving(true);
     try {
-      const response = await createReservation(token, user.id, showtimeId, selectedSeats);
+      setSavingProfile(true);
+      const session = user && token ? { user, token } : await startGuestSession(email.trim().toLowerCase(), fullName.trim(), phone.trim());
+      setSavingProfile(false);
+      const response = await createReservation(session.token, session.user.id, showtimeId, selectedSeats);
       setPendingReservationId(response.reservation.id);
       navigation.navigate('Checkout', {
         reservationId: response.reservation.id,
@@ -198,7 +209,14 @@ export default function SeatSelectionScreen() {
             onPress={() => { void abandonPendingReservation(true); }}
             disabled={!pendingReservationId || timeLeft === 0}
           />
-          <AppButton label="Continuar al pago" onPress={() => void goToCheckout()} disabled={reserving || timeLeft === 0} loading={reserving} />
+          {(!user?.fullName || !user?.phone) && <View style={styles.profileCard}>
+            <Text style={styles.profileTitle}>Datos para tu compra</Text>
+            <Text style={styles.profileHint}>Solo te los pedimos una vez para emitir tu entrada.</Text>
+            <AppInput label="Correo electrónico" keyboardType="email-address" autoCapitalize="none" value={email} onChangeText={setEmail} placeholder="tu@correo.com" />
+            <AppInput label="Nombre completo" autoCapitalize="words" value={fullName} onChangeText={setFullName} placeholder="Ej. Ana García" />
+            <AppInput label="Teléfono" keyboardType="phone-pad" value={phone} onChangeText={setPhone} placeholder="099 123 4567" />
+          </View>}
+          <AppButton label="Continuar al pago" onPress={() => void goToCheckout()} disabled={reserving || savingProfile || timeLeft === 0} loading={reserving || savingProfile} />
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -241,4 +259,7 @@ const styles = StyleSheet.create({
   secondaryButton: { marginTop: 12, backgroundColor: colors.surfaceRaised, borderRadius: 12, paddingVertical: 12, borderWidth: 1, borderColor: colors.border },
   secondaryButtonDisabled: { opacity: 0.5 },
   secondaryButtonText: { color: colors.text, textAlign: 'center', fontWeight: '700', fontSize: 14 },
+  profileCard: { backgroundColor: colors.surfaceRaised, borderRadius: 14, borderWidth: 1, borderColor: colors.borderStrong, padding: 14, marginTop: 8 },
+  profileTitle: { color: colors.text, fontSize: 16, fontWeight: '800', marginBottom: 4 },
+  profileHint: { color: colors.textSecondary, fontSize: 12, lineHeight: 18, marginBottom: 8 },
 });

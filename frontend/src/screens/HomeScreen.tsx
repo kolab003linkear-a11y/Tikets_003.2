@@ -53,9 +53,11 @@ export default function HomeScreen() {
       const matchesSearch =
         movie.title.toLowerCase().includes(search.toLowerCase()) ||
         movie.synopsis.toLowerCase().includes(search.toLowerCase());
-      return matchesCategory && matchesSearch;
+      return matchesCategory && matchesSearch && movie.status !== 'COMING_SOON';
     });
   }, [movies, search, category]);
+
+  const upcomingMovies = useMemo(() => movies.filter((movie) => movie.status === 'COMING_SOON'), [movies]);
 
   const formatShowtime = (startTime: string) => {
     const date = new Date(startTime);
@@ -179,6 +181,26 @@ export default function HomeScreen() {
                 </Pressable>
               ))}
             </ScrollView>
+          </>
+        )}
+
+        {upcomingMovies.length > 0 && (
+          <>
+            <View style={styles.sectionHeading}>
+              <View>
+                <Text style={styles.kicker}>PROGRAMACIÓN OCHOYMEDIO</Text>
+                <Text style={styles.sectionTitle}>Toda la programación</Text>
+              </View>
+              <Text style={styles.countLabel}>{upcomingMovies.length} títulos</Text>
+            </View>
+            <View style={styles.upcomingGrid}>
+              {upcomingMovies.map((movie) => (
+                <View key={movie.id} style={styles.upcomingCard}>
+                  <Image source={{ uri: movie.posterUrl }} style={styles.upcomingImage} resizeMode="cover" />
+                  <View style={styles.upcomingOverlay}><Text style={styles.upcomingTag}>PRÓXIMAMENTE</Text><Text style={styles.upcomingTitle}>{movie.title}</Text><Text style={styles.upcomingSynopsis} numberOfLines={3}>{movie.synopsis}</Text></View>
+                </View>
+              ))}
+            </View>
           </>
         )}
 
@@ -314,6 +336,13 @@ const styles = StyleSheet.create({
   matchVs: { color: colors.textSecondary, fontSize: 10, fontWeight: '800', marginVertical: 2 },
   matchFooter: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 'auto' },
   matchVenue: { color: colors.textSecondary, fontSize: 10, flex: 1 },
+  upcomingGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 10, paddingBottom: 26 },
+  upcomingCard: { width: '48.5%', height: 190, borderRadius: 16, overflow: 'hidden', backgroundColor: colors.surface },
+  upcomingImage: { width: '100%', height: '100%' },
+  upcomingOverlay: { ...StyleSheet.absoluteFillObject, justifyContent: 'flex-end', padding: 12, backgroundColor: 'rgba(10, 37, 64, 0.5)' },
+  upcomingTag: { color: colors.warning, fontSize: 9, fontWeight: '800', letterSpacing: 0.8 },
+  upcomingTitle: { color: colors.text, fontSize: 16, fontWeight: '800', marginTop: 4 },
+  upcomingSynopsis: { color: 'rgba(248,250,252,0.78)', fontSize: 11, lineHeight: 15, marginTop: 5 },
   card: { flexDirection: 'row', backgroundColor: colors.surface, borderRadius: 18, overflow: 'hidden', borderWidth: 1, borderColor: colors.border, marginBottom: 18 },
   poster: { width: 112, height: 190 },
   cardContent: { flex: 1, padding: 14 },

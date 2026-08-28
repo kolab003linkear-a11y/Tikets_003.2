@@ -9,6 +9,18 @@ type Message = { id: string; from: 'assistant' | 'user'; text: string };
 
 const suggestions = ['¿Qué hay hoy?', '¿Cuánto cuesta?', '¿Qué estadios tienen partidos?', '¿Cómo reservo?'];
 
+const ochoymedioTitles = ['Moscas', 'The Odyssey en 35mm', 'La Invitación', 'Cabeza de Ratón', 'Malena', 'Hiedra', 'La Piel Pulpo', 'Viejos malditos'];
+const nextWeekMatches = [
+  'Martes 1 de septiembre: Delfín vs. Técnico Universitario, 16:30, Estadio Jocay (Manta).',
+  'Martes 1 de septiembre: Liga de Quito vs. Mushuc Runa, 19:00, Quito.',
+  'Miércoles 2 de septiembre: Macará vs. Manta, 14:00, Estadio Bellavista (Ambato).',
+  'Miércoles 2 de septiembre: Deportivo Cuenca vs. Guayaquil City, 16:30, Cuenca.',
+  'Miércoles 2 de septiembre: Barcelona SC vs. Independiente del Valle, 19:00, Guayaquil.',
+  'Jueves 3 de septiembre: Universidad Católica vs. Aucas, 14:00, Estadio Olímpico Atahualpa (Quito).',
+  'Jueves 3 de septiembre: Leones del Norte vs. Orense, 16:30, Atuntaqui.',
+  'Jueves 3 de septiembre: Libertad FC vs. Emelec, 19:00, Loja.',
+];
+
 function formatDate(dateValue: string) {
   return new Date(dateValue).toLocaleString('es-EC', { weekday: 'long', hour: '2-digit', minute: '2-digit' });
 }
@@ -43,6 +55,12 @@ export default function AssistantScreen() {
     }
     if (normalized.includes('ayuda') || normalized.includes('puedes hacer') || normalized.includes('opciones')) {
       return 'Puedo consultar cartelera, partidos, estadios, horarios, precios y disponibilidad. También puedo explicarte cómo reservar o encontrar tus tickets.';
+    }
+    if (normalized.includes('ochoymedio') || normalized.includes('8ymedio') || normalized.includes('ocho y medio')) {
+      return `La programación de Ochoymedio incluye ${ochoymedioTitles.join(', ')}. Es un cine independiente de La Floresta, Quito. Puedes abrir el evento en Cartelera para revisar su función y reservar cuando esté disponible.`;
+    }
+    if (normalized.includes('proxima semana') || normalized.includes('siguiente semana') || normalized.includes('septiembre')) {
+      return `Agenda informativa de Ecuador para la próxima semana:\n\n${nextWeekMatches.join('\n')}\n\nLa programación del fin de semana del 6 de septiembre aparece todavía con horarios por confirmar; conviene revisar la agenda oficial antes de comprar.`;
     }
     if (normalized.includes('partido') || normalized.includes('estadio') || normalized.includes('futbol') || normalized.includes('equipo')) {
       if (!matches.length) return 'No hay partidos disponibles en este momento.';

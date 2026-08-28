@@ -37,13 +37,19 @@ app.use((req, res, next) => {
 const registerSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
-  fullName: z.string().trim().min(2).max(100),
-  phone: z.string().trim().min(7).max(30),
+  fullName: z.string().trim().min(2).max(100).optional(),
+  phone: z.string().trim().min(7).max(30).optional(),
 });
 
 const loginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
+});
+
+const guestSchema = z.object({
+  email: z.string().email(),
+  fullName: z.string().trim().min(2).max(100),
+  phone: z.string().trim().min(7).max(30),
 });
 
 const reservationSchema = z.object({
@@ -197,8 +203,8 @@ app.post('/api/auth/register', async (req, res, next) => {
       data: {
         email,
         passwordHash,
-        fullName: payload.fullName.trim(),
-        phone: payload.phone.trim(),
+        fullName: payload.fullName?.trim() || null,
+        phone: payload.phone?.trim() || null,
         role: UserRole.CLIENT,
       },
       select: {
@@ -247,6 +253,30 @@ app.post('/api/auth/login', async (req, res, next) => {
       },
       token,
     });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post('/api/auth/guest', async (req, res, next) => {
+  try {
+    const payload = guestSchema.parse(req.body);
+    const email = payload.email.trim().toLowerCase();
+    const existingUser = await prisma.user.findUnique({ where: { email }, select: { id: true, role: true } });
+    const user = await prisma.user.upsert({
+      where: { email },
+      update: { fullName: payload.fullName.trim(), phone: payload.phone.trim() },
+      create: {
+        email,
+        fullName: payload.fullName.trim(),
+        phone: payload.phone.trim(),
+        passwordHash: await bcrypt.hash(`${email}:${Date.now()}:${Math.random()}`, 12),
+        role: UserRole.CLIENT,
+      },
+      select: { id: true, email: true, fullName: true, phone: true, role: true, createdAt: true },
+    });
+    const token = signToken({ sub: user.id, email: user.email, role: existingUser?.role ?? user.role });
+    res.json({ user, token });
   } catch (error) {
     next(error);
   }
@@ -545,8 +575,9 @@ app.post('/api/matches/:matchId/tickets', authMiddleware, async (req, res, next)
   try {
     const payload = stadiumTicketSchema.parse(req.body);
     const authenticatedUser = (req as Request & { user: { sub: string } }).user;
-    const account = await prisma.user.findUnique({ where: { id: authenticatedUser.sub }, select: { id: true } });
+    const account = await prisma.user.findUnique({ where: { id: authenticatedUser.sub }, select: { id: true, fullName: true, phone: true } });
     if (!account) throw new AppError('Your session is no longer valid. Please sign in again.', 401);
+    if (!account.fullName || !account.phone) throw new AppError('Complete your name and phone before purchasing.', 400);
     const match = await prisma.match.findUnique({ where: { id: req.params.matchId }, include: { stadium: true } });
     if (!match || match.status === 'CANCELLED' || match.status === 'FINISHED') throw new AppError('Match is not available for ticket sales.', 409);
     const sector = await prisma.stadiumSector.findUnique({ where: { id: payload.sectorId } });
@@ -640,10 +671,13 @@ app.post('/api/reservations/create', authMiddleware, async (req, res, next) => {
 
     const account = await prisma.user.findUnique({
       where: { id: authenticatedUser.sub },
-      select: { id: true },
+      select: { id: true, fullName: true, phone: true },
     });
     if (!account) {
       throw new AppError('Your session is no longer valid. Please sign in again.', 401);
+    }
+    if (!account.fullName || !account.phone) {
+      throw new AppError('Complete your name and phone before purchasing.', 400);
     }
 
     const result = await prisma.$transaction(async (tx) => {

@@ -40,7 +40,7 @@ function StadiumImage({ uri, style }: { uri: string; style: object }) {
 
 export default function StadiumScreen() {
   const navigation = useNavigation<any>();
-  const { token } = useAuth();
+  const { token, user, startGuestSession } = useAuth();
   const [matches, setMatches] = useState<StadiumMatch[]>([]);
   const [selectedMatch, setSelectedMatch] = useState<StadiumMatch | null>(null);
   const [selectedSectorId, setSelectedSectorId] = useState('');
@@ -51,6 +51,9 @@ export default function StadiumScreen() {
   const [filter, setFilter] = useState<'TODOS' | 'LIVE' | 'SCHEDULED'>('TODOS');
   const [cityFilter, setCityFilter] = useState('Todas');
   const [teamSearch, setTeamSearch] = useState('');
+  const [fullName, setFullName] = useState(user?.fullName ?? '');
+  const [phone, setPhone] = useState(user?.phone ?? '');
+  const [email, setEmail] = useState(user?.email ?? '');
 
   const loadMatches = useCallback(async () => {
     setLoading(true);
@@ -92,13 +95,18 @@ export default function StadiumScreen() {
   };
 
   const buyTicket = async () => {
-    if (!token || !selectedMatch || !selectedSectorId || !seatNumber.trim()) {
+    if (!selectedMatch || !selectedSectorId || !seatNumber.trim()) {
       Alert.alert('Datos incompletos', 'Selecciona un sector e indica tu localidad.');
+      return;
+    }
+    if (!/^\S+@\S+\.\S+$/.test(email.trim()) || fullName.trim().length < 2 || !/^[+\d\s()-]{7,30}$/.test(phone.trim())) {
+      Alert.alert('Completa tus datos', 'Necesitamos tu nombre completo y teléfono para continuar con la compra.');
       return;
     }
     setBuying(true);
     try {
-      const response = await createMatchTicket(token, selectedMatch.id, selectedSectorId, seatNumber);
+      const session = user && token ? { user, token } : await startGuestSession(email.trim().toLowerCase(), fullName.trim(), phone.trim());
+      const response = await createMatchTicket(session.token, selectedMatch.id, selectedSectorId, seatNumber);
       navigation.navigate('Ticket', {
         ticketId: response.ticket.id,
         qrPayload: response.ticket.qrPayload,
@@ -257,6 +265,13 @@ export default function StadiumScreen() {
               </View>
             )}
 
+            {(!user?.fullName || !user?.phone) && <View style={styles.profileCard}>
+              <Text style={styles.profileTitle}>Datos para tu compra</Text>
+              <Text style={styles.profileHint}>Solo te los pedimos una vez para emitir tu entrada.</Text>
+              <AppInput label="Correo electrónico" keyboardType="email-address" autoCapitalize="none" value={email} onChangeText={setEmail} placeholder="tu@correo.com" />
+              <AppInput label="Nombre completo" autoCapitalize="words" value={fullName} onChangeText={setFullName} placeholder="Ej. Ana García" />
+              <AppInput label="Teléfono" keyboardType="phone-pad" value={phone} onChangeText={setPhone} placeholder="099 123 4567" />
+            </View>}
             <AppButton label="Generar ticket QR" onPress={() => void buyTicket()} disabled={buying || !seatNumber} loading={buying} />
             <AppButton label="Cancelar" variant="secondary" onPress={() => setSelectedMatch(null)} disabled={buying} />
           </AppCard>
@@ -523,4 +538,7 @@ const styles = StyleSheet.create({
   priceLabel: { color: colors.textSecondary, fontSize: 11 },
   price: { color: colors.text, fontSize: 18, fontWeight: '800', marginTop: 2 },
   errorContainer: { gap: 12 },
+  profileCard: { backgroundColor: colors.surfaceRaised, borderRadius: 14, borderWidth: 1, borderColor: colors.borderStrong, padding: 14, marginTop: 8 },
+  profileTitle: { color: colors.text, fontSize: 16, fontWeight: '800', marginBottom: 4 },
+  profileHint: { color: colors.textSecondary, fontSize: 12, lineHeight: 18, marginBottom: 8 },
 });

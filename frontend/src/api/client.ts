@@ -240,10 +240,17 @@ export function login(email: string, password: string) {
   });
 }
 
-export function register(email: string, password: string, fullName: string, phone: string) {
+export function createGuestSession(email: string, fullName: string, phone: string) {
+  return request<AuthResponse>('/api/auth/guest', {
+    method: 'POST',
+    body: JSON.stringify({ email, fullName, phone }),
+  });
+}
+
+export function register(email: string, password: string) {
   return request<AuthResponse>('/api/auth/register', {
     method: 'POST',
-    body: JSON.stringify({ email, password, fullName, phone, role: 'CLIENT' }),
+    body: JSON.stringify({ email, password, role: 'CLIENT' }),
   });
 }
 

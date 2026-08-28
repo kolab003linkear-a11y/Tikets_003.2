@@ -222,6 +222,48 @@ async function main() {
     },
   });
 
+  const nextWeekShowtimes = [
+    { id: 'show-next-001', movieId: movie1.id, startTime: '2026-09-01T18:00:00-05:00' },
+    { id: 'show-next-002', movieId: movie2.id, startTime: '2026-09-02T19:00:00-05:00' },
+    { id: 'show-next-003', movieId: movie3.id, startTime: '2026-09-03T16:30:00-05:00' },
+    { id: 'show-next-004', movieId: movie1.id, startTime: '2026-09-04T20:00:00-05:00' },
+    { id: 'show-next-005', movieId: movie2.id, startTime: '2026-09-05T18:00:00-05:00' },
+    { id: 'show-next-006', movieId: movie3.id, startTime: '2026-09-06T16:00:00-05:00' },
+  ];
+
+  for (const showtime of nextWeekShowtimes) {
+    await prisma.showtime.upsert({
+      where: { id: showtime.id },
+      update: { movieId: showtime.movieId, roomId: room.id, startTime: new Date(showtime.startTime), price: 7, availableSeats: room.capacity },
+      create: { id: showtime.id, movieId: showtime.movieId, roomId: room.id, startTime: new Date(showtime.startTime), price: 7, availableSeats: room.capacity },
+    });
+  }
+
+  const upcomingMovies = [
+    { id: 'movie-4', title: 'Moscas', synopsis: 'Una mujer solitaria ve cómo sus hábitos cambian cuando una presencia inesperada altera su vida cotidiana.', posterUrl: 'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?auto=format&fit=crop&w=900&q=80' },
+    { id: 'movie-5', title: 'La Invitación', synopsis: 'Una invitación inesperada abre la puerta a una historia de tensión, secretos y decisiones difíciles.', posterUrl: 'https://images.unsplash.com/photo-1485846234645-a62644f84728?auto=format&fit=crop&w=900&q=80' },
+    { id: 'movie-6', title: 'La Piel Pulpo', synopsis: 'Una mirada al crecimiento, la familia y los vínculos que se transforman con el paso del tiempo.', posterUrl: 'https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?auto=format&fit=crop&w=900&q=80' },
+    { id: 'movie-7', title: 'Franz', synopsis: 'Retrato del emblemático escritor checo Franz Kafka, construido como un mosaico sobre su vida y obra.', posterUrl: 'https://images.unsplash.com/photo-1500534623283-312aade485b7?auto=format&fit=crop&w=900&q=80' },
+    { id: 'movie-8', title: 'Father mother sister brother', synopsis: 'Tres actos alrededor del reencuentro de los miembros de una familia.', posterUrl: 'https://images.unsplash.com/photo-1485846234645-a62644f84728?auto=format&fit=crop&w=900&q=80' },
+    { id: 'movie-9', title: 'Viejos malditos', synopsis: 'Tras la muerte de su esposa, Elías encuentra una nueva razón para vivir en una visita inesperada.', posterUrl: 'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?auto=format&fit=crop&w=900&q=80' },
+    { id: 'movie-10', title: 'Hiedra', synopsis: 'Una mujer marcada por un suceso observa a un grupo de adolescentes que conviven en un orfanato.', posterUrl: 'https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?auto=format&fit=crop&w=900&q=80' },
+    { id: 'movie-11', title: 'A tus espaldas', synopsis: 'Un empleado de banco busca esconder sus orígenes humildes por medio del dinero, poder y aceptación.', posterUrl: 'https://images.unsplash.com/photo-1500534623283-312aade485b7?auto=format&fit=crop&w=900&q=80' },
+    { id: 'movie-12', title: 'Arquitectura y poder: ¿quién construye el mundo que habitamos?', synopsis: 'Un ciclo sobre ciudades, edificios, poder y las aspiraciones de una sociedad.', posterUrl: 'https://images.unsplash.com/photo-1487958449943-2429e8be8625?auto=format&fit=crop&w=900&q=80' },
+    { id: 'movie-13', title: 'Ángel', synopsis: 'Retrato de una persona trans afrodescendiente y exboxeador profesional de Ecuador.', posterUrl: 'https://images.unsplash.com/photo-1485846234645-a62644f84728?auto=format&fit=crop&w=900&q=80' },
+    { id: 'movie-14', title: 'Malena', synopsis: 'Parte de Il Cinema Parla Italiano, un programa para acercarse al cine y al idioma italiano.', posterUrl: 'https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?auto=format&fit=crop&w=900&q=80' },
+    { id: 'movie-15', title: 'Cabeza de Ratón', synopsis: 'Un publicista ambicioso descubre que pertenecer no siempre significa hacer lo correcto.', posterUrl: 'https://images.unsplash.com/photo-1500534623283-312aade485b7?auto=format&fit=crop&w=900&q=80' },
+    { id: 'movie-16', title: 'CINE Y CROCHET', synopsis: 'Ciclo especial que incluye Monty Python: La vida de Brian, presentada en inglés con subtítulos en español.', posterUrl: 'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?auto=format&fit=crop&w=900&q=80' },
+    { id: 'movie-17', title: 'Eurocine · Puerta abierta', synopsis: 'Franja permanente de cine europeo como antesala a la proxima edicion del festival Eurocine.', posterUrl: 'https://images.unsplash.com/photo-1485846234645-a62644f84728?auto=format&fit=crop&w=900&q=80' },
+  ];
+
+  for (const movie of upcomingMovies) {
+    await prisma.movieEvent.upsert({
+      where: { id: movie.id },
+      update: { title: movie.title, synopsis: movie.synopsis, duration: 100, category: MovieCategory.CINE, posterUrl: movie.posterUrl, trailerUrl: null, rating: null, status: EventStatus.COMING_SOON },
+      create: { ...movie, duration: 100, category: MovieCategory.CINE, trailerUrl: null, rating: null, status: EventStatus.COMING_SOON },
+    });
+  }
+
   await prisma.showtime.upsert({
     where: { id: 'show-002' },
     update: { movieId: movie2.id, roomId: room.id, startTime: new Date('2026-08-29T18:00:00-05:00'), price: 7, availableSeats: 64 },
@@ -261,6 +303,25 @@ async function main() {
       status: MatchStatus.SCHEDULED,
     },
   });
+
+  const nextWeekMatches = [
+    { id: 'match-next-001', stadiumId: stadiumGuayaquil.id, homeTeam: 'Delfín', awayTeam: 'Técnico Universitario', startTime: '2026-09-01T16:30:00-05:00' },
+    { id: 'match-next-002', stadiumId: stadiumQuito.id, homeTeam: 'Liga de Quito', awayTeam: 'Mushuc Runa', startTime: '2026-09-01T19:00:00-05:00' },
+    { id: 'match-next-003', stadiumId: stadiumCapwell.id, homeTeam: 'Macará', awayTeam: 'Manta', startTime: '2026-09-02T14:00:00-05:00' },
+    { id: 'match-next-004', stadiumId: stadiumAmbato.id, homeTeam: 'Deportivo Cuenca', awayTeam: 'Guayaquil City', startTime: '2026-09-02T16:30:00-05:00' },
+    { id: 'match-next-005', stadiumId: stadiumGuayaquil.id, homeTeam: 'Barcelona SC', awayTeam: 'Independiente del Valle', startTime: '2026-09-02T19:00:00-05:00' },
+    { id: 'match-next-006', stadiumId: stadiumQuito.id, homeTeam: 'Universidad Católica', awayTeam: 'Aucas', startTime: '2026-09-03T14:00:00-05:00' },
+    { id: 'match-next-007', stadiumId: stadiumAmbato.id, homeTeam: 'Leones del Norte', awayTeam: 'Orense', startTime: '2026-09-03T16:30:00-05:00' },
+    { id: 'match-next-008', stadiumId: stadiumCapwell.id, homeTeam: 'Libertad FC', awayTeam: 'Emelec', startTime: '2026-09-03T19:00:00-05:00' },
+  ];
+
+  for (const match of nextWeekMatches) {
+    await prisma.match.upsert({
+      where: { id: match.id },
+      update: { ...match, status: MatchStatus.SCHEDULED },
+      create: { ...match, status: MatchStatus.SCHEDULED },
+    });
+  }
 
   await prisma.match.upsert({
     where: { id: 'match-002' },
@@ -303,9 +364,9 @@ async function main() {
 
   console.log('Seed ok:', {
     admin: admin.email,
-    movies: [movie1.title, movie2.title, movie3.title],
+    movies: [movie1.title, movie2.title, movie3.title, ...upcomingMovies.map((movie) => movie.title)],
     stadiums: ['Banco Guayaquil', 'Jocay', 'Bellavista', 'COAC Mushuc Runa'],
-    matches: 4,
+    matches: 12,
   });
 }
 
