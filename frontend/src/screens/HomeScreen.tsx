@@ -80,6 +80,9 @@ export default function HomeScreen() {
             <Text style={styles.title}>Tu agenda cultural</Text>
           </View>
           <View style={styles.headerActions}>
+            <Pressable accessibilityRole="button" accessibilityLabel="Abrir asistente" style={styles.iconButton} onPress={() => navigation.navigate('Assistant')}>
+              <Ionicons name="sparkles-outline" size={21} color={colors.text} />
+            </Pressable>
             <Pressable accessibilityRole="button" accessibilityLabel="Abrir notificaciones" style={styles.iconButton}>
               <Ionicons name="notifications-outline" size={21} color={colors.text} />
               <View style={styles.notificationDot} />

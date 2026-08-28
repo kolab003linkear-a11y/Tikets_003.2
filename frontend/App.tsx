@@ -13,6 +13,7 @@ import ProfileScreen from './src/screens/ProfileScreen';
 import AuthScreen from './src/screens/AuthScreen';
 import AdminHubScreen from './src/screens/AdminHubScreen';
 import StadiumScreen from './src/screens/StadiumScreen';
+import AssistantScreen from './src/screens/AssistantScreen';
 import { AuthProvider, useAuth } from './src/auth/AuthContext';
 import { colors, typography } from './src/theme';
 
@@ -98,6 +99,7 @@ function AppContent() {
           <Stack.Screen name="Checkout" component={CheckoutScreen} />
           <Stack.Screen name="Ticket" component={TicketScreen} />
           <Stack.Screen name="Profile" component={ProfileScreen} />
+          <Stack.Screen name="Assistant" component={AssistantScreen} />
         </Stack.Navigator>
       </NavigationContainer>
     </ErrorBoundary>
