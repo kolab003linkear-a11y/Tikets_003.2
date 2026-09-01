@@ -194,6 +194,15 @@ export type ParkingLot = {
   city: string;
   totalSpaces: number;
   price: number | string;
+  operator: string;
+  openingHours: string;
+  terminalName: string | null;
+  accessMode: 'QR' | 'TARJETA' | 'TICKET';
+  vehicleTypes: string[];
+  reservedSpaces?: number;
+  availableSpaces?: number;
+  reservedSpaceNumbers?: number[];
+  availabilityDate?: string;
   status: 'ACTIVE' | 'INACTIVE';
   _count?: { tickets: number };
 };
@@ -202,13 +211,14 @@ export type ParkingTicketResponse = {
   ticket: { id: string; spaceNumber: number; date: string; status: 'VALID' | 'USED' | 'EXPIRED'; qrPayload: string; parking: ParkingLot };
 };
 
-export type AdminParkingInput = Omit<ParkingLot, 'id' | '_count'>;
+export type AdminParkingInput = Omit<ParkingLot, 'id' | '_count' | 'operator' | 'openingHours' | 'terminalName' | 'accessMode' | 'vehicleTypes'> & { operator?: string; openingHours?: string; terminalName?: string | null; accessMode?: ParkingLot['accessMode']; vehicleTypes?: string[] };
 
 export type BusRoute = {
   id: string;
   origin: string;
   destination: string;
   operator: string;
+  originTerminal: 'QUITUMBE' | 'CARCELEN';
   status: 'ACTIVE' | 'INACTIVE';
   _count?: { trips: number };
   trips?: BusTrip[];
@@ -221,14 +231,17 @@ export type BusTrip = {
   arrivalTime: string | null;
   price: number | string;
   totalSeats: number;
+  availableSeats?: number;
+  boardingPlatform: string | null;
+  baggageInfo: string | null;
   status: 'SCHEDULED' | 'BOARDING' | 'DEPARTED' | 'ARRIVED' | 'CANCELLED';
   route?: BusRoute;
   _count?: { tickets: number };
   occupiedSeats?: number[];
 };
 
-export type AdminBusRouteInput = Omit<BusRoute, 'id' | '_count' | 'trips'>;
-export type AdminBusTripInput = Omit<BusTrip, 'id' | '_count' | 'route' | 'occupiedSeats'>;
+export type AdminBusRouteInput = Omit<BusRoute, 'id' | '_count' | 'trips' | 'originTerminal'> & { originTerminal?: BusRoute['originTerminal'] };
+export type AdminBusTripInput = Omit<BusTrip, 'id' | '_count' | 'route' | 'occupiedSeats' | 'boardingPlatform' | 'baggageInfo'> & { boardingPlatform?: string | null; baggageInfo?: string | null };
 export type BusTicketResponse = { ticket: { id: string; seatNumber: number; status: 'VALID' | 'USED' | 'EXPIRED'; qrPayload: string; trip: BusTrip & { route: BusRoute } } };
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -277,13 +290,20 @@ export function createAdminStadium(token: string, stadium: AdminStadiumInput) {
   });
 }
 
-export function getParking() { return request<{ parking: ParkingLot[] }>('/api/parking'); }
+export function getParking(date?: string) { return request<{ parking: ParkingLot[] }>(`/api/parking${date ? `?date=${encodeURIComponent(date)}` : ''}`); }
 
 export function createParkingTicket(token: string, parkingId: string, spaceNumber: number, date: string) {
   return request<ParkingTicketResponse>(`/api/parking/${parkingId}/tickets`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: JSON.stringify({ spaceNumber, date }) });
 }
 
-export function getBuses() { return request<{ routes: BusRoute[] }>('/api/buses'); }
+export function getBuses(terminal?: string, destination?: string, operator?: string) {
+  const params = new URLSearchParams();
+  if (terminal?.trim()) params.set('terminal', terminal.trim().toUpperCase());
+  if (destination?.trim()) params.set('destination', destination.trim());
+  if (operator?.trim()) params.set('operator', operator.trim());
+  const query = params.toString();
+  return request<{ routes: BusRoute[] }>(`/api/buses${query ? `?${query}` : ''}`);
+}
 
 export function createBusTicket(token: string, tripId: string, seatNumber: number) {
   return request<BusTicketResponse>(`/api/bus-trips/${tripId}/tickets`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: JSON.stringify({ seatNumber }) });

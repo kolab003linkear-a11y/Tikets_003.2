@@ -13,6 +13,7 @@ Aplicacion movil para descubrir eventos, seleccionar localidades, reservar entra
 - Control de acceso para administradores y escaneres.
 - Paneles administrativos para eventos, salas, estadios y partidos.
 - Seed reproducible con datos de demostracion.
+- Modulos demo de parqueaderos y buses con disponibilidad calculada, QR y conflictos controlados.
 
 ## Estructura
 
@@ -54,11 +55,11 @@ Para una guia completa de inicio manual en Windows PowerShell, consulta [MANUAL_
 Configura las variables del backend en `backend/.env`:
 
 ```env
-DATABASE_URL="postgresql://postgres:postgres@localhost:5432/tiKets?schema=public"
-PORT=4000
+DATABASE_URL="postgresql://postgres:postgres@localhost:5433/tiKets?schema=public"
+PORT=4001
 NODE_ENV="development"
 JWT_SECRET="cambia-esta-clave-por-una-segura"
-CORS_ORIGINS="http://localhost:8081"
+CORS_ORIGINS="http://localhost:8082"
 STRIPE_SECRET_KEY="sk_test_xxx"
 PAYPHONE_API_KEY="your_payphone_key"
 PAYPHONE_WEBHOOK_SECRET="your_webhook_secret"
@@ -77,7 +78,7 @@ npm --workspace backend run prisma:migrate
 npm --workspace backend run prisma:seed
 ```
 
-El seed crea un usuario administrador y datos de ejemplo para eventos, salas, estadios y partidos.
+El seed crea un usuario administrador y datos de ejemplo para eventos, salas, estadios, parkings y buses. Los nombres de terminales Quitumbe/Carcelen, horarios, andenes, operadores y modalidades de acceso son datos demo editables, no una publicacion oficial.
 
 Credenciales demo del administrador:
 
@@ -98,7 +99,7 @@ npm run dev:backend
 npm run dev:frontend
 ```
 
-La API queda disponible en `http://localhost:4000` y el cliente Expo muestra las opciones para abrir la app en web, emulador o dispositivo conectado.
+La API queda disponible en `http://localhost:4001` y el cliente Expo web en `http://localhost:8082`.
 
 Comandos del frontend:
 
@@ -125,6 +126,10 @@ Todos los endpoints se sirven bajo `/api`.
 | POST | `/payments/demo-confirm` | Usuario autenticado |
 | GET | `/tickets` | Usuario autenticado |
 | POST | `/admin/tickets/validate` | Admin o scanner |
+| GET | `/parking?date=AAAA-MM-DD` | Publico, disponibilidad demo por fecha |
+| POST | `/parking/:parkingId/tickets` | Usuario autenticado |
+| GET | `/buses?terminal=QUITUMBE&destination=...&operator=...` | Publico, filtros y aforo demo |
+| POST | `/bus-trips/:tripId/tickets` | Usuario autenticado |
 | GET/POST | `/admin/stadiums` | Admin |
 | GET/POST | `/admin/matches` | Admin |
 
@@ -135,6 +140,12 @@ Authorization: Bearer <token>
 ```
 
 El pago implementado actualmente es de demostracion. La integracion con Stripe o PayPhone queda preparada mediante variables de entorno, pero requiere completar el proveedor real antes de produccion.
+
+## Datos demo e integracion real
+
+Las referencias de producto consideradas son UrbaPark (red de estacionamientos, acceso sin ticket mediante tarjeta/QR y operacion extendida en algunos sitios) y EPMMOP (terminales Quitumbe y Carcelen, boleterias, andenes, encomiendas, comercio y control operativo). En esta aplicacion solo se modelan como contexto de diseno: no se afirma afiliacion, disponibilidad, horario ni operacion oficial.
+
+La reserva de parking usa una unicidad logica por parqueadero, espacio y fecha, no sensores ni inventario conectado. Por eso la app la presenta como pase/reserva demo. Una integracion real debe conectar la disponibilidad del operador, validar horarios y modalidad de acceso, y reemplazar los datos seed por fuentes autorizadas.
 
 ## Pruebas y build
 

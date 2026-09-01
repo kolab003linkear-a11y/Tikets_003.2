@@ -1,455 +1,183 @@
-# TiKetSafe — Setup y despliegue
+# TiKetSafe: configuración y despliegue
 
-## 1. Prerrequisitos
+Esta es la guía técnica ampliada. Para empezar rápido, usa primero [MANUAL_STARTUP.md](MANUAL_STARTUP.md).
 
-Asegúrate de tener instalados:
-
-- Node.js 20 LTS o superior
-- npm 10+
-- Docker Desktop (para PostgreSQL local si no usas una base en cloud)
-- Expo CLI
-- Git
-- iOS Simulator (solo macOS) o Android Studio Emulator
-
-Verifica versiones:
-
-```bash
-node -v
-npm -v
-docker --version
-npx expo --version
-```
-
----
-
-## 2. Estructura actual
-
-El proyecto ya está organizado como monorepo:
+## Arquitectura sencilla
 
 ```text
-backend/
-  prisma/schema.prisma
-  prisma/seed.ts
-  src/server.ts
-frontend/
-  App.tsx
-  src/screens/
-package.json
+Usuario
+  |
+  v
+frontend/  ->  API Express  ->  PostgreSQL
+              backend/          Docker
 ```
 
-Ejecuta los comandos siguientes desde la raíz del workspace, salvo cuando se indique `backend` o `frontend`.
+- `frontend/`: aplicación Expo para web y celular.
+- `backend/`: API Express, autenticación y reglas de negocio.
+- PostgreSQL: base de datos ejecutada dentro de Docker.
 
----
+## Puertos del proyecto
 
-## 3. Variables de entorno
+| Servicio | Puerto | Dirección |
+| --- | ---: | --- |
+| PostgreSQL | 5433 | Solo para el backend |
+| API | 4001 | `http://localhost:4001` |
+| Expo web | 8082 | `http://localhost:8082` |
 
-Crea un archivo `.env` dentro del backend con este contenido:
+Estos puertos son los configurados actualmente. Si los cambias, actualiza `backend/.env` y `frontend/.env.local`.
+
+## Variables de entorno
+
+El archivo `backend/.env.example` contiene una configuración lista para desarrollo:
 
 ```env
-DATABASE_URL="postgresql://postgres:postgres@localhost:5432/tiKets?schema=public"
-PORT=4000
-JWT_SECRET="cambia-esta-clave-por-una-segura"
-STRIPE_SECRET_KEY="sk_test_xxx"
-PAYPHONE_API_KEY="your_payphone_key"
-PAYPHONE_WEBHOOK_SECRET="your_webhook_secret"
+DATABASE_URL="postgresql://postgres:postgres@localhost:5433/tiKets?schema=public"
+PORT=4001
+NODE_ENV="development"
+JWT_SECRET="tiKets-dev-secret"
+CORS_ORIGINS="http://localhost:8082"
 ```
 
-Crea también un archivo `.env.example` con el mismo formato para documentar la configuración:
+Cópialo una vez:
+
+```powershell
+Copy-Item backend\.env.example backend\.env
+```
+
+No publiques `backend/.env`. Puede contener claves y secretos.
+
+Para web, el cliente usa por defecto `http://localhost:4001`. Para un celular usa la IP local de la computadora:
 
 ```env
-DATABASE_URL="postgresql://postgres:postgres@localhost:5432/tiKets?schema=public"
-PORT=4000
-JWT_SECRET="replace-with-a-secure-secret"
-STRIPE_SECRET_KEY="sk_test_xxx"
-PAYPHONE_API_KEY="your_payphone_key"
-PAYPHONE_WEBHOOK_SECRET="your_webhook_secret"
+EXPO_PUBLIC_API_URL=http://192.168.1.50:4001
 ```
 
----
+## Instalación limpia
 
-## 4. Backend: instalación y configuración
+Desde la raíz:
 
-```bash
-cd backend
+```powershell
+npm install
+npm --workspace backend run prisma:generate
+```
+
+Si una instalación quedó dañada:
+
+```powershell
+Remove-Item -Recurse -Force node_modules -ErrorAction SilentlyContinue
+Remove-Item -Recurse -Force frontend\node_modules -ErrorAction SilentlyContinue
+Remove-Item -Recurse -Force backend\node_modules -ErrorAction SilentlyContinue
 npm install
 ```
 
-El `package.json` y `tsconfig.json` ya incluyen los scripts y dependencias necesarios.
+## Base de datos y migraciones
 
----
+Inicia PostgreSQL:
 
-## 5. Base de datos PostgreSQL con Docker
-
-Levanta PostgreSQL local:
-
-```bash
-docker run --name tiKets-db -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=tiKets -p 5432:5432 -d postgres:16
+```powershell
+npm --workspace backend run db:up
 ```
 
-Luego inicializa Prisma:
+Aplica todas las migraciones existentes:
 
-```bash
-npm run prisma:generate
+```powershell
+npm --workspace backend exec prisma migrate deploy -- --schema=prisma/schema.prisma
 ```
 
-Después de iniciar Docker Desktop, ejecuta:
+Carga datos demo:
 
-```bash
-npm run db:up
-npm run prisma:migrate -- --name init_tiKets
-npm run prisma:seed
+```powershell
+npm --workspace backend run prisma:seed
 ```
 
----
+Para crear una migración durante el desarrollo:
 
-## 6. Seed de datos de prueba
-
-Crea `prisma/seed.ts` con datos de ejemplo:
-
-```ts
-import { PrismaClient, UserRole, MovieCategory, EventStatus } from '@prisma/client';
-import bcrypt from 'bcryptjs';
-
-const prisma = new PrismaClient();
-
-async function main() {
-  const passwordHash = await bcrypt.hash('demo1234', 12);
-
-  const admin = await prisma.user.upsert({
-    where: { email: 'admin@tikets.com' },
-    update: {},
-    create: {
-      email: 'admin@tikets.com',
-      passwordHash,
-      role: UserRole.ADMIN,
-    },
-  });
-
-  const movie1 = await prisma.movieEvent.create({
-    data: {
-      title: 'La sombra de la luna',
-      synopsis: 'Un thriller emocional situado en la costa.',
-      duration: 112,
-      category: MovieCategory.CINE,
-      posterUrl: 'https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c',
-      trailerUrl: 'https://example.com/trailer1',
-      rating: 8.9,
-      status: EventStatus.NOW_SHOWING,
-    },
-  });
-
-  const room = await prisma.room.create({
-    data: {
-      name: 'Sala 1',
-      capacity: 64,
-      seatLayout: { rows: ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'], columns: 8 },
-    },
-  });
-
-  await prisma.showtime.create({
-    data: {
-      movieId: movie1.id,
-      roomId: room.id,
-      startTime: new Date(Date.now() + 1000 * 60 * 60 * 4),
-      price: 16.5,
-      availableSeats: 64,
-    },
-  });
-
-  console.log('Seed completed:', { admin: admin.email, movie: movie1.title });
-}
-
-main()
-  .catch((error) => {
-    console.error(error);
-    process.exit(1);
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
-  });
+```powershell
+cd backend
+npx prisma migrate dev --name describe-el-cambio --schema=prisma/schema.prisma
+cd ..
 ```
 
-Ejecuta:
+No borres la carpeta `backend/prisma/migrations`. Las migraciones permiten que todas las computadoras tengan la misma base de datos.
 
-```bash
-npx prisma db seed
+## Arranque manual
+
+Usa tres terminales. Los comandos completos están en [MANUAL_STARTUP.md](MANUAL_STARTUP.md).
+
+Terminal de API:
+
+```powershell
+npm run dev:backend
 ```
 
-Si no tienes `seed` configurado en `package.json`, añade esto:
+Terminal de Expo:
 
-```json
-"prisma": {
-  "seed": "ts-node prisma/seed.ts"
-}
+```powershell
+cd frontend
+npx expo start --web --port 8082 --offline
 ```
 
----
+Nunca ejecutes Expo desde la raíz: el frontend oficial está dentro de `frontend/`.
 
-## 7. Levantar el backend
+## Validación de servicios
 
-En la carpeta `backend`:
+Salud de la API:
 
-```bash
-npm run dev
+```powershell
+Invoke-RestMethod http://localhost:4001/api/health
 ```
 
-La API quedará disponible en:
+Catálogos de movilidad:
 
-- http://localhost:4000/api/health
-
-Endpoints clave:
-
-- POST /api/auth/register
-- POST /api/auth/login
-- GET /api/catalog
-- POST /api/reservations/create
-- POST /api/payments/webhook
-
-Pruebas automatizadas del backend:
-
-```bash
-npm test --workspace backend
+```powershell
+Invoke-RestMethod http://localhost:4001/api/parking
+Invoke-RestMethod http://localhost:4001/api/buses
 ```
 
-La suite inicia Express en un puerto temporal y valida registro, login, catálogo,
-reserva, conflicto de butacas, pago demo, emisión de ticket y validación QR.
-
-Diagnóstico operativo y logs:
+Comprobación general:
 
 ```powershell
 npm run ops:check
 ```
 
-El diagnóstico escribe el estado de procesos, puertos, contenedor PostgreSQL,
-migraciones Prisma, API, frontend y dependencias en `backend/logs/operations.log`.
-El backend registra además peticiones, estados HTTP, duración, conexión de base,
-errores y apagado en `backend/logs/app.log`.
+## Pruebas y compilación
 
----
-
-## 8. Frontend móvil con Expo
-
-Desde la raíz del proyecto:
-
-```bash
-cd frontend
-npm install
-```
-
-Asegúrate de tener la app mobile con el siguiente `package.json`:
-
-```json
-{
-  "name": "tiKets-mobile",
-  "private": true,
-  "main": "node_modules/expo/AppEntry.js",
-  "scripts": {
-    "start": "expo start",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
-    "web": "expo start --web"
-  }
-}
-```
-
-```bash
-npx expo start
-```
-
-### Probar en iOS
-
-- macOS + Xcode
-- En terminal:
-
-```bash
-npx expo run:ios
-```
-
-### Probar en Android
-
-- Android Studio + emulador
-- En terminal:
-
-```bash
-npx expo run:android
-```
-
-### Probar en dispositivo físico
-
-1. Instala la app Expo Go desde Play Store o App Store.
-2. Ejecuta:
-
-```bash
-npx expo start --tunnel
-```
-3. Escanea el código QR desde tu móvil.
-
-En Windows, usa `http://127.0.0.1:4000` como URL base si `localhost` no resuelve correctamente.
-
-### Error: No Android connected device found
-
-Este mensaje significa que Expo funciona, pero Android no tiene ningún destino abierto. En este equipo el SDK está instalado, pero `adb devices` no muestra dispositivos.
-
-#### Opción A: teléfono físico
-
-1. En Android, abre **Ajustes > Información del teléfono** y pulsa siete veces **Número de compilación**.
-2. En **Opciones de desarrollador**, activa **Depuración USB**.
-3. Conecta el teléfono por USB y acepta el diálogo de autorización RSA.
-4. Comprueba la conexión:
+Backend:
 
 ```powershell
-adb devices
+npm --workspace backend run build
+npm --workspace backend test
 ```
 
-Debe aparecer un dispositivo con estado `device`. Después, desde `frontend`:
-
-```powershell
-npx expo start
-```
-
-Pulsa `a`. Para un teléfono físico, también puedes escanear el QR con Expo Go; usa `npx expo start --tunnel` si el móvil y el ordenador no están en la misma red.
-
-#### Opción B: emulador Android
-
-1. Abre Android Studio.
-2. En **More Actions > Virtual Device Manager**, crea un dispositivo Pixel con una imagen Android instalada.
-3. Inícialo con el botón de reproducción.
-4. Comprueba:
-
-```powershell
-adb devices
-```
-
-5. Ejecuta:
+Frontend:
 
 ```powershell
 cd frontend
-npx expo start
+npx tsc --noEmit -p tsconfig.json
+npx expo export --platform web
 ```
 
-Pulsa `a` cuando el emulador aparezca como `device`.
+## Datos demo y referencias externas
 
-Si `adb` no se reconoce, añade `C:\Users\<usuario>\AppData\Local\Android\Sdk\platform-tools` al `PATH` de Windows y abre una terminal nueva.
+El seed incluye datos demostrativos inspirados en conceptos públicos de UrbaPark y EPMMOP:
 
----
+- Parqueaderos con modalidad QR, tarjeta o ticket.
+- Horarios de operación y tipos de vehículo.
+- Terminales Quitumbe y Carcelén.
+- Operadores, andenes, equipaje y viajes interprovinciales.
 
-## 9. Producción: despliegue recomendado
+Estos datos no representan una afiliación, disponibilidad, tarifa u horario oficial. Para producción se necesitaría autorización e integración con cada operador, sensores o inventario real y un proveedor de pagos.
 
-### Backend (Node.js)
+## Despliegue
 
-Recomendación:
+Antes de producción:
 
-- Render / Railway / Fly.io / Azure App Service
-- PostgreSQL managed en Neon, Supabase o Railway
+1. Usa PostgreSQL administrado o un servidor protegido.
+2. Define un `JWT_SECRET` largo y privado.
+3. Configura `CORS_ORIGINS` con los dominios reales.
+4. Completa la integración de pagos.
+5. Sustituye el seed demo por datos autorizados.
+6. Genera los builds finales de Android y web.
+7. No uses `admin@tikets.com` ni `demo1234` en producción.
 
-Variables de entorno de producción:
-
-```env
-DATABASE_URL="postgresql://user:password@host:5432/db?schema=public"
-PORT=4000
-JWT_SECRET="strong-production-secret"
-STRIPE_SECRET_KEY="sk_live_xxx"
-PAYPHONE_API_KEY="prod_key"
-PAYPHONE_WEBHOOK_SECRET="prod_webhook"
-NODE_ENV=production
-```
-
-Build del backend:
-
-```bash
-npm run build
-npm run start
-```
-
-### Frontend móvil
-
-Para producción con Expo:
-
-```bash
-npx expo export
-```
-
-Luego:
-
-- App Store Connect para iOS
-- Google Play Console para Android
-- EAS Build para compilación automatizada:
-
-```bash
-npm install -g eas-cli
-eas login
-eas build:configure
-eas build --platform all
-```
-
----
-
-## 10. Pruebas E2E básicas
-
-Script mínimo para validar la compra de una entrada y la validación del QR:
-
-```bash
-# 1. Registrar usuario
-curl -X POST http://localhost:4000/api/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{
-    "email": "user@test.com",
-    "password": "demo1234",
-    "role": "CLIENT"
-  }'
-
-# 2. Consultar cartelera
-curl http://localhost:4000/api/catalog
-
-# 3. Crear reserva
-curl -X POST http://localhost:4000/api/reservations/create \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer <token>" \
-  -d '{
-    "showtimeId": "show_001",
-    "userId": "<user-id>",
-    "seatNumbers": ["A1", "A2"]
-  }'
-
-# 4. Simular pago confirmado
-curl -X POST http://localhost:4000/api/payments/webhook \
-  -H "Content-Type: application/json" \
-  -d '{
-    "event": "payment.success",
-    "reservationId": "<reservation-id>"
-  }'
-```
-
-### Validación de QR en app
-
-- Abrir la entrada comprada en la pantalla de ticket.
-- Verificar que el QR se renderiza correctamente.
-- Confirmar que el contenido contiene `ticketId` y `signature`.
-- Validar que la pantalla se muestra con seguridad visual y animación.
-
----
-
-## 11. Checklist final para entrega
-
-- [ ] PostgreSQL en ejecución
-- [ ] Prisma migrado y seed cargado
-- [ ] Backend corriendo en puerto 4000
-- [ ] Expo app levantada con `npx expo start`
-- [ ] Usuario registrado y autenticado
-- [ ] Selección de butacas y reserva validada
-- [ ] Pago simulado y webhook ejecutado
-- [ ] Ticket generado con QR y firma digital
-- [ ] Flujo de validación en puerta listo
-
----
-
-## 12. Recomendación de seguridad y escalabilidad
-
-- Usar HTTPS en producción.
-- Usar sesiones JWT con expiración corta.
-- Revisar reservas con TTL y limpieza de expiradas.
-- Desarrollar endpoint de validación de ticket con control de uso único.
-- Integrar Stripe/Payphone con comprobación de firma.
-- Volcar logs y métricas para monitoreo.
-
-Este proyecto está listo para arrancar localmente y ampliarse a producción con una base sólida de backend, móvil y flujo de reserva seguro.
+La aplicación actualmente usa pago demo y tickets QR para pruebas.

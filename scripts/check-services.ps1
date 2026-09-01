@@ -16,13 +16,13 @@ $projectProcesses = @(Get-CimInstance Win32_Process | Where-Object { $_.CommandL
 if ($projectProcesses.Count -eq 0) { Write-OperationLog 'INFO' 'Project processes' 'none' }
 else { Write-OperationLog 'INFO' 'Project processes' "$($projectProcesses.Count) active" }
 
-foreach ($port in @(4000, 8081, 5432)) {
+foreach ($port in @(4001, 8082, 5433)) {
   $listeners = @(Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue)
   if ($listeners.Count -gt 0) { Write-OperationLog 'INFO' "Port $port" "active pid=$($listeners[0].OwningProcess)" }
   else { Write-OperationLog 'WARN' "Port $port" 'not listening' }
 }
 
-$container = docker ps --filter 'name=ochoymedio-postgres' --format '{{.Names}} {{.Status}}' 2>$null
+$container = docker ps --filter 'name=tiKets-postgres-0032' --format '{{.Names}} {{.Status}}' 2>$null
 if ($container) { Write-OperationLog 'INFO' 'PostgreSQL container' $container }
 else { Write-OperationLog 'WARN' 'PostgreSQL container' 'not running' }
 
@@ -36,12 +36,12 @@ else { Write-OperationLog 'ERROR' 'Prisma migrations check failed' (($migrationO
 Pop-Location
 
 try {
-  $health = Invoke-RestMethod -Uri 'http://localhost:4000/api/health' -TimeoutSec 5
+  $health = Invoke-RestMethod -Uri 'http://localhost:4001/api/health' -TimeoutSec 5
   Write-OperationLog 'INFO' 'Backend health' ("ok=$($health.ok) database=$($health.database)")
 } catch { Write-OperationLog 'ERROR' 'Backend health failed' $_.Exception.Message }
 
 try {
-  $response = Invoke-WebRequest -UseBasicParsing -Uri 'http://localhost:8081' -TimeoutSec 5
+  $response = Invoke-WebRequest -UseBasicParsing -Uri 'http://localhost:8082' -TimeoutSec 5
   Write-OperationLog 'INFO' 'Frontend health' "http=$($response.StatusCode)"
 } catch { Write-OperationLog 'WARN' 'Frontend health failed' $_.Exception.Message }
 

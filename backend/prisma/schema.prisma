@@ -60,6 +60,23 @@ enum ParkingTicketStatus {
   EXPIRED
 }
 
+enum ParkingAccessMode {
+  QR
+  TARJETA
+  TICKET
+}
+
+enum ParkingTicketMode {
+  QR
+  TARJETA
+  TICKET
+}
+
+enum BusOriginTerminal {
+  QUITUMBE
+  CARCELEN
+}
+
 enum BusRouteStatus {
   ACTIVE
   INACTIVE
@@ -244,6 +261,11 @@ model ParkingLot {
   city        String
   totalSpaces Int               @map("total_spaces")
   price       Decimal           @db.Decimal(10, 2)
+  operator    String
+  openingHours String          @map("opening_hours")
+  terminalName String?         @map("terminal_name")
+  accessMode  ParkingAccessMode @default(QR) @map("access_mode")
+  vehicleTypes Json             @map("vehicle_types")
   status      ParkingLotStatus  @default(ACTIVE)
   createdAt   DateTime          @default(now()) @map("created_at")
   updatedAt   DateTime          @updatedAt @map("updated_at")
@@ -259,6 +281,10 @@ model ParkingTicket {
   userId      String              @map("user_id")
   spaceNumber Int                 @map("space_number")
   date        DateTime
+  entryTime   DateTime?         @map("entry_time")
+  exitTime    DateTime?         @map("exit_time")
+  ticketMode  ParkingTicketMode  @default(QR) @map("ticket_mode")
+  entryMetadata Json             @map("entry_metadata")
   qrCodeHash  String              @unique @map("qr_code_hash")
   status      ParkingTicketStatus @default(VALID)
   usedAt      DateTime?           @map("used_at")
@@ -276,6 +302,7 @@ model BusRoute {
   origin        String
   destination   String
   operator      String
+  originTerminal BusOriginTerminal @default(QUITUMBE) @map("origin_terminal")
   status        BusRouteStatus  @default(ACTIVE)
   createdAt     DateTime        @default(now()) @map("created_at")
   updatedAt     DateTime        @updatedAt @map("updated_at")
@@ -290,6 +317,8 @@ model BusTrip {
   routeId       String        @map("route_id")
   departureTime DateTime      @map("departure_time")
   arrivalTime   DateTime?     @map("arrival_time")
+  boardingPlatform String?    @map("boarding_platform")
+  baggageInfo   String?       @map("baggage_info")
   price         Decimal       @db.Decimal(10, 2)
   totalSeats    Int           @map("total_seats")
   status        BusTripStatus @default(SCHEDULED)

@@ -266,3 +266,26 @@ test('does not allow public registration to elevate the user role', async () => 
     if (userId) await prisma.user.delete({ where: { id: userId } });
   }
 });
+
+test('calculates parking availability by date and rejects a duplicate space', async () => {
+  const baseUrl = `http://127.0.0.1:${server.address().port}`;
+  const email = `parking-${Date.now()}@example.com`;
+  let userId;
+  try {
+    const registered = await (await request(baseUrl, '/api/auth/register', { method: 'POST', body: JSON.stringify({ email, password: 'demo1234' }) })).json();
+    userId = registered.user.id;
+    const login = await (await request(baseUrl, '/api/auth/login', { method: 'POST', body: JSON.stringify({ email, password: 'demo1234' }) })).json();
+    const headers = { Authorization: `Bearer ${login.token}` };
+    const date = '2026-09-10';
+    const catalog = await (await request(baseUrl, `/api/parking?date=${date}`)).json();
+    const parking = catalog.parking.find((item) => item.availableSpaces > 0);
+    assert.ok(parking, 'expected parking availability');
+    const space = (parking.reservedSpaceNumbers ?? []).includes(1) ? 2 : 1;
+    const first = await request(baseUrl, `/api/parking/${parking.id}/tickets`, { method: 'POST', headers, body: JSON.stringify({ spaceNumber: space, date: `${date}T12:00:00.000Z` }) });
+    assert.equal(first.status, 201);
+    const duplicate = await request(baseUrl, `/api/parking/${parking.id}/tickets`, { method: 'POST', headers, body: JSON.stringify({ spaceNumber: space, date: `${date}T12:00:00.000Z` }) });
+    assert.equal(duplicate.status, 409);
+  } finally {
+    if (userId) await prisma.user.delete({ where: { id: userId } });
+  }
+});

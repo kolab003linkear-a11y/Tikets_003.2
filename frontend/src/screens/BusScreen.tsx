@@ -11,11 +11,147 @@ import AppInput from '../components/AppInput';
 import AppState from '../components/AppState';
 
 export default function BusScreen() {
-  const navigation = useNavigation<any>(); const { user, token, startGuestSession } = useAuth();
-  const [routes, setRoutes] = useState<BusRoute[]>([]); const [selected, setSelected] = useState<BusTrip | null>(null); const [seat, setSeat] = useState(''); const [loading, setLoading] = useState(true); const [buying, setBuying] = useState(false); const [error, setError] = useState(''); const [email, setEmail] = useState(user?.email ?? ''); const [fullName, setFullName] = useState(user?.fullName ?? ''); const [phone, setPhone] = useState(user?.phone ?? '');
-  const load = async () => { setLoading(true); try { setRoutes((await getBuses()).routes); setError(''); } catch (loadError) { setError(loadError instanceof Error ? loadError.message : 'No se pudieron cargar buses.'); } finally { setLoading(false); } }; useEffect(() => { void load(); }, []);
-  const buy = async () => { const number = Number(seat); if (!selected || !Number.isInteger(number) || number < 1 || number > selected.totalSeats) { Alert.alert('Datos incompletos', 'Elige un viaje y un asiento válido.'); return; } if ((!user || !token) && (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim()) || fullName.trim().length < 2 || phone.trim().length < 7)) { Alert.alert('Completa tus datos', 'Necesitamos correo, nombre y teléfono para continuar.'); return; } setBuying(true); try { const session = user && token ? { user, token } : await startGuestSession(email.trim().toLowerCase(), fullName.trim(), phone.trim()); const response = await createBusTicket(session.token, selected.id, number); const route = response.ticket.trip.route; navigation.navigate('Ticket', { ticketId: response.ticket.id, qrPayload: response.ticket.qrPayload, status: response.ticket.status, movieTitle: `${route.origin} → ${route.destination}`, selectedSeats: [`Asiento ${response.ticket.seatNumber}`], startTime: selected.departureTime, roomName: route.operator }); setSelected(null); } catch (buyError) { Alert.alert('No se pudo generar el ticket', buyError instanceof Error ? buyError.message : 'Inténtalo nuevamente.'); } finally { setBuying(false); } };
-  if (selected) { const route = selected.route!; return <SafeAreaView style={styles.safe}><ScrollView contentContainerStyle={styles.content}><Pressable onPress={() => setSelected(null)} style={styles.back}><Ionicons name="arrow-back" size={18} color={colors.primary} /><Text style={styles.backText}>Volver a buses</Text></Pressable><AppCard style={styles.card}><Text style={styles.kicker}>Viaje seleccionado</Text><Text style={styles.title}>{route.origin} → {route.destination}</Text><Text style={styles.meta}>{route.operator} · {new Date(selected.departureTime).toLocaleString('es-ES', { dateStyle: 'medium', timeStyle: 'short' })}</Text><Text style={styles.price}>${Number(selected.price).toFixed(2)} · {selected.totalSeats} asientos</Text><AppInput label={`Asiento (1-${selected.totalSeats})`} value={seat} onChangeText={setSeat} keyboardType="numeric" placeholder="Ej. 12" />{(!user?.fullName || !user?.phone) && <View style={styles.guest}><Text style={styles.section}>Datos para tu compra</Text><AppInput label="Correo electrónico" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" /><AppInput label="Nombre completo" value={fullName} onChangeText={setFullName} /><AppInput label="Teléfono" value={phone} onChangeText={setPhone} keyboardType="phone-pad" /></View>}<AppButton label="Comprar ticket QR" onPress={() => void buy()} loading={buying} disabled={buying} /><AppButton label="Cancelar" variant="secondary" onPress={() => setSelected(null)} /></AppCard></ScrollView></SafeAreaView>; }
-  return <SafeAreaView style={styles.safe}><ScrollView contentContainerStyle={styles.content}><View style={styles.header}><View><Text style={styles.kicker}>Movilidad</Text><Text style={styles.title}>Buses</Text></View><Ionicons name="bus-outline" size={28} color={colors.primary} /></View>{loading ? <AppState loading title="Cargando viajes..." /> : error ? <><AppState title="No se pudieron cargar" message={error} /><AppButton label="Reintentar" onPress={() => void load()} /></> : routes.flatMap((route) => (route.trips ?? []).map((trip) => <Pressable key={trip.id} onPress={() => { setSelected({ ...trip, route }); setSeat(''); }}><AppCard style={styles.listCard}><View style={styles.icon}><Ionicons name="bus-outline" size={23} color={colors.primary} /></View><View style={styles.info}><Text style={styles.name}>{route.origin} → {route.destination}</Text><Text style={styles.meta}>{route.operator} · {new Date(trip.departureTime).toLocaleString('es-ES', { dateStyle: 'medium', timeStyle: 'short' })}</Text><Text style={styles.meta}>{trip.status} · {trip.totalSeats} asientos</Text></View><Text style={styles.price}>${Number(trip.price).toFixed(2)}</Text></AppCard></Pressable>))}</ScrollView></SafeAreaView>;
+  const navigation = useNavigation<any>();
+  const { user, token, startGuestSession } = useAuth();
+  const [routes, setRoutes] = useState<BusRoute[]>([]);
+  const [selected, setSelected] = useState<BusTrip | null>(null);
+  const [seat, setSeat] = useState('');
+  const [terminal, setTerminal] = useState('');
+  const [destination, setDestination] = useState('');
+  const [operator, setOperator] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [buying, setBuying] = useState(false);
+  const [error, setError] = useState('');
+  const [email, setEmail] = useState(user?.email ?? '');
+  const [fullName, setFullName] = useState(user?.fullName ?? '');
+  const [phone, setPhone] = useState(user?.phone ?? '');
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      setRoutes((await getBuses(terminal, destination, operator)).routes);
+      setError('');
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : 'No se pudieron cargar buses.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const timer = setTimeout(() => void load(), 250);
+    return () => clearTimeout(timer);
+  }, [terminal, destination, operator]);
+
+  const buy = async () => {
+    const number = Number(seat);
+    if (!selected || !Number.isInteger(number) || number < 1 || number > selected.totalSeats) {
+      Alert.alert('Datos incompletos', 'Elige un viaje y un asiento válido.');
+      return;
+    }
+    if ((!user || !token) && (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim()) || fullName.trim().length < 2 || phone.trim().length < 7)) {
+      Alert.alert('Completa tus datos', 'Necesitamos correo, nombre y teléfono para continuar.');
+      return;
+    }
+
+    setBuying(true);
+    try {
+      const session = user && token ? { user, token } : await startGuestSession(email.trim().toLowerCase(), fullName.trim(), phone.trim());
+      const response = await createBusTicket(session.token, selected.id, number);
+      const route = response.ticket.trip.route;
+      navigation.navigate('Ticket', {
+        ticketId: response.ticket.id,
+        qrPayload: response.ticket.qrPayload,
+        status: response.ticket.status,
+        movieTitle: `${route.origin} → ${route.destination}`,
+        selectedSeats: [`Asiento ${response.ticket.seatNumber}`],
+        startTime: selected.departureTime,
+        roomName: route.operator,
+      });
+      setSelected(null);
+    } catch (buyError) {
+      Alert.alert('No se pudo generar el ticket', buyError instanceof Error ? buyError.message : 'Inténtalo nuevamente.');
+    } finally {
+      setBuying(false);
+    }
+  };
+
+  if (selected) {
+    const route = selected.route!;
+    return (
+      <SafeAreaView style={styles.safe}>
+        <ScrollView contentContainerStyle={styles.content}>
+          <Pressable onPress={() => setSelected(null)} style={styles.back}>
+            <Ionicons name="arrow-back" size={18} color={colors.primary} />
+            <Text style={styles.backText}>Volver a buses</Text>
+          </Pressable>
+          <AppCard style={styles.card}>
+            <Text style={styles.kicker}>Viaje demo seleccionado</Text>
+            <Text style={styles.title}>{route.origin} → {route.destination}</Text>
+            <Text style={styles.meta}>Terminal: {route.originTerminal} · {route.operator}</Text>
+            <Text style={styles.meta}>Salida: {new Date(selected.departureTime).toLocaleString('es-ES', { dateStyle: 'medium', timeStyle: 'short' })}</Text>
+            <Text style={styles.meta}>Llegada: {selected.arrivalTime ? new Date(selected.arrivalTime).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) : 'Por confirmar'}</Text>
+            <Text style={styles.meta}>Andén: {selected.boardingPlatform ?? 'Por confirmar'} · Equipaje: {selected.baggageInfo ?? 'Por confirmar'}</Text>
+            <Text style={styles.price}>${Number(selected.price).toFixed(2)} · {selected.availableSeats ?? 0} asientos libres</Text>
+            <AppInput label={`Asiento (1-${selected.totalSeats})`} value={seat} onChangeText={setSeat} keyboardType="numeric" placeholder="Ej. 12" />
+            {!user?.fullName || !user?.phone ? (
+              <View style={styles.guest}>
+                <Text style={styles.section}>Datos para tu compra</Text>
+                <AppInput label="Correo electrónico" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" />
+                <AppInput label="Nombre completo" value={fullName} onChangeText={setFullName} />
+                <AppInput label="Teléfono" value={phone} onChangeText={setPhone} keyboardType="phone-pad" />
+              </View>
+            ) : null}
+            <AppButton label="Comprar ticket QR" onPress={() => void buy()} loading={buying} disabled={buying || selected.availableSeats === 0} />
+            <AppButton label="Cancelar" variant="secondary" onPress={() => setSelected(null)} />
+          </AppCard>
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
+  const tripCards = routes.flatMap((route) => (route.trips ?? []).map((trip) => (
+    <Pressable key={trip.id} onPress={() => { setSelected({ ...trip, route }); setSeat(''); }}>
+      <AppCard style={styles.listCard}>
+        <View style={styles.icon}><Ionicons name="bus-outline" size={23} color={colors.primary} /></View>
+        <View style={styles.info}>
+          <Text style={styles.name}>{route.origin} → {route.destination}</Text>
+          <Text style={styles.meta}>{route.originTerminal} · {route.operator} · {new Date(trip.departureTime).toLocaleString('es-ES', { dateStyle: 'medium', timeStyle: 'short' })}</Text>
+          <Text style={styles.meta}>Andén {trip.boardingPlatform ?? 'por confirmar'} · {trip.availableSeats ?? 0}/{trip.totalSeats} libres</Text>
+        </View>
+        <Text style={styles.price}>${Number(trip.price).toFixed(2)}</Text>
+      </AppCard>
+    </Pressable>
+  )));
+
+  return (
+    <SafeAreaView style={styles.safe}>
+      <ScrollView contentContainerStyle={styles.content}>
+        <View style={styles.header}><View><Text style={styles.kicker}>Movilidad</Text><Text style={styles.title}>Buses</Text></View><Ionicons name="bus-outline" size={28} color={colors.primary} /></View>
+        <AppInput label="Terminal de salida (QUITUMBE/CARCELEN)" value={terminal} onChangeText={setTerminal} placeholder="Todos" />
+        <AppInput label="Destino" value={destination} onChangeText={setDestination} placeholder="Todos" />
+        <AppInput label="Operador" value={operator} onChangeText={setOperator} placeholder="Todos" />
+        {loading ? <AppState loading title="Cargando viajes..." /> : error ? <><AppState title="No se pudieron cargar" message={error} /><AppButton label="Reintentar" onPress={() => void load()} /></> : tripCards}
+      </ScrollView>
+    </SafeAreaView>
+  );
 }
-const styles = StyleSheet.create({ safe: { flex: 1, backgroundColor: colors.background }, content: { padding: 18, gap: 14 }, header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }, kicker: { color: colors.primary, fontSize: 11, fontWeight: '800', letterSpacing: 1.2, textTransform: 'uppercase' }, title: { color: colors.text, fontSize: 29, fontWeight: '800', fontFamily: typography.display }, card: { padding: 18, gap: 12 }, listCard: { padding: 15, flexDirection: 'row', alignItems: 'center', gap: 12 }, icon: { width: 46, height: 46, borderRadius: 14, backgroundColor: colors.primary + '22', alignItems: 'center', justifyContent: 'center' }, info: { flex: 1, gap: 4 }, name: { color: colors.text, fontSize: 17, fontWeight: '800' }, meta: { color: colors.textSecondary, fontSize: 12 }, price: { color: colors.success, fontSize: 16, fontWeight: '800' }, back: { flexDirection: 'row', alignItems: 'center', gap: 8 }, backText: { color: colors.primary, fontWeight: '700' }, guest: { borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 10, gap: 7 }, section: { color: colors.text, fontSize: 16, fontWeight: '800' } });
+
+const styles = StyleSheet.create({
+  safe: { flex: 1, backgroundColor: colors.background },
+  content: { padding: 18, gap: 14 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  kicker: { color: colors.primary, fontSize: 11, fontWeight: '800', letterSpacing: 1.2, textTransform: 'uppercase' },
+  title: { color: colors.text, fontSize: 29, fontWeight: '800', fontFamily: typography.display },
+  card: { padding: 18, gap: 12 },
+  listCard: { padding: 15, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  icon: { width: 46, height: 46, borderRadius: 14, backgroundColor: colors.primary + '22', alignItems: 'center', justifyContent: 'center' },
+  info: { flex: 1, gap: 4 },
+  name: { color: colors.text, fontSize: 17, fontWeight: '800' },
+  meta: { color: colors.textSecondary, fontSize: 12 },
+  price: { color: colors.success, fontSize: 16, fontWeight: '800' },
+  back: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  backText: { color: colors.primary, fontWeight: '700' },
+  guest: { borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 10, gap: 7 },
+  section: { color: colors.text, fontSize: 16, fontWeight: '800' },
+});
