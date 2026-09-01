@@ -1,4 +1,4 @@
-import { PrismaClient, UserRole, MovieCategory, EventStatus, MatchStatus } from '@prisma/client';
+import { PrismaClient, UserRole, MovieCategory, EventStatus, MatchStatus, ParkingLotStatus, BusRouteStatus, BusTripStatus } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
@@ -362,11 +362,41 @@ async function main() {
     },
   });
 
+  const parkingLots = [
+    { id: 'parking-quito-centro', name: 'Parking Centro Histórico', address: 'García Moreno y Chile', city: 'Quito', totalSpaces: 120, price: 2.5 },
+    { id: 'parking-terminal', name: 'Parking Terminal Terrestre', address: 'Av. Mariscal Sucre', city: 'Quito', totalSpaces: 80, price: 1.75 },
+  ];
+  for (const parking of parkingLots) {
+    await prisma.parkingLot.upsert({
+      where: { id: parking.id },
+      update: { ...parking, status: ParkingLotStatus.ACTIVE },
+      create: { ...parking, status: ParkingLotStatus.ACTIVE },
+    });
+  }
+
+  const busRoutes = [
+    { id: 'route-quito-guayaquil', origin: 'Quito', destination: 'Guayaquil', operator: 'Cooperativa Ecuador' },
+    { id: 'route-quito-cuenca', origin: 'Quito', destination: 'Cuenca', operator: 'Panamericana' },
+  ];
+  for (const route of busRoutes) {
+    await prisma.busRoute.upsert({ where: { id: route.id }, update: { ...route, status: BusRouteStatus.ACTIVE }, create: { ...route, status: BusRouteStatus.ACTIVE } });
+  }
+  const busTrips = [
+    { id: 'trip-quito-guayaquil-001', routeId: 'route-quito-guayaquil', departureTime: '2026-09-01T07:00:00-05:00', arrivalTime: '2026-09-01T15:00:00-05:00', price: 18, totalSeats: 40 },
+    { id: 'trip-quito-guayaquil-002', routeId: 'route-quito-guayaquil', departureTime: '2026-09-01T21:00:00-05:00', arrivalTime: '2026-09-02T05:00:00-05:00', price: 20, totalSeats: 40 },
+    { id: 'trip-quito-cuenca-001', routeId: 'route-quito-cuenca', departureTime: '2026-09-02T08:30:00-05:00', arrivalTime: '2026-09-02T17:00:00-05:00', price: 16, totalSeats: 36 },
+  ];
+  for (const trip of busTrips) {
+    await prisma.busTrip.upsert({ where: { id: trip.id }, update: { ...trip, departureTime: new Date(trip.departureTime), arrivalTime: new Date(trip.arrivalTime), status: BusTripStatus.SCHEDULED }, create: { ...trip, departureTime: new Date(trip.departureTime), arrivalTime: new Date(trip.arrivalTime), status: BusTripStatus.SCHEDULED } });
+  }
+
   console.log('Seed ok:', {
     admin: admin.email,
     movies: [movie1.title, movie2.title, movie3.title, ...upcomingMovies.map((movie) => movie.title)],
     stadiums: ['Banco Guayaquil', 'Jocay', 'Bellavista', 'COAC Mushuc Runa'],
     matches: 12,
+    parkingLots: parkingLots.length,
+    busTrips: busTrips.length,
   });
 }
 

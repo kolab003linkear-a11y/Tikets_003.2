@@ -8,8 +8,10 @@ import AdminScannerScreen from './AdminScannerScreen';
 import AdminScheduleScreen from './AdminScheduleScreen';
 import AdminStadiumsScreen from './AdminStadiumsScreen';
 import ProfileAvatar from '../components/ProfileAvatar';
+import AdminParkingScreen from './AdminParkingScreen';
+import AdminBusesScreen from './AdminBusesScreen';
 
-type AdminSection = 'scanner' | 'events' | 'schedule' | 'stadiums';
+type AdminSection = 'scanner' | 'events' | 'schedule' | 'stadiums' | 'parking' | 'buses';
 
 export default function AdminHubScreen() {
   const { user } = useAuth();
@@ -20,6 +22,8 @@ export default function AdminHubScreen() {
         { key: 'events', label: 'Eventos', icon: 'film-outline' },
         { key: 'schedule', label: 'Salas', icon: 'calendar-outline' },
         { key: 'stadiums', label: 'Estadios', icon: 'football-outline' },
+        { key: 'parking', label: 'Parqueaderos', icon: 'car-outline' },
+        { key: 'buses', label: 'Buses', icon: 'bus-outline' },
       ]
     : [{ key: 'scanner', label: 'Escáner', icon: 'scan-outline' }];
   const [section, setSection] = useState<AdminSection>('scanner');
@@ -54,6 +58,8 @@ export default function AdminHubScreen() {
         {section === 'events' && <AdminEventsScreen />}
         {section === 'schedule' && <AdminScheduleScreen />}
         {section === 'stadiums' && <AdminStadiumsScreen />}
+        {section === 'parking' && <AdminParkingScreen />}
+        {section === 'buses' && <AdminBusesScreen />}
       </View>
     </SafeAreaView>
   );

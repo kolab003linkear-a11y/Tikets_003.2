@@ -187,6 +187,50 @@ export type AdminStadiumInput = {
   sectors: Array<{ name: string; code: string; capacity: number; price: number; seatLayout: { rows: string[]; columns: number } }>;
 };
 
+export type ParkingLot = {
+  id: string;
+  name: string;
+  address: string;
+  city: string;
+  totalSpaces: number;
+  price: number | string;
+  status: 'ACTIVE' | 'INACTIVE';
+  _count?: { tickets: number };
+};
+
+export type ParkingTicketResponse = {
+  ticket: { id: string; spaceNumber: number; date: string; status: 'VALID' | 'USED' | 'EXPIRED'; qrPayload: string; parking: ParkingLot };
+};
+
+export type AdminParkingInput = Omit<ParkingLot, 'id' | '_count'>;
+
+export type BusRoute = {
+  id: string;
+  origin: string;
+  destination: string;
+  operator: string;
+  status: 'ACTIVE' | 'INACTIVE';
+  _count?: { trips: number };
+  trips?: BusTrip[];
+};
+
+export type BusTrip = {
+  id: string;
+  routeId: string;
+  departureTime: string;
+  arrivalTime: string | null;
+  price: number | string;
+  totalSeats: number;
+  status: 'SCHEDULED' | 'BOARDING' | 'DEPARTED' | 'ARRIVED' | 'CANCELLED';
+  route?: BusRoute;
+  _count?: { tickets: number };
+  occupiedSeats?: number[];
+};
+
+export type AdminBusRouteInput = Omit<BusRoute, 'id' | '_count' | 'trips'>;
+export type AdminBusTripInput = Omit<BusTrip, 'id' | '_count' | 'route' | 'occupiedSeats'>;
+export type BusTicketResponse = { ticket: { id: string; seatNumber: number; status: 'VALID' | 'USED' | 'EXPIRED'; qrPayload: string; trip: BusTrip & { route: BusRoute } } };
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...init,
@@ -232,6 +276,29 @@ export function createAdminStadium(token: string, stadium: AdminStadiumInput) {
     body: JSON.stringify(stadium),
   });
 }
+
+export function getParking() { return request<{ parking: ParkingLot[] }>('/api/parking'); }
+
+export function createParkingTicket(token: string, parkingId: string, spaceNumber: number, date: string) {
+  return request<ParkingTicketResponse>(`/api/parking/${parkingId}/tickets`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: JSON.stringify({ spaceNumber, date }) });
+}
+
+export function getBuses() { return request<{ routes: BusRoute[] }>('/api/buses'); }
+
+export function createBusTicket(token: string, tripId: string, seatNumber: number) {
+  return request<BusTicketResponse>(`/api/bus-trips/${tripId}/tickets`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: JSON.stringify({ seatNumber }) });
+}
+
+export function getAdminParking(token: string) { return request<{ parking: ParkingLot[] }>('/api/admin/parking', { headers: { Authorization: `Bearer ${token}` } }); }
+export function createAdminParking(token: string, parking: AdminParkingInput) { return request<{ parking: ParkingLot }>('/api/admin/parking', { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: JSON.stringify(parking) }); }
+export function updateAdminParking(token: string, parkingId: string, parking: AdminParkingInput) { return request<{ parking: ParkingLot }>(`/api/admin/parking/${parkingId}`, { method: 'PATCH', headers: { Authorization: `Bearer ${token}` }, body: JSON.stringify(parking) }); }
+
+export function getAdminRoutes(token: string) { return request<{ routes: BusRoute[] }>('/api/admin/bus-routes', { headers: { Authorization: `Bearer ${token}` } }); }
+export function createAdminRoute(token: string, route: AdminBusRouteInput) { return request<{ route: BusRoute }>('/api/admin/bus-routes', { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: JSON.stringify(route) }); }
+export function updateAdminRoute(token: string, routeId: string, route: AdminBusRouteInput) { return request<{ route: BusRoute }>(`/api/admin/bus-routes/${routeId}`, { method: 'PATCH', headers: { Authorization: `Bearer ${token}` }, body: JSON.stringify(route) }); }
+export function getAdminTrips(token: string) { return request<{ trips: BusTrip[] }>('/api/admin/bus-trips', { headers: { Authorization: `Bearer ${token}` } }); }
+export function createAdminTrip(token: string, trip: AdminBusTripInput) { return request<{ trip: BusTrip }>('/api/admin/bus-trips', { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: JSON.stringify(trip) }); }
+export function updateAdminTrip(token: string, tripId: string, trip: AdminBusTripInput) { return request<{ trip: BusTrip }>(`/api/admin/bus-trips/${tripId}`, { method: 'PATCH', headers: { Authorization: `Bearer ${token}` }, body: JSON.stringify(trip) }); }
 
 export function login(email: string, password: string) {
   return request<AuthResponse>('/api/auth/login', {

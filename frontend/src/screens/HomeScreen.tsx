@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import { CatalogMovie, getCatalog, getMatches, StadiumMatch } from '../api/client';
+import { BusRoute, CatalogMovie, getBuses, getCatalog, getMatches, getParking, ParkingLot, StadiumMatch } from '../api/client';
 import { colors, typography } from '../theme';
 import AppState from '../components/AppState';
 import ProfileAvatar from '../components/ProfileAvatar';
@@ -25,6 +25,8 @@ export default function HomeScreen() {
   const [category, setCategory] = useState('Todos');
   const [movies, setMovies] = useState<CatalogMovie[]>([]);
   const [matches, setMatches] = useState<StadiumMatch[]>([]);
+  const [parking, setParking] = useState<ParkingLot[]>([]);
+  const [busRoutes, setBusRoutes] = useState<BusRoute[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -33,9 +35,12 @@ export default function HomeScreen() {
     setError(null);
 
     try {
-      const [catalogResponse, matchesResponse] = await Promise.all([getCatalog(), getMatches()]);
-      setMovies(catalogResponse.movies);
-      setMatches(matchesResponse.matches);
+      const [catalogResult, matchesResult, parkingResult, busesResult] = await Promise.allSettled([getCatalog(), getMatches(), getParking(), getBuses()]);
+      if (catalogResult.status === 'fulfilled') setMovies(catalogResult.value.movies);
+      if (matchesResult.status === 'fulfilled') setMatches(matchesResult.value.matches);
+      if (parkingResult.status === 'fulfilled') setParking(parkingResult.value.parking);
+      if (busesResult.status === 'fulfilled') setBusRoutes(busesResult.value.routes);
+      if (catalogResult.status === 'rejected') throw catalogResult.reason;
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : 'No se pudo cargar la cartelera.');
     } finally {
@@ -155,6 +160,12 @@ export default function HomeScreen() {
             <Ionicons name="football-outline" size={24} color={colors.text} />
             <Text style={styles.quickTitle}>Estadios</Text>
             <Text style={styles.quickMeta}>Siente el partido</Text>
+          </Pressable>
+          <Pressable style={[styles.quickCard, styles.quickCardCoral]} onPress={() => navigation.navigate('Parqueaderos')}>
+            <Ionicons name="car-outline" size={24} color={colors.text} /><Text style={styles.quickTitle}>Parqueaderos</Text><Text style={styles.quickMeta}>{parking.length} disponibles</Text>
+          </Pressable>
+          <Pressable style={[styles.quickCard, styles.quickCardBlue]} onPress={() => navigation.navigate('Buses')}>
+            <Ionicons name="bus-outline" size={24} color={colors.text} /><Text style={styles.quickTitle}>Buses</Text><Text style={styles.quickMeta}>{busRoutes.length} rutas activas</Text>
           </Pressable>
         </ScrollView>
 

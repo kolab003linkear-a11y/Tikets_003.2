@@ -4,7 +4,7 @@ import helmet from 'helmet';
 import dotenv from 'dotenv';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { Prisma, PrismaClient, ReservationStatus, StadiumTicketStatus, TicketStatus, UserRole } from '@prisma/client';
+import { Prisma, PrismaClient, ReservationStatus, StadiumTicketStatus, TicketStatus, UserRole, ParkingTicketStatus, BusTicketStatus } from '@prisma/client';
 import { z } from 'zod';
 import { createHash } from 'crypto';
 import { writeLog } from './logger';
@@ -39,6 +39,7 @@ const registerSchema = z.object({
   password: z.string().min(8),
   fullName: z.string().trim().min(2).max(100).optional(),
   phone: z.string().trim().min(7).max(30).optional(),
+  role: z.enum(['CLIENT', 'ADMIN', 'SCANNER']).optional(),
 });
 
 const loginSchema = z.object({
@@ -136,6 +137,38 @@ const stadiumTicketSchema = z.object({
   sectorId: z.string().min(1),
   seatNumber: z.string().trim().min(1).max(12),
 });
+
+const parkingSchema = z.object({
+  name: z.string().trim().min(1).max(120),
+  address: z.string().trim().min(1).max(200),
+  city: z.string().trim().min(1).max(80),
+  totalSpaces: z.coerce.number().int().min(1).max(100000),
+  price: z.coerce.number().nonnegative().max(10000),
+  status: z.enum(['ACTIVE', 'INACTIVE']).optional(),
+});
+
+const parkingTicketSchema = z.object({
+  spaceNumber: z.coerce.number().int().min(1),
+  date: z.coerce.date(),
+});
+
+const busRouteSchema = z.object({
+  origin: z.string().trim().min(1).max(100),
+  destination: z.string().trim().min(1).max(100),
+  operator: z.string().trim().min(1).max(120),
+  status: z.enum(['ACTIVE', 'INACTIVE']).optional(),
+});
+
+const busTripSchema = z.object({
+  routeId: z.string().min(1),
+  departureTime: z.coerce.date(),
+  arrivalTime: z.coerce.date().nullable().optional(),
+  price: z.coerce.number().positive().max(10000),
+  totalSeats: z.coerce.number().int().min(1).max(1000),
+  status: z.enum(['SCHEDULED', 'BOARDING', 'DEPARTED', 'ARRIVED', 'CANCELLED']).optional(),
+});
+
+const busTicketSchema = z.object({ seatNumber: z.coerce.number().int().min(1) });
 
 class AppError extends Error {
   statusCode: number;
@@ -577,7 +610,6 @@ app.post('/api/matches/:matchId/tickets', authMiddleware, async (req, res, next)
     const authenticatedUser = (req as Request & { user: { sub: string } }).user;
     const account = await prisma.user.findUnique({ where: { id: authenticatedUser.sub }, select: { id: true, fullName: true, phone: true } });
     if (!account) throw new AppError('Your session is no longer valid. Please sign in again.', 401);
-    if (!account.fullName || !account.phone) throw new AppError('Complete your name and phone before purchasing.', 400);
     const match = await prisma.match.findUnique({ where: { id: req.params.matchId }, include: { stadium: true } });
     if (!match || match.status === 'CANCELLED' || match.status === 'FINISHED') throw new AppError('Match is not available for ticket sales.', 409);
     const sector = await prisma.stadiumSector.findUnique({ where: { id: payload.sectorId } });
@@ -586,13 +618,141 @@ app.post('/api/matches/:matchId/tickets', authMiddleware, async (req, res, next)
     const rows = Array.isArray(layout.rows) ? layout.rows.filter((row): row is string => typeof row === 'string') : [];
     const columns = typeof layout.columns === 'number' ? layout.columns : 0;
     const validSeats = new Set(rows.flatMap((row) => Array.from({ length: columns }, (_, index) => `${row}${index + 1}`)));
-    if (!validSeats.has(payload.seatNumber.toUpperCase())) throw new AppError('Seat is outside the selected sector.', 400);
-    const qrCodeHash = createHash('sha256').update(`${req.params.matchId}:${payload.sectorId}:${payload.seatNumber}:${Date.now()}:${Math.random()}`).digest('hex');
-    const ticket = await prisma.stadiumTicket.create({ data: { matchId: req.params.matchId, sectorId: payload.sectorId, userId: account.id, seatNumber: payload.seatNumber.toUpperCase(), qrCodeHash }, include: { match: { include: { stadium: true } }, sector: true } });
+    const normalizedSeat = payload.seatNumber.toUpperCase();
+    if (!validSeats.has(normalizedSeat)) throw new AppError('Seat is outside the selected sector.', 400);
+
+    const existingTicket = await prisma.stadiumTicket.findUnique({
+      where: { matchId_sectorId_seatNumber: { matchId: req.params.matchId, sectorId: payload.sectorId, seatNumber: normalizedSeat } },
+      select: { id: true },
+    });
+    if (existingTicket) throw new AppError('This stadium seat is already taken for this match.', 409);
+
+    const qrCodeHash = createHash('sha256').update(`${req.params.matchId}:${payload.sectorId}:${normalizedSeat}:${Date.now()}:${Math.random()}`).digest('hex');
+    const ticket = await prisma.stadiumTicket.create({ data: { matchId: req.params.matchId, sectorId: payload.sectorId, userId: account.id, seatNumber: normalizedSeat, qrCodeHash }, include: { match: { include: { stadium: true } }, sector: true } });
     return res.status(201).json({ ticket: { id: ticket.id, qrPayload: `stadiumsafe:v1:${ticket.id}:${ticket.qrCodeHash}`, status: ticket.status, seatNumber: ticket.seatNumber, sector: ticket.sector.name, match: ticket.match } });
   } catch (error) {
     next(error);
   }
+});
+
+app.get('/api/parking', async (_req, res, next) => {
+  try {
+    const parking = await prisma.parkingLot.findMany({ where: { status: 'ACTIVE' }, include: { _count: { select: { tickets: true } } }, orderBy: { name: 'asc' } });
+    return res.json({ parking });
+  } catch (error) { next(error); }
+});
+
+app.get('/api/buses', async (_req, res, next) => {
+  try {
+    const routes = await prisma.busRoute.findMany({ where: { status: 'ACTIVE' }, include: { trips: { where: { status: { not: 'CANCELLED' } }, include: { _count: { select: { tickets: true } } }, orderBy: { departureTime: 'asc' } } }, orderBy: { origin: 'asc' } });
+    return res.json({ routes });
+  } catch (error) { next(error); }
+});
+
+app.get('/api/admin/parking', authMiddleware, async (req, res, next) => {
+  try {
+    const user = (req as Request & { user: { role: UserRole } }).user;
+    if (user.role !== UserRole.ADMIN) throw new AppError('Only administrators can manage parking lots.', 403);
+    return res.json({ parking: await prisma.parkingLot.findMany({ include: { _count: { select: { tickets: true } } }, orderBy: { name: 'asc' } }) });
+  } catch (error) { next(error); }
+});
+
+app.post('/api/admin/parking', authMiddleware, async (req, res, next) => {
+  try {
+    const user = (req as Request & { user: { role: UserRole } }).user;
+    if (user.role !== UserRole.ADMIN) throw new AppError('Only administrators can manage parking lots.', 403);
+    const payload = parkingSchema.parse(req.body);
+    return res.status(201).json({ parking: await prisma.parkingLot.create({ data: { ...payload, status: payload.status ?? 'ACTIVE' } }) });
+  } catch (error) { next(error); }
+});
+
+app.patch('/api/admin/parking/:parkingId', authMiddleware, async (req, res, next) => {
+  try {
+    const user = (req as Request & { user: { role: UserRole } }).user;
+    if (user.role !== UserRole.ADMIN) throw new AppError('Only administrators can manage parking lots.', 403);
+    const payload = parkingSchema.parse(req.body);
+    return res.json({ parking: await prisma.parkingLot.update({ where: { id: req.params.parkingId }, data: { ...payload, status: payload.status ?? 'ACTIVE' } }) });
+  } catch (error) { next(error); }
+});
+
+app.post('/api/parking/:parkingId/tickets', authMiddleware, async (req, res, next) => {
+  try {
+    const payload = parkingTicketSchema.parse(req.body);
+    const user = (req as Request & { user: { sub: string } }).user;
+    const parking = await prisma.parkingLot.findUnique({ where: { id: req.params.parkingId } });
+    if (!parking || parking.status !== 'ACTIVE') throw new AppError('Parking lot is not available.', 409);
+    if (payload.spaceNumber > parking.totalSpaces) throw new AppError('Space is outside this parking lot.', 400);
+    const date = new Date(payload.date); date.setHours(0, 0, 0, 0);
+    const qrCodeHash = createHash('sha256').update(`${parking.id}:${payload.spaceNumber}:${date.toISOString()}:${Date.now()}:${Math.random()}`).digest('hex');
+    const ticket = await prisma.parkingTicket.create({ data: { parkingId: parking.id, userId: user.sub, spaceNumber: payload.spaceNumber, date, qrCodeHash }, include: { parking: true } });
+    return res.status(201).json({ ticket: { id: ticket.id, spaceNumber: ticket.spaceNumber, date: ticket.date, status: ticket.status, qrPayload: `parkingsafe:v1:${ticket.id}:${ticket.qrCodeHash}`, parking: ticket.parking } });
+  } catch (error) { next(error); }
+});
+
+app.get('/api/admin/bus-routes', authMiddleware, async (req, res, next) => {
+  try {
+    const user = (req as Request & { user: { role: UserRole } }).user;
+    if (user.role !== UserRole.ADMIN) throw new AppError('Only administrators can manage bus routes.', 403);
+    return res.json({ routes: await prisma.busRoute.findMany({ include: { _count: { select: { trips: true } } }, orderBy: { origin: 'asc' } }) });
+  } catch (error) { next(error); }
+});
+
+app.post('/api/admin/bus-routes', authMiddleware, async (req, res, next) => {
+  try {
+    const user = (req as Request & { user: { role: UserRole } }).user;
+    if (user.role !== UserRole.ADMIN) throw new AppError('Only administrators can manage bus routes.', 403);
+    const payload = busRouteSchema.parse(req.body);
+    return res.status(201).json({ route: await prisma.busRoute.create({ data: { ...payload, status: payload.status ?? 'ACTIVE' } }) });
+  } catch (error) { next(error); }
+});
+
+app.patch('/api/admin/bus-routes/:routeId', authMiddleware, async (req, res, next) => {
+  try {
+    const user = (req as Request & { user: { role: UserRole } }).user;
+    if (user.role !== UserRole.ADMIN) throw new AppError('Only administrators can manage bus routes.', 403);
+    const payload = busRouteSchema.parse(req.body);
+    return res.json({ route: await prisma.busRoute.update({ where: { id: req.params.routeId }, data: { ...payload, status: payload.status ?? 'ACTIVE' } }) });
+  } catch (error) { next(error); }
+});
+
+app.get('/api/admin/bus-trips', authMiddleware, async (req, res, next) => {
+  try {
+    const user = (req as Request & { user: { role: UserRole } }).user;
+    if (user.role !== UserRole.ADMIN) throw new AppError('Only administrators can manage bus trips.', 403);
+    return res.json({ trips: await prisma.busTrip.findMany({ include: { route: true, _count: { select: { tickets: true } } }, orderBy: { departureTime: 'asc' } }) });
+  } catch (error) { next(error); }
+});
+
+app.post('/api/admin/bus-trips', authMiddleware, async (req, res, next) => {
+  try {
+    const user = (req as Request & { user: { role: UserRole } }).user;
+    if (user.role !== UserRole.ADMIN) throw new AppError('Only administrators can manage bus trips.', 403);
+    const payload = busTripSchema.parse(req.body);
+    if (!(await prisma.busRoute.findUnique({ where: { id: payload.routeId }, select: { id: true } }))) throw new AppError('Bus route not found.', 404);
+    return res.status(201).json({ trip: await prisma.busTrip.create({ data: { ...payload, arrivalTime: payload.arrivalTime ?? null, status: payload.status ?? 'SCHEDULED' }, include: { route: true } }) });
+  } catch (error) { next(error); }
+});
+
+app.patch('/api/admin/bus-trips/:tripId', authMiddleware, async (req, res, next) => {
+  try {
+    const user = (req as Request & { user: { role: UserRole } }).user;
+    if (user.role !== UserRole.ADMIN) throw new AppError('Only administrators can manage bus trips.', 403);
+    const payload = busTripSchema.parse(req.body);
+    return res.json({ trip: await prisma.busTrip.update({ where: { id: req.params.tripId }, data: { ...payload, arrivalTime: payload.arrivalTime ?? null, status: payload.status ?? 'SCHEDULED' }, include: { route: true } }) });
+  } catch (error) { next(error); }
+});
+
+app.post('/api/bus-trips/:tripId/tickets', authMiddleware, async (req, res, next) => {
+  try {
+    const payload = busTicketSchema.parse(req.body);
+    const user = (req as Request & { user: { sub: string } }).user;
+    const trip = await prisma.busTrip.findUnique({ where: { id: req.params.tripId }, include: { route: true } });
+    if (!trip || ['DEPARTED', 'ARRIVED', 'CANCELLED'].includes(trip.status)) throw new AppError('Bus trip is not available for ticket sales.', 409);
+    if (payload.seatNumber > trip.totalSeats) throw new AppError('Seat is outside this bus.', 400);
+    const qrCodeHash = createHash('sha256').update(`${trip.id}:${payload.seatNumber}:${Date.now()}:${Math.random()}`).digest('hex');
+    const ticket = await prisma.busTicket.create({ data: { tripId: trip.id, userId: user.sub, seatNumber: payload.seatNumber, qrCodeHash }, include: { trip: { include: { route: true } } } });
+    return res.status(201).json({ ticket: { id: ticket.id, seatNumber: ticket.seatNumber, status: ticket.status, qrPayload: `bussafe:v1:${ticket.id}:${ticket.qrCodeHash}`, trip: ticket.trip } });
+  } catch (error) { next(error); }
 });
 
 app.get('/api/catalog', async (req, res, next) => {
@@ -675,9 +835,6 @@ app.post('/api/reservations/create', authMiddleware, async (req, res, next) => {
     });
     if (!account) {
       throw new AppError('Your session is no longer valid. Please sign in again.', 401);
-    }
-    if (!account.fullName || !account.phone) {
-      throw new AppError('Complete your name and phone before purchasing.', 400);
     }
 
     const result = await prisma.$transaction(async (tx) => {
@@ -884,7 +1041,7 @@ app.post('/api/payments/demo-confirm', authMiddleware, async (req, res, next) =>
 app.get('/api/tickets', authMiddleware, async (req, res, next) => {
   try {
     const authenticatedUser = (req as Request & { user: { sub: string } }).user;
-    const [tickets, stadiumTickets] = await Promise.all([
+    const [tickets, stadiumTickets, parkingTickets, busTickets] = await Promise.all([
       prisma.ticket.findMany({
         where: { reservation: { userId: authenticatedUser.sub } },
         include: {
@@ -897,6 +1054,16 @@ app.get('/api/tickets', authMiddleware, async (req, res, next) => {
       prisma.stadiumTicket.findMany({
         where: { userId: authenticatedUser.sub },
         include: { match: { include: { stadium: true } }, sector: true },
+        orderBy: { createdAt: 'desc' },
+      }),
+      prisma.parkingTicket.findMany({
+        where: { userId: authenticatedUser.sub },
+        include: { parking: true },
+        orderBy: { createdAt: 'desc' },
+      }),
+      prisma.busTicket.findMany({
+        where: { userId: authenticatedUser.sub },
+        include: { trip: { include: { route: true } } },
         orderBy: { createdAt: 'desc' },
       }),
     ]);
@@ -933,8 +1100,34 @@ app.get('/api/tickets', authMiddleware, async (req, res, next) => {
       },
     }));
 
+    const parkingTicketDetails = parkingTickets.map((ticket) => ({
+      id: ticket.id,
+      seatNumber: String(ticket.spaceNumber),
+      spaceNumber: ticket.spaceNumber,
+      date: ticket.date,
+      status: ticket.status,
+      createdAt: ticket.createdAt,
+      usedAt: ticket.usedAt,
+      qrPayload: `parkingsafe:v1:${ticket.id}:${ticket.qrCodeHash}`,
+      reservationId: `parking:${ticket.id}`,
+      reservationStatus: ReservationStatus.PAID,
+      event: { title: ticket.parking.name, startTime: ticket.date, room: `${ticket.parking.city} · ${ticket.parking.address}` },
+    }));
+
+    const busTicketDetails = busTickets.map((ticket) => ({
+      id: ticket.id,
+      seatNumber: String(ticket.seatNumber),
+      status: ticket.status,
+      createdAt: ticket.createdAt,
+      usedAt: ticket.usedAt,
+      qrPayload: `bussafe:v1:${ticket.id}:${ticket.qrCodeHash}`,
+      reservationId: `bus:${ticket.id}`,
+      reservationStatus: ReservationStatus.PAID,
+      event: { title: `${ticket.trip.route.origin} → ${ticket.trip.route.destination}`, startTime: ticket.trip.departureTime, room: ticket.trip.route.operator },
+    }));
+
     return res.json({
-      tickets: [...cinemaTickets, ...stadiumTicketDetails].sort((first, second) =>
+      tickets: [...cinemaTickets, ...stadiumTicketDetails, ...parkingTicketDetails, ...busTicketDetails].sort((first, second) =>
         second.createdAt.getTime() - first.createdAt.getTime(),
       ),
     });
@@ -954,6 +1147,26 @@ app.post('/api/admin/tickets/validate', authMiddleware, async (req, res, next) =
     }
 
     const qrCode = payload.qrCode.trim();
+    const parkingMatches = qrCode.match(/^parkingsafe:v1:([^:]+):([^:]+)$/i);
+    if (parkingMatches) {
+      const parkingTicket = await prisma.parkingTicket.findUnique({ where: { id: parkingMatches[1] }, include: { parking: true } });
+      if (!parkingTicket || parkingTicket.qrCodeHash !== parkingMatches[2]) return res.status(404).json({ valid: false, status: 'INVALID', message: 'Parking ticket not found or QR invalid.' });
+      if (parkingTicket.status === ParkingTicketStatus.USED) return res.json({ valid: false, status: 'USED', message: 'This parking ticket has already been used.', ticket: { id: parkingTicket.id, spaceNumber: parkingTicket.spaceNumber, usedAt: parkingTicket.usedAt } });
+      if (parkingTicket.status === ParkingTicketStatus.EXPIRED) return res.json({ valid: false, status: 'EXPIRED', message: 'This parking ticket has expired.', ticket: { id: parkingTicket.id, spaceNumber: parkingTicket.spaceNumber } });
+      const updated = await prisma.parkingTicket.update({ where: { id: parkingTicket.id }, data: { status: ParkingTicketStatus.USED, usedAt: new Date() }, include: { parking: true } });
+      return res.json({ valid: true, status: 'USED', message: 'Parking ticket validated successfully.', ticket: { id: updated.id, spaceNumber: updated.spaceNumber, status: updated.status, usedAt: updated.usedAt, event: { title: updated.parking.name, startTime: updated.date, room: `${updated.parking.city} · ${updated.parking.address}` } } });
+    }
+
+    const busMatches = qrCode.match(/^bussafe:v1:([^:]+):([^:]+)$/i);
+    if (busMatches) {
+      const busTicket = await prisma.busTicket.findUnique({ where: { id: busMatches[1] }, include: { trip: { include: { route: true } } } });
+      if (!busTicket || busTicket.qrCodeHash !== busMatches[2]) return res.status(404).json({ valid: false, status: 'INVALID', message: 'Bus ticket not found or QR invalid.' });
+      if (busTicket.status === BusTicketStatus.USED) return res.json({ valid: false, status: 'USED', message: 'This bus ticket has already been used.', ticket: { id: busTicket.id, seatNumber: busTicket.seatNumber, usedAt: busTicket.usedAt } });
+      if (busTicket.status === BusTicketStatus.EXPIRED) return res.json({ valid: false, status: 'EXPIRED', message: 'This bus ticket has expired.', ticket: { id: busTicket.id, seatNumber: busTicket.seatNumber } });
+      const updated = await prisma.busTicket.update({ where: { id: busTicket.id }, data: { status: BusTicketStatus.USED, usedAt: new Date() }, include: { trip: { include: { route: true } } } });
+      return res.json({ valid: true, status: 'USED', message: 'Bus ticket validated successfully.', ticket: { id: updated.id, seatNumber: updated.seatNumber, status: updated.status, usedAt: updated.usedAt, event: { title: `${updated.trip.route.origin} → ${updated.trip.route.destination}`, startTime: updated.trip.departureTime, room: updated.trip.route.operator } } });
+    }
+
     const stadiumMatches = qrCode.match(/^stadiumsafe:v1:([^:]+):([^:]+)$/i);
     if (stadiumMatches) {
       const stadiumTicket = await prisma.stadiumTicket.findUnique({

@@ -49,6 +49,36 @@ enum StadiumTicketStatus {
   EXPIRED
 }
 
+enum ParkingLotStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum ParkingTicketStatus {
+  VALID
+  USED
+  EXPIRED
+}
+
+enum BusRouteStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum BusTripStatus {
+  SCHEDULED
+  BOARDING
+  DEPARTED
+  ARRIVED
+  CANCELLED
+}
+
+enum BusTicketStatus {
+  VALID
+  USED
+  EXPIRED
+}
+
 model User {
   id            String        @id @default(cuid())
   email         String        @unique
@@ -59,6 +89,8 @@ model User {
   createdAt     DateTime      @default(now()) @map("created_at")
   reservations  Reservation[]
   stadiumTickets StadiumTicket[]
+  parkingTickets ParkingTicket[]
+  busTickets     BusTicket[]
 
   @@map("users")
 }
@@ -203,4 +235,87 @@ model StadiumTicket {
   @@unique([matchId, sectorId, seatNumber])
   @@index([matchId, status])
   @@map("stadium_tickets")
+}
+
+model ParkingLot {
+  id          String            @id @default(cuid())
+  name        String
+  address     String
+  city        String
+  totalSpaces Int               @map("total_spaces")
+  price       Decimal           @db.Decimal(10, 2)
+  status      ParkingLotStatus  @default(ACTIVE)
+  createdAt   DateTime          @default(now()) @map("created_at")
+  updatedAt   DateTime          @updatedAt @map("updated_at")
+  tickets     ParkingTicket[]
+
+  @@index([city, status])
+  @@map("parking_lots")
+}
+
+model ParkingTicket {
+  id          String              @id @default(cuid())
+  parkingId   String              @map("parking_id")
+  userId      String              @map("user_id")
+  spaceNumber Int                 @map("space_number")
+  date        DateTime
+  qrCodeHash  String              @unique @map("qr_code_hash")
+  status      ParkingTicketStatus @default(VALID)
+  usedAt      DateTime?           @map("used_at")
+  createdAt   DateTime            @default(now()) @map("created_at")
+  parking     ParkingLot          @relation(fields: [parkingId], references: [id], onDelete: Cascade)
+  user        User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([parkingId, spaceNumber, date])
+  @@index([userId, status])
+  @@map("parking_tickets")
+}
+
+model BusRoute {
+  id            String          @id @default(cuid())
+  origin        String
+  destination   String
+  operator      String
+  status        BusRouteStatus  @default(ACTIVE)
+  createdAt     DateTime        @default(now()) @map("created_at")
+  updatedAt     DateTime        @updatedAt @map("updated_at")
+  trips         BusTrip[]
+
+  @@index([origin, destination, status])
+  @@map("bus_routes")
+}
+
+model BusTrip {
+  id            String        @id @default(cuid())
+  routeId       String        @map("route_id")
+  departureTime DateTime      @map("departure_time")
+  arrivalTime   DateTime?     @map("arrival_time")
+  price         Decimal       @db.Decimal(10, 2)
+  totalSeats    Int           @map("total_seats")
+  status        BusTripStatus @default(SCHEDULED)
+  route         BusRoute      @relation(fields: [routeId], references: [id], onDelete: Cascade)
+  tickets       BusTicket[]
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+
+  @@unique([routeId, departureTime])
+  @@index([departureTime, status])
+  @@map("bus_trips")
+}
+
+model BusTicket {
+  id          String           @id @default(cuid())
+  tripId      String           @map("trip_id")
+  userId      String           @map("user_id")
+  seatNumber  Int              @map("seat_number")
+  qrCodeHash  String           @unique @map("qr_code_hash")
+  status      BusTicketStatus  @default(VALID)
+  usedAt      DateTime?        @map("used_at")
+  createdAt   DateTime         @default(now()) @map("created_at")
+  trip        BusTrip          @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([tripId, seatNumber])
+  @@index([userId, status])
+  @@map("bus_tickets")
 }

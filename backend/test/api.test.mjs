@@ -166,7 +166,10 @@ test('creates and reuses a stadium ticket QR once', async () => {
     const sector = match.stadium.sectors[0];
     const rows = sector.seatLayout.rows ?? [];
     const columns = sector.seatLayout.columns ?? 0;
-    const seatNumber = `${rows[0]}1`;
+    const seatNumber = rows
+      .flatMap((row) => Array.from({ length: columns }, (_, index) => `${row}${index + 1}`))
+      .find((seat) => !(sector.occupiedSeats ?? []).includes(seat));
+    assert.ok(seatNumber, 'expected an available stadium seat for the selected sector');
 
     const ticketResponse = await request(baseUrl, `/api/matches/${match.id}/tickets`, {
       method: 'POST',

@@ -27,6 +27,7 @@ type AuthContextValue = {
   token: string | null;
   restoring: boolean;
   signIn: (email: string, password: string) => Promise<void>;
+  signInAdmin: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string) => Promise<void>;
   startGuestSession: (email: string, fullName: string, phone: string) => Promise<AuthResponse>;
   updateProfile: (profile: { email: string; fullName?: string; phone?: string }) => Promise<void>;
@@ -44,9 +45,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     Promise.all([getStoredValue(TOKEN_KEY), getStoredValue(USER_KEY)])
       .then(async ([storedToken, storedUser]) => {
         if (storedToken && storedUser) {
-          const response = await getMe(storedToken);
-          setToken(storedToken);
-          setUser(response.user);
+          try {
+            const response = await getMe(storedToken);
+            setToken(storedToken);
+            setUser(response.user);
+            console.log('[AuthContext] Restored session from storage:', response.user?.role);
+          } catch (error) {
+            console.error('[AuthContext] Failed to restore session:', error);
+            // Token might be expired, clear and create guest session
+            await deleteStoredValue(TOKEN_KEY);
+            await deleteStoredValue(USER_KEY);
+            try {
+              const guestResponse = await createGuestSession(
+                `guest-${Date.now()}@tikets.local`,
+                'Guest User',
+                '+5939999999999'
+              );
+              await saveSession(guestResponse.token, guestResponse.user);
+              console.log('[AuthContext] Auto-created guest session:', guestResponse.user?.role);
+            } catch (guestError) {
+              console.error('[AuthContext] Failed to create guest session:', guestError);
+            }
+          }
+        } else {
+          // Auto-create guest session if no user is stored
+          try {
+            const guestResponse = await createGuestSession(
+              `guest-${Date.now()}@tikets.local`,
+              'Guest User',
+              '+5939999999999'
+            );
+            await saveSession(guestResponse.token, guestResponse.user);
+            console.log('[AuthContext] Created new guest session:', guestResponse.user?.role);
+          } catch (error) {
+            console.error('[AuthContext] Failed to create guest session:', error);
+            // Silently fail - user can still browse
+          }
         }
       })
       .catch(() => {
@@ -64,6 +98,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signIn = async (email: string, password: string) => {
     const response = await login(email, password);
+    await saveSession(response.token, response.user);
+  };
+
+  const signInAdmin = async (email: string, password: string) => {
+    const response = await login(email, password);
+    if (response.user.role !== 'ADMIN') throw new Error('Estas credenciales no tienen acceso de administrador.');
     await saveSession(response.token, response.user);
   };
 
@@ -91,7 +131,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
   };
 
-  return <AuthContext.Provider value={{ user, token, restoring, signIn, signUp, startGuestSession, updateProfile, signOut }}>{children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={{ user, token, restoring, signIn, signInAdmin, signUp, startGuestSession, updateProfile, signOut }}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {

@@ -14,6 +14,8 @@ import AuthScreen from './src/screens/AuthScreen';
 import AdminHubScreen from './src/screens/AdminHubScreen';
 import StadiumScreen from './src/screens/StadiumScreen';
 import AssistantScreen from './src/screens/AssistantScreen';
+import ParkingScreen from './src/screens/ParkingScreen';
+import BusScreen from './src/screens/BusScreen';
 import { AuthProvider, useAuth } from './src/auth/AuthContext';
 import { colors, typography } from './src/theme';
 
@@ -63,6 +65,8 @@ function HomeTabs() {
             'Mis Tickets': 'ticket-outline',
             Admin: 'grid-outline',
             Estadios: 'football-outline',
+            Parqueaderos: 'car-outline',
+            Buses: 'bus-outline',
           } as const;
 
           return <Ionicons name={iconMap[route.name as keyof typeof iconMap] ?? 'film-outline'} size={size} color={color} />;
@@ -71,6 +75,8 @@ function HomeTabs() {
     >
       <Tab.Screen name="Cartelera" component={HomeScreen} />
       <Tab.Screen name="Estadios" component={StadiumScreen} />
+      <Tab.Screen name="Parqueaderos" component={ParkingScreen} />
+      <Tab.Screen name="Buses" component={BusScreen} />
       <Tab.Screen name="Mis Tickets" component={MyTicketsScreen} />
       {canUseAdmin && <Tab.Screen name="Admin" component={AdminHubScreen} />}
     </Tab.Navigator>

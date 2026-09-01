@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Platform, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Modal, Platform, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../auth/AuthContext';
@@ -10,13 +10,18 @@ import ProfileAvatar from '../components/ProfileAvatar';
 
 export default function ProfileScreen() {
   const navigation = useNavigation<any>();
-  const { user, updateProfile, signOut } = useAuth();
+  const { user, updateProfile, signInAdmin, signOut } = useAuth();
   const [email, setEmail] = useState(user?.email ?? '');
   const [fullName, setFullName] = useState(user?.fullName ?? '');
   const [phone, setPhone] = useState(user?.phone ?? '');
   const [saving, setSaving] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [adminLoginOpen, setAdminLoginOpen] = useState(false);
+  const [adminEmail, setAdminEmail] = useState('');
+  const [adminPassword, setAdminPassword] = useState('');
+  const [adminLoginError, setAdminLoginError] = useState('');
+  const [adminLoggingIn, setAdminLoggingIn] = useState(false);
 
   useEffect(() => {
     setEmail(user?.email ?? '');
@@ -26,6 +31,13 @@ export default function ProfileScreen() {
 
   const initials = (fullName || user?.email?.split('@')[0] || 'OM').split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase();
   const roleLabel = user?.role === 'ADMIN' ? 'Administrador' : user?.role === 'SCANNER' ? 'Control de acceso' : 'Cliente';
+  const showDemoAdmin = !!user && user.role !== 'ADMIN' && user.role !== 'SCANNER';
+  
+  // Debug logging
+  console.log('[ProfileScreen] user:', user);
+  console.log('[ProfileScreen] user?.role:', user?.role);
+  console.log('[ProfileScreen] showDemoAdmin:', showDemoAdmin);
+  
   const memberSince = user?.createdAt
     ? new Date(user.createdAt).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })
     : 'Hoy';
@@ -58,6 +70,27 @@ export default function ProfileScreen() {
     }
   };
 
+  const loginAsAdmin = async () => {
+    const normalizedEmail = adminEmail.trim().toLowerCase();
+    if (!normalizedEmail.includes('@') || !adminPassword) {
+      setAdminLoginError('Ingresa un correo y una contraseña.');
+      return;
+    }
+
+    setAdminLoggingIn(true);
+    setAdminLoginError('');
+    try {
+      await signInAdmin(normalizedEmail, adminPassword);
+      setAdminLoginOpen(false);
+      setAdminEmail('');
+      setAdminPassword('');
+    } catch (error) {
+      setAdminLoginError(error instanceof Error ? error.message : 'No se pudo iniciar sesión.');
+    } finally {
+      setAdminLoggingIn(false);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
@@ -73,8 +106,43 @@ export default function ProfileScreen() {
         {settingsOpen && <View style={styles.settingsPanel}>
           <View style={styles.settingsHeading}><Ionicons name="options-outline" size={18} color={colors.primary} /><Text style={styles.settingsTitle}>Configuración rápida</Text></View>
           <Pressable style={styles.settingsRow} onPress={() => setSettingsOpen(false)}><Ionicons name="create-outline" size={18} color={colors.textSecondary} /><View style={styles.settingsCopy}><Text style={styles.settingsRowTitle}>Datos personales</Text><Text style={styles.settingsRowText}>Edita tu correo más abajo</Text></View><Ionicons name="chevron-down" size={17} color={colors.textSecondary} /></Pressable>
+          {showDemoAdmin && (
+            <Pressable style={styles.settingsRow} onPress={() => {
+              setSettingsOpen(false);
+              setAdminLoginError('');
+              setAdminLoginOpen(true);
+            }}>
+              <Ionicons name="shield-checkmark-outline" size={18} color={colors.warning} />
+              <View style={styles.settingsCopy}><Text style={styles.settingsRowTitle}>Entrar como admin</Text><Text style={styles.settingsRowText}>Demo: admin@tikets.com</Text></View>
+              <Ionicons name="chevron-forward" size={17} color={colors.textSecondary} />
+            </Pressable>
+          )}
           <View style={styles.settingsRow}><Ionicons name="shield-checkmark-outline" size={18} color={colors.success} /><View style={styles.settingsCopy}><Text style={styles.settingsRowTitle}>Sesión protegida</Text><Text style={styles.settingsRowText}>Tus datos se mantienen seguros</Text></View><View style={styles.activeDot} /></View>
         </View>}
+
+        <Modal visible={adminLoginOpen} transparent animationType="fade" onRequestClose={() => setAdminLoginOpen(false)}>
+          <View style={styles.modalBackdrop}>
+            <View style={styles.adminModal}>
+              <View style={styles.modalHeader}>
+                <View style={styles.modalTitleCopy}>
+                  <Text style={styles.modalOverline}>Acceso restringido</Text>
+                  <Text style={styles.modalTitle}>Ingresar como admin</Text>
+                </View>
+                <Pressable accessibilityRole="button" accessibilityLabel="Cerrar acceso admin" style={styles.modalClose} onPress={() => setAdminLoginOpen(false)}>
+                  <Ionicons name="close-outline" size={21} color={colors.text} />
+                </Pressable>
+              </View>
+              <Text style={styles.modalDescription}>Usa las credenciales autorizadas para entrar al centro administrativo.</Text>
+              <AppInput label="Correo de administrador" autoCapitalize="none" autoCorrect={false} keyboardType="email-address" value={adminEmail} onChangeText={setAdminEmail} placeholder="admin@ejemplo.com" style={styles.input} />
+              <AppInput label="Contraseña" secureTextEntry value={adminPassword} onChangeText={setAdminPassword} placeholder="Contraseña" style={styles.input} />
+              {!!adminLoginError && <Text style={styles.loginError}>{adminLoginError}</Text>}
+              <Pressable style={[styles.primaryButton, adminLoggingIn && styles.disabled]} onPress={() => void loginAsAdmin()} disabled={adminLoggingIn}>
+                {adminLoggingIn ? <ActivityIndicator color={colors.text} /> : <><Ionicons name="log-in-outline" size={18} color={colors.text} /><Text style={styles.buttonText}>Ingresar</Text></>}
+              </Pressable>
+              <Pressable style={styles.cancelButton} onPress={() => setAdminLoginOpen(false)} disabled={adminLoggingIn}><Text style={styles.cancelText}>Cancelar</Text></Pressable>
+            </View>
+          </View>
+        </Modal>
 
         <View style={styles.identityCard}>
           <View style={styles.identityTop}>
@@ -112,11 +180,6 @@ export default function ProfileScreen() {
             <Text style={styles.quickTitle}>Cuenta segura</Text>
             <Text style={styles.quickHint}>Sesión protegida</Text>
           </Pressable>
-          {user?.role !== 'CLIENT' && <Pressable style={styles.quickItem} onPress={() => navigation.navigate('HomeTabs', { screen: 'Admin' })}>
-            <View style={[styles.quickIcon, styles.quickIconGold]}><Ionicons name="grid-outline" size={20} color={colors.warning} /></View>
-            <Text style={styles.quickTitle}>Centro admin</Text>
-            <Text style={styles.quickHint}>Gestionar operación</Text>
-          </Pressable>}
         </View>
 
         <Text style={styles.sectionTitle}>Acceso de cuenta</Text>
@@ -199,6 +262,17 @@ const styles = StyleSheet.create({
   settingsCopy: { flex: 1 },
   settingsRowTitle: { color: colors.text, fontSize: 12, fontWeight: '700' },
   settingsRowText: { color: colors.textSecondary, fontSize: 11, marginTop: 2 },
+  modalBackdrop: { flex: 1, backgroundColor: colors.overlayStrong, justifyContent: 'center', padding: 18 },
+  adminModal: { backgroundColor: colors.surface, borderRadius: 18, borderWidth: 1, borderColor: colors.borderStrong, padding: 18 },
+  modalHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
+  modalTitleCopy: { flex: 1 },
+  modalOverline: { color: colors.warning, fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 1 },
+  modalTitle: { color: colors.text, fontSize: 21, fontWeight: '800', marginTop: 5 },
+  modalClose: { width: 34, height: 34, borderRadius: 10, backgroundColor: colors.surfaceRaised, alignItems: 'center', justifyContent: 'center' },
+  modalDescription: { color: colors.textSecondary, fontSize: 12, lineHeight: 18, marginTop: 12, marginBottom: 8 },
+  loginError: { color: colors.critical, fontSize: 12, lineHeight: 17, marginTop: 9 },
+  cancelButton: { alignItems: 'center', paddingVertical: 12, marginTop: 4 },
+  cancelText: { color: colors.textSecondary, fontWeight: '700' },
   activeDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: colors.success },
   identityCard: { backgroundColor: colors.surface, borderRadius: 18, borderWidth: 1, borderColor: colors.borderStrong, padding: 18, marginBottom: 24 },
   identityTop: { flexDirection: 'row', alignItems: 'center' },
