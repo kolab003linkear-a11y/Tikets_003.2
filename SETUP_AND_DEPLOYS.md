@@ -1,34 +1,75 @@
-# TiKetSafe: configuración y despliegue
+# TiKetSafe: guía de configuración
 
-Esta es la guía técnica ampliada. Para empezar rápido, usa primero [MANUAL_STARTUP.md](MANUAL_STARTUP.md).
+Sigue los pasos en orden. Esta guía es para Windows y PowerShell.
 
-## Arquitectura sencilla
+## Antes de empezar
 
-```text
-Usuario
-  |
-  v
-frontend/  ->  API Express  ->  PostgreSQL
-              backend/          Docker
+Instala:
+
+- Node.js 20 o superior: https://nodejs.org/
+- Docker Desktop: https://www.docker.com/products/docker-desktop/
+- Git: https://git-scm.com/downloads
+
+Abre Docker Desktop y espera a que termine de iniciar.
+
+## Paso 1: abrir VSC y clonar el repositorio
+
+1. Abre **Visual Studio Code (VSC)**
+2. Abre la terminal integrada: `Ctrl + `` (backtick) o menú **Terminal → New Terminal**
+3. Asegúrate de que sea **PowerShell** (si no, haz clic en el dropdown de la terminal y selecciona PowerShell)
+
+Ve al Escritorio:
+
+```powershell
+cd "$HOME\Desktop"
 ```
 
-- `frontend/`: aplicación Expo para web y celular.
-- `backend/`: API Express, autenticación y reglas de negocio.
-- PostgreSQL: base de datos ejecutada dentro de Docker.
+Clona el repositorio:
 
-## Puertos del proyecto
+```powershell
+git clone https://github.com/kolab003linkear-a11y/Tikets_003.2.git
+```
 
-| Servicio | Puerto | Dirección |
-| --- | ---: | --- |
-| PostgreSQL | 5433 | Solo para el backend |
-| API | 4001 | `http://localhost:4001` |
-| Expo web | 8082 | `http://localhost:8082` |
+Entra a la carpeta descargada:
 
-Estos puertos son los configurados actualmente. Si los cambias, actualiza `backend/.env` y `frontend/.env.local`.
+```powershell
+cd Tikets_003.2
+```
 
-## Variables de entorno
+Abre esta carpeta en VSC: `File → Open Folder` o ejecuta en la terminal:
 
-El archivo `backend/.env.example` contiene una configuración lista para desarrollo:
+```powershell
+code .
+```
+
+Comprueba que estás en la carpeta correcta:
+
+```powershell
+Get-ChildItem
+```
+
+Debes ver las carpetas `backend` y `frontend`, además de archivos como `README.md` y `package.json`.
+
+> Si ya clonaste el repositorio antes, no repitas `git clone`. Usa `cd "$HOME\Desktop\Tikets_003.2"`.
+
+## Paso 2: instalar dependencias
+
+Ejecuta una sola vez:
+
+```powershell
+npm install
+npm --workspace backend run prisma:generate
+```
+
+## Paso 3: configurar el backend
+
+Crea el archivo de configuración:
+
+```powershell
+Copy-Item backend\.env.example backend\.env
+```
+
+El archivo debe usar estos valores:
 
 ```env
 DATABASE_URL="postgresql://postgres:postgres@localhost:5433/tiKets?schema=public"
@@ -38,146 +79,179 @@ JWT_SECRET="tiKets-dev-secret"
 CORS_ORIGINS="http://localhost:8082"
 ```
 
-Cópialo una vez:
+No compartas el archivo `backend/.env`.
 
-```powershell
-Copy-Item backend\.env.example backend\.env
-```
+## Paso 4: preparar la base de datos
 
-No publiques `backend/.env`. Puede contener claves y secretos.
-
-Para web, el cliente usa por defecto `http://localhost:4001`. Para un celular usa la IP local de la computadora:
-
-```env
-EXPO_PUBLIC_API_URL=http://192.168.1.50:4001
-```
-
-## Instalación limpia
-
-Desde la raíz:
-
-```powershell
-npm install
-npm --workspace backend run prisma:generate
-```
-
-Si una instalación quedó dañada:
-
-```powershell
-Remove-Item -Recurse -Force node_modules -ErrorAction SilentlyContinue
-Remove-Item -Recurse -Force frontend\node_modules -ErrorAction SilentlyContinue
-Remove-Item -Recurse -Force backend\node_modules -ErrorAction SilentlyContinue
-npm install
-```
-
-## Base de datos y migraciones
-
-Inicia PostgreSQL:
+Ejecuta:
 
 ```powershell
 npm --workspace backend run db:up
-```
-
-Aplica todas las migraciones existentes:
-
-```powershell
 npm --workspace backend exec prisma migrate deploy -- --schema=prisma/schema.prisma
-```
-
-Carga datos demo:
-
-```powershell
 npm --workspace backend run prisma:seed
 ```
 
-Para crear una migración durante el desarrollo:
+El último comando crea datos de prueba para Cartelera, Estadios, Parqueaderos y Buses.
 
-```powershell
-cd backend
-npx prisma migrate dev --name describe-el-cambio --schema=prisma/schema.prisma
-cd ..
-```
+## Paso 5: levantar la API
 
-No borres la carpeta `backend/prisma/migrations`. Las migraciones permiten que todas las computadoras tengan la misma base de datos.
-
-## Arranque manual
-
-Usa tres terminales. Los comandos completos están en [MANUAL_STARTUP.md](MANUAL_STARTUP.md).
-
-Terminal de API:
+En la terminal de VSC, ejecuta:
 
 ```powershell
 npm run dev:backend
 ```
 
-Terminal de Expo:
+No cierres esta terminal. La API se levantará en segundo plano.
+
+La API debe funcionar en:
+
+```text
+http://localhost:4001
+```
+
+Para comprobarla, abre una nueva terminal en VSC: `Ctrl + Shift + `` (backtick) y ejecuta:
+
+```powershell
+Invoke-RestMethod http://localhost:4001/api/health
+```
+
+La respuesta correcta debe mostrar:
+
+```text
+ok: True
+database: connected
+```
+
+## Paso 6: levantar la aplicación
+
+En una nueva terminal de VSC (o usa la terminal de verificación), entra a la carpeta `frontend` y ejecuta:
 
 ```powershell
 cd frontend
 npx expo start --web --port 8082 --offline
 ```
 
-Nunca ejecutes Expo desde la raíz: el frontend oficial está dentro de `frontend/`.
+Es importante que estés en la carpeta `frontend` para ejecutar este comando.
 
-## Validación de servicios
+Abre en el navegador:
 
-Salud de la API:
+```text
+http://localhost:8082
+```
+
+## Paso 7: probar el acceso admin
+
+En la aplicación:
+
+1. Abre **Perfil**.
+2. Pulsa la rueda de configuración.
+3. Pulsa **Entrar como admin**.
+4. Escribe estos datos:
+
+```text
+Correo: admin@tikets.com
+Contraseña: demo1234
+```
+
+Estas credenciales solo sirven para pruebas locales.
+
+## Paso 8: probar los módulos
+
+En la barra inferior revisa:
+
+- **Cartelera**: eventos y películas.
+- **Estadios**: partidos y localidades.
+- **Parqueaderos**: parqueaderos y espacios disponibles.
+- **Buses**: rutas, viajes y asientos.
+- **Mis Tickets**: tickets comprados.
+- **Admin**: administración de eventos, estadios, parqueaderos y buses.
+
+Los datos de parqueaderos, terminales, operadores y viajes son demostrativos. No son información oficial ni disponibilidad real.
+
+## Paso 9: detener el proyecto
+
+En la terminal de VSC donde corre la API y en la terminal donde corre Expo, presiona:
+
+```text
+Ctrl + C
+```
+
+Para detener PostgreSQL, en cualquier terminal ejecuta:
+
+```powershell
+npm --workspace backend run db:down
+```
+
+## Problemas comunes
+
+### `ERR_CONNECTION_REFUSED`
+
+Expo no está levantado. Ejecuta nuevamente el Paso 6.
+
+### Pantalla blanca
+
+Detén Expo con `Ctrl + C` en su terminal y ejecuta:
+
+```powershell
+cd frontend
+Remove-Item -Recurse -Force .expo -ErrorAction SilentlyContinue
+npx expo start --web --port 8082 --offline
+```
+
+Después recarga el navegador con `Ctrl + Shift + R`.
+
+### `Failed to fetch`
+
+La API no está funcionando. Comprueba:
 
 ```powershell
 Invoke-RestMethod http://localhost:4001/api/health
 ```
 
-Catálogos de movilidad:
+Si falla, vuelve al Paso 5.
+
+### Docker no inicia
+
+Abre Docker Desktop y espera a que esté listo. Después ejecuta:
 
 ```powershell
-Invoke-RestMethod http://localhost:4001/api/parking
-Invoke-RestMethod http://localhost:4001/api/buses
+npm --workspace backend run db:up
 ```
 
-Comprobación general:
+### El puerto está ocupado
+
+Comprueba qué proceso usa los puertos:
 
 ```powershell
-npm run ops:check
+Get-NetTCPConnection -LocalPort 4001,8082,5433 -ErrorAction SilentlyContinue
 ```
 
-## Pruebas y compilación
+Cierra la aplicación que esté usando el puerto y repite los pasos.
 
-Backend:
+## Comandos opcionales para estudiantes
+
+Compilar el backend:
 
 ```powershell
 npm --workspace backend run build
+```
+
+Ejecutar las pruebas:
+
+```powershell
 npm --workspace backend test
 ```
 
-Frontend:
+Comprobar tipos del frontend:
 
 ```powershell
 cd frontend
 npx tsc --noEmit -p tsconfig.json
-npx expo export --platform web
 ```
 
-## Datos demo y referencias externas
+Comprobar todos los servicios:
 
-El seed incluye datos demostrativos inspirados en conceptos públicos de UrbaPark y EPMMOP:
-
-- Parqueaderos con modalidad QR, tarjeta o ticket.
-- Horarios de operación y tipos de vehículo.
-- Terminales Quitumbe y Carcelén.
-- Operadores, andenes, equipaje y viajes interprovinciales.
-
-Estos datos no representan una afiliación, disponibilidad, tarifa u horario oficial. Para producción se necesitaría autorización e integración con cada operador, sensores o inventario real y un proveedor de pagos.
-
-## Despliegue
-
-Antes de producción:
-
-1. Usa PostgreSQL administrado o un servidor protegido.
-2. Define un `JWT_SECRET` largo y privado.
-3. Configura `CORS_ORIGINS` con los dominios reales.
-4. Completa la integración de pagos.
-5. Sustituye el seed demo por datos autorizados.
-6. Genera los builds finales de Android y web.
-7. No uses `admin@tikets.com` ni `demo1234` en producción.
-
-La aplicación actualmente usa pago demo y tickets QR para pruebas.
+```powershell
+cd ..
+npm run ops:check
+```
