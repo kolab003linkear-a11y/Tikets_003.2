@@ -115,6 +115,7 @@ model User {
   stadiumTickets StadiumTicket[]
   parkingTickets ParkingTicket[]
   busTickets     BusTicket[]
+  favoriteTeams  UserFavoriteTeam[]
 
   @@map("users")
 }
@@ -256,34 +257,83 @@ model Stadium {
 }
 
 model StadiumSector {
-  id          String          @id @default(cuid())
-  stadiumId   String          @map("stadium_id")
+  id          String             @id @default(cuid())
+  stadiumId   String             @map("stadium_id")
   name        String
   code        String
   capacity    Int
-  price       Decimal         @db.Decimal(10, 2)
-  seatLayout  Json            @map("seat_layout")
-  stadium     Stadium         @relation(fields: [stadiumId], references: [id], onDelete: Cascade)
+  price       Decimal            @db.Decimal(10, 2)
+  seatLayout  Json               @map("seat_layout")
+  stadium     Stadium            @relation(fields: [stadiumId], references: [id], onDelete: Cascade)
   tickets     StadiumTicket[]
+  matchPrices MatchSectorPrice[]
 
   @@unique([stadiumId, code])
   @@map("stadium_sectors")
 }
 
+model Team {
+  id          String             @id @default(cuid())
+  name        String             @unique
+  city        String?
+  logoUrl     String?            @map("logo_url")
+  createdAt   DateTime           @default(now()) @map("created_at")
+  updatedAt   DateTime           @updatedAt @map("updated_at")
+  homeMatches Match[]            @relation("HomeTeam")
+  awayMatches Match[]            @relation("AwayTeam")
+  favoritedBy UserFavoriteTeam[]
+
+  @@map("teams")
+}
+
+model UserFavoriteTeam {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  teamId    String   @map("team_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, teamId])
+  @@map("user_favorite_teams")
+}
+
 model Match {
-  id          String          @id @default(cuid())
-  stadiumId   String          @map("stadium_id")
-  homeTeam    String          @map("home_team")
-  awayTeam    String          @map("away_team")
-  startTime   DateTime        @map("start_time")
-  status      MatchStatus     @default(SCHEDULED)
-  stadium     Stadium         @relation(fields: [stadiumId], references: [id], onDelete: Cascade)
-  tickets     StadiumTicket[]
-  createdAt   DateTime        @default(now()) @map("created_at")
+  id           String             @id @default(cuid())
+  stadiumId    String             @map("stadium_id")
+  homeTeamId   String             @map("home_team_id")
+  awayTeamId   String             @map("away_team_id")
+  startTime    DateTime           @map("start_time")
+  status       MatchStatus        @default(SCHEDULED)
+  stadium      Stadium            @relation(fields: [stadiumId], references: [id], onDelete: Cascade)
+  homeTeam     Team               @relation("HomeTeam", fields: [homeTeamId], references: [id])
+  awayTeam     Team               @relation("AwayTeam", fields: [awayTeamId], references: [id])
+  tickets      StadiumTicket[]
+  sectorPrices MatchSectorPrice[]
+  createdAt    DateTime           @default(now()) @map("created_at")
 
   @@unique([stadiumId, startTime])
   @@index([startTime, status])
+  @@index([homeTeamId])
+  @@index([awayTeamId])
   @@map("matches")
+}
+
+// Precio de un sector del estadio, específico para un partido. Si un
+// (matchId, sectorId) no tiene fila aquí, se usa StadiumSector.price
+// como precio por defecto (ver GET /api/matches y GET /api/admin/matches/:matchId/prices).
+model MatchSectorPrice {
+  id        String        @id @default(cuid())
+  matchId   String        @map("match_id")
+  sectorId  String        @map("sector_id")
+  price     Decimal       @db.Decimal(10, 2)
+  createdAt DateTime      @default(now()) @map("created_at")
+  updatedAt DateTime      @updatedAt @map("updated_at")
+  match     Match         @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  sector    StadiumSector @relation(fields: [sectorId], references: [id], onDelete: Cascade)
+
+  @@unique([matchId, sectorId])
+  @@map("match_sector_prices")
 }
 
 model StadiumTicket {

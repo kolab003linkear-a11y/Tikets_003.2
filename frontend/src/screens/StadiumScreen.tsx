@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, FlatList, Image, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import { createMatchTicket, getMatches, StadiumMatch } from '../api/client';
+import { createMatchTicket, getMatches, StadiumMatch, Team } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { colors, typography } from '../theme';
 import AppButton from '../components/AppButton';
@@ -28,8 +28,8 @@ function getStadiumImage(stadiumName: string, imageUrl?: string | null) {
   return imageUrl ?? stadiumImages[stadiumName] ?? defaultStadiumImage;
 }
 
-function getTeamLogo(teamName: string) {
-  return teamLogos[teamName];
+function getTeamLogo(team: Team) {
+  return team.logoUrl ?? teamLogos[team.name];
 }
 
 function StadiumImage({ uri, style }: { uri: string; style: object }) {
@@ -75,7 +75,7 @@ export default function StadiumScreen() {
       const matchesStatus = filter === 'TODOS' || match.status === filter;
       const matchesCity = cityFilter === 'Todas' || match.stadium.city === cityFilter;
       const search = teamSearch.trim().toLowerCase();
-      const matchesTeam = !search || `${match.homeTeam} ${match.awayTeam}`.toLowerCase().includes(search);
+      const matchesTeam = !search || `${match.homeTeam.name} ${match.awayTeam.name}`.toLowerCase().includes(search);
       return matchesStatus && matchesCity && matchesTeam;
     }),
     [cityFilter, filter, matches, teamSearch],
@@ -111,7 +111,7 @@ export default function StadiumScreen() {
         ticketId: response.ticket.id,
         qrPayload: response.ticket.qrPayload,
         status: response.ticket.status,
-        movieTitle: `${selectedMatch.homeTeam} vs ${selectedMatch.awayTeam}`,
+        movieTitle: `${selectedMatch.homeTeam.name} vs ${selectedMatch.awayTeam.name}`,
         selectedSeats: [response.ticket.seatNumber],
         startTime: selectedMatch.startTime,
         roomName: `${selectedMatch.stadium.name} · ${response.ticket.sector}`,
@@ -167,13 +167,13 @@ export default function StadiumScreen() {
             </View>
             <View style={styles.matchHeader}>
               <View style={styles.purchaseTeam}>
-                <View style={styles.largeTeamBadge}>{getTeamLogo(selectedMatch.homeTeam) ? <Image source={{ uri: getTeamLogo(selectedMatch.homeTeam) }} style={styles.largeTeamLogo} /> : <Text style={styles.largeTeamInitial}>{selectedMatch.homeTeam.charAt(0)}</Text>}</View>
-                <Text style={styles.matchTitle}>{selectedMatch.homeTeam}</Text>
+                <View style={styles.largeTeamBadge}>{getTeamLogo(selectedMatch.homeTeam) ? <Image source={{ uri: getTeamLogo(selectedMatch.homeTeam) }} style={styles.largeTeamLogo} /> : <Text style={styles.largeTeamInitial}>{selectedMatch.homeTeam.name.charAt(0)}</Text>}</View>
+                <Text style={styles.matchTitle}>{selectedMatch.homeTeam.name}</Text>
               </View>
               <View style={styles.vsBlock}><Text style={styles.vs}>VS</Text><Text style={styles.matchDate}>{new Date(selectedMatch.startTime).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}</Text></View>
               <View style={styles.purchaseTeam}>
-                <View style={[styles.largeTeamBadge, styles.awayBadge]}>{getTeamLogo(selectedMatch.awayTeam) ? <Image source={{ uri: getTeamLogo(selectedMatch.awayTeam) }} style={styles.largeTeamLogo} /> : <Text style={styles.largeTeamInitial}>{selectedMatch.awayTeam.charAt(0)}</Text>}</View>
-                <Text style={styles.matchTitle}>{selectedMatch.awayTeam}</Text>
+                <View style={[styles.largeTeamBadge, styles.awayBadge]}>{getTeamLogo(selectedMatch.awayTeam) ? <Image source={{ uri: getTeamLogo(selectedMatch.awayTeam) }} style={styles.largeTeamLogo} /> : <Text style={styles.largeTeamInitial}>{selectedMatch.awayTeam.name.charAt(0)}</Text>}</View>
+                <Text style={styles.matchTitle}>{selectedMatch.awayTeam.name}</Text>
               </View>
             </View>
             <View style={styles.info}>
@@ -392,13 +392,13 @@ export default function StadiumScreen() {
                 <Text style={styles.city}>{item.stadium.city}</Text>
               </View>
               <View style={styles.matchRow}>
-                <View style={[styles.teamBadge, styles.homeBadge]}>{getTeamLogo(item.homeTeam) ? <Image source={{ uri: getTeamLogo(item.homeTeam) }} style={styles.teamLogo} /> : <Text style={styles.teamInitial}>{item.homeTeam.charAt(0)}</Text>}</View>
+                <View style={[styles.teamBadge, styles.homeBadge]}>{getTeamLogo(item.homeTeam) ? <Image source={{ uri: getTeamLogo(item.homeTeam) }} style={styles.teamLogo} /> : <Text style={styles.teamInitial}>{item.homeTeam.name.charAt(0)}</Text>}</View>
                 <View style={styles.matchTeam}>
-                  <Text style={styles.teamName}>{item.homeTeam}</Text>
+                  <Text style={styles.teamName}>{item.homeTeam.name}</Text>
                   <Text style={styles.vs}>contra</Text>
-                  <Text style={styles.teamName}>{item.awayTeam}</Text>
+                  <Text style={styles.teamName}>{item.awayTeam.name}</Text>
                 </View>
-                <View style={[styles.teamBadge, styles.awayBadge]}>{getTeamLogo(item.awayTeam) ? <Image source={{ uri: getTeamLogo(item.awayTeam) }} style={styles.teamLogo} /> : <Text style={styles.teamInitial}>{item.awayTeam.charAt(0)}</Text>}</View>
+                <View style={[styles.teamBadge, styles.awayBadge]}>{getTeamLogo(item.awayTeam) ? <Image source={{ uri: getTeamLogo(item.awayTeam) }} style={styles.teamLogo} /> : <Text style={styles.teamInitial}>{item.awayTeam.name.charAt(0)}</Text>}</View>
               </View>
               <View style={styles.detailsRow}>
                 <View style={styles.detailItem}>
