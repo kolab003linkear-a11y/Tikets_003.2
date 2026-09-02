@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../auth/AuthContext';
 import { colors, typography } from '../theme';
@@ -7,11 +7,13 @@ import AdminEventsScreen from './AdminEventsScreen';
 import AdminScannerScreen from './AdminScannerScreen';
 import AdminScheduleScreen from './AdminScheduleScreen';
 import AdminStadiumsScreen from './AdminStadiumsScreen';
+import AdminTeamsScreen from './AdminTeamsScreen';
+import AdminMatchesScreen from './AdminMatchesScreen';
 import ProfileAvatar from '../components/ProfileAvatar';
 import AdminParkingScreen from './AdminParkingScreen';
 import AdminBusesScreen from './AdminBusesScreen';
 
-type AdminSection = 'scanner' | 'events' | 'schedule' | 'stadiums' | 'parking' | 'buses';
+type AdminSection = 'scanner' | 'events' | 'schedule' | 'stadiums' | 'teams' | 'matches' | 'parking' | 'buses';
 
 export default function AdminHubScreen() {
   const { user } = useAuth();
@@ -22,6 +24,8 @@ export default function AdminHubScreen() {
         { key: 'events', label: 'Eventos', icon: 'film-outline' },
         { key: 'schedule', label: 'Salas', icon: 'calendar-outline' },
         { key: 'stadiums', label: 'Estadios', icon: 'football-outline' },
+        { key: 'teams', label: 'Equipos', icon: 'shield-outline' },
+        { key: 'matches', label: 'Partidos', icon: 'trophy-outline' },
         { key: 'parking', label: 'Parqueaderos', icon: 'car-outline' },
         { key: 'buses', label: 'Buses', icon: 'bus-outline' },
       ]
@@ -44,7 +48,7 @@ export default function AdminHubScreen() {
         </View>
         <View style={styles.toolbarActions}><View style={styles.roleBadge}><Ionicons name="shield-checkmark-outline" size={13} color={colors.success} /><Text style={styles.roleText}>{isAdmin ? 'ADMIN' : 'SCANNER'}</Text></View><ProfileAvatar /></View>
       </View>
-      <View style={styles.selector}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.selector} contentContainerStyle={styles.selectorContent}>
         {sections.map((item) => (
           <Pressable key={item.key} accessibilityRole="button" accessibilityState={{ selected: section === item.key }} onPress={() => setSection(item.key)} style={styles.selectorItem}>
             <Ionicons name={item.icon} size={17} color={section === item.key ? colors.text : colors.textSecondary} />
@@ -52,12 +56,14 @@ export default function AdminHubScreen() {
             {section === item.key && <View style={styles.activeLine} />}
           </Pressable>
         ))}
-      </View>
+      </ScrollView>
       <View style={styles.content}>
         {section === 'scanner' && <AdminScannerScreen />}
         {section === 'events' && <AdminEventsScreen />}
         {section === 'schedule' && <AdminScheduleScreen />}
         {section === 'stadiums' && <AdminStadiumsScreen />}
+        {section === 'teams' && <AdminTeamsScreen />}
+        {section === 'matches' && <AdminMatchesScreen />}
         {section === 'parking' && <AdminParkingScreen />}
         {section === 'buses' && <AdminBusesScreen />}
       </View>
@@ -75,8 +81,9 @@ const styles = StyleSheet.create({
   roleBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: colors.success + '18', borderRadius: 999, paddingHorizontal: 9, paddingVertical: 6 },
   roleText: { color: colors.success, fontSize: 10, fontWeight: '800' },
   toolbarActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  selector: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: colors.border, paddingHorizontal: 12 },
-  selectorItem: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 5, paddingVertical: 10, position: 'relative' },
+  selector: { flexGrow: 0, borderBottomWidth: 1, borderBottomColor: colors.border },
+  selectorContent: { flexDirection: 'row', paddingHorizontal: 12 },
+  selectorItem: { minWidth: 84, alignItems: 'center', justifyContent: 'center', gap: 5, paddingVertical: 10, paddingHorizontal: 8, position: 'relative' },
   selectorText: { color: colors.textSecondary, fontSize: 12, fontWeight: '700' },
   selectorTextActive: { color: colors.text },
   activeLine: { position: 'absolute', bottom: -1, left: 12, right: 12, height: 2, borderRadius: 2, backgroundColor: colors.primary },

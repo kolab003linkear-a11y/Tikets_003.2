@@ -144,6 +144,19 @@ export type AdminShowtimeInput = {
   availableSeats?: number;
 };
 
+export type Team = {
+  id: string;
+  name: string;
+  city: string | null;
+  logoUrl: string | null;
+};
+
+export type AdminTeamInput = {
+  name: string;
+  city?: string | null;
+  logoUrl?: string | null;
+};
+
 export type StadiumSector = {
   id: string;
   name: string;
@@ -156,8 +169,8 @@ export type StadiumSector = {
 
 export type StadiumMatch = {
   id: string;
-  homeTeam: string;
-  awayTeam: string;
+  homeTeam: Team;
+  awayTeam: Team;
   startTime: string;
   status: 'SCHEDULED' | 'LIVE' | 'FINISHED' | 'CANCELLED';
   stadium: { id: string; name: string; city: string; capacity: number; imageUrl?: string | null; sectors: StadiumSector[] };
@@ -185,6 +198,51 @@ export type AdminStadiumInput = {
   imageUrl?: string | null;
   seatLayout: { rows: string[]; columns: number };
   sectors: Array<{ name: string; code: string; capacity: number; price: number; seatLayout: { rows: string[]; columns: number } }>;
+};
+
+export type AdminMatch = {
+  id: string;
+  stadiumId: string;
+  homeTeamId: string;
+  awayTeamId: string;
+  startTime: string;
+  status: 'SCHEDULED' | 'LIVE' | 'FINISHED' | 'CANCELLED';
+  stadium: { id: string; name: string; city: string };
+  homeTeam: Team;
+  awayTeam: Team;
+  _count?: { tickets: number; sectorPrices: number };
+};
+
+export type AdminMatchInput = {
+  stadiumId: string;
+  homeTeamId: string;
+  awayTeamId: string;
+  startTime: string;
+  status?: AdminMatch['status'];
+};
+
+// Precio de un sector de estadio para UN partido en concreto (módulo
+// "Precios por partido"). matchPrice es null cuando el admin no ha
+// personalizado ese sector todavía y por eso effectivePrice = basePrice.
+export type MatchSectorPriceEntry = {
+  sectorId: string;
+  sectorName: string;
+  sectorCode: string;
+  basePrice: number | string;
+  matchPrice: number | string | null;
+  effectivePrice: number | string;
+};
+
+export type MatchSectorPriceInput = {
+  sectorId: string;
+  // null = quitar el precio personalizado y volver a usar el precio base del sector.
+  price: number | null;
+};
+
+export type AdminMatchPricesResponse = {
+  matchId: string;
+  stadiumId: string;
+  prices: MatchSectorPriceEntry[];
 };
 
 export type ParkingLot = {
@@ -270,6 +328,33 @@ export function getMatches() {
   return request<{ matches: StadiumMatch[] }>('/api/matches');
 }
 
+export function getTeams() {
+  return request<{ teams: Team[] }>('/api/teams');
+}
+
+export function createAdminTeam(token: string, team: AdminTeamInput) {
+  return request<{ team: Team }>('/api/admin/teams', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify(team),
+  });
+}
+
+export function updateAdminTeam(token: string, teamId: string, team: AdminTeamInput) {
+  return request<{ team: Team }>(`/api/admin/teams/${teamId}`, {
+    method: 'PATCH',
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify(team),
+  });
+}
+
+export function deleteAdminTeam(token: string, teamId: string) {
+  return request<{ success: boolean }>(`/api/admin/teams/${teamId}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
 export function createMatchTicket(token: string, matchId: string, sectorId: string, seatNumber: string) {
   return request<StadiumTicketResponse>(`/api/matches/${matchId}/tickets`, {
     method: 'POST',
@@ -287,6 +372,40 @@ export function createAdminStadium(token: string, stadium: AdminStadiumInput) {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}` },
     body: JSON.stringify(stadium),
+  });
+}
+
+export function getAdminMatches(token: string) {
+  return request<{ matches: AdminMatch[] }>('/api/admin/matches', { headers: { Authorization: `Bearer ${token}` } });
+}
+
+export function createAdminMatch(token: string, match: AdminMatchInput) {
+  return request<{ match: AdminMatch }>('/api/admin/matches', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify(match),
+  });
+}
+
+export function updateAdminMatch(token: string, matchId: string, match: AdminMatchInput) {
+  return request<{ match: AdminMatch }>(`/api/admin/matches/${matchId}`, {
+    method: 'PATCH',
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify(match),
+  });
+}
+
+export function getAdminMatchPrices(token: string, matchId: string) {
+  return request<AdminMatchPricesResponse>(`/api/admin/matches/${matchId}/prices`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export function updateAdminMatchPrices(token: string, matchId: string, prices: MatchSectorPriceInput[]) {
+  return request<AdminMatchPricesResponse>(`/api/admin/matches/${matchId}/prices`, {
+    method: 'PUT',
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ prices }),
   });
 }
 
