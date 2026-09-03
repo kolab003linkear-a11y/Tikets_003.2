@@ -171,6 +171,7 @@ model Showtime {
   @@unique([movieId, roomId, startTime])
   @@index([startTime])
   @@index([movieId])
+  @@map("showtimes")
 }
 
 
