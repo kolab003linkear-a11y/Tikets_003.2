@@ -186,7 +186,7 @@ test('creates and reuses a stadium ticket QR once', async () => {
     const savedStadiumTicket = myTickets.tickets.find((item) => item.id === ticket.ticket.id);
     assert.ok(savedStadiumTicket, 'expected the stadium ticket in the user ticket list');
     assert.equal(savedStadiumTicket.qrPayload, ticket.ticket.qrPayload);
-    assert.equal(savedStadiumTicket.event.title, `${match.homeTeam} vs ${match.awayTeam}`);
+    assert.equal(savedStadiumTicket.event.title, `${match.homeTeam.name} vs ${match.awayTeam.name}`);
 
     const adminLoginResponse = await request(baseUrl, '/api/auth/login', {
       method: 'POST',
