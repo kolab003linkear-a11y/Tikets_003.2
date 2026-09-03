@@ -62,11 +62,12 @@ export default function HomeScreen() {
       const matchesSearch =
         movie.title.toLowerCase().includes(search.toLowerCase()) ||
         movie.synopsis.toLowerCase().includes(search.toLowerCase());
-      return matchesCategory && matchesSearch && movie.status !== 'COMING_SOON';
+      const isInEmission = movie.status === 'NOW_SHOWING' || movie.showtimes.length > 0;
+      return matchesCategory && matchesSearch && isInEmission;
     });
   }, [movies, search, category]);
 
-  const upcomingMovies = useMemo(() => movies.filter((movie) => movie.status === 'COMING_SOON'), [movies]);
+  const upcomingMovies = useMemo(() => movies.filter((movie) => movie.status === 'COMING_SOON' && movie.showtimes.length === 0), [movies]);
 
   const formatShowtime = (startTime: string) => {
     const date = new Date(startTime);
@@ -281,6 +282,8 @@ export default function HomeScreen() {
                     navigation.navigate('SeatSelection', {
                       movieTitle: movie.title,
                       showtimeId: showtime.id,
+                      startTime: showtime.startTime,
+                      roomName: showtime.room.name,
                       price,
                       seatLayout: showtime.room.seatLayout,
                       occupiedSeats: showtime.occupiedSeats,
