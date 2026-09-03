@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        ports:
+          - 5433:5432
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: tiKets
+        options: >-
+          --health-cmd "pg_isready -U postgres -d tiKets"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5433/tiKets?schema=public
+      JWT_SECRET: tikets-ci-secret
+      NODE_ENV: test
+      PORT: 4001
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npm run prisma:generate --workspace backend
+
+      - name: Apply database migrations
+        run: npx prisma migrate deploy --schema=prisma/schema.prisma
+        working-directory: backend
+
+      - name: Seed test data
+        run: npm run prisma:seed --workspace backend
+
+      - name: Build backend
+        run: npm run build --workspace backend
+
+      - name: Run backend tests
+        run: npm test --workspace backend
+
+      - name: Typecheck frontend
+        run: npx tsc --noEmit
+        working-directory: frontend

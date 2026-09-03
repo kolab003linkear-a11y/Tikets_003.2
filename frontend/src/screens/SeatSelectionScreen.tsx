@@ -129,6 +129,9 @@ export default function SeatSelectionScreen() {
         total,
         showtimeId,
         movieTitle,
+        startTime: route.params.startTime,
+        roomName: route.params.roomName,
+        price,
       });
     } catch (reservationError) {
       const message = reservationError instanceof Error ? reservationError.message : 'No se pudo reservar esas butacas.';

@@ -18,6 +18,7 @@ import ParkingScreen from './src/screens/ParkingScreen';
 import BusScreen from './src/screens/BusScreen';
 import { AuthProvider, useAuth } from './src/auth/AuthContext';
 import { colors, typography } from './src/theme';
+import { ModuleProvider, useModules } from './src/modules/ModuleContext';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -43,6 +44,7 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
 
 function HomeTabs() {
   const { user } = useAuth();
+  const { isEnabled } = useModules();
   const canUseAdmin = user?.role === 'ADMIN' || user?.role === 'SCANNER';
 
   return (
@@ -73,10 +75,10 @@ function HomeTabs() {
         },
       })}
     >
-      <Tab.Screen name="Cartelera" component={HomeScreen} />
-      <Tab.Screen name="Estadios" component={StadiumScreen} />
-      <Tab.Screen name="Parqueaderos" component={ParkingScreen} />
-      <Tab.Screen name="Buses" component={BusScreen} />
+      {isEnabled('catalog') && <Tab.Screen name="Cartelera" component={HomeScreen} />}
+      {isEnabled('stadiums') && <Tab.Screen name="Estadios" component={StadiumScreen} />}
+      {isEnabled('parking') && <Tab.Screen name="Parqueaderos" component={ParkingScreen} />}
+      {isEnabled('buses') && <Tab.Screen name="Buses" component={BusScreen} />}
       <Tab.Screen name="Mis Tickets" component={MyTicketsScreen} />
       {canUseAdmin && <Tab.Screen name="Admin" component={AdminHubScreen} />}
     </Tab.Navigator>
@@ -113,7 +115,7 @@ function AppContent() {
 export default function App() {
   return (
     <AuthProvider>
-      <AppContent />
+      <ModuleProvider><AppContent /></ModuleProvider>
     </AuthProvider>
   );
 }
