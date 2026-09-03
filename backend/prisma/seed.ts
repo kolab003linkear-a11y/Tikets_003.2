@@ -301,6 +301,24 @@ async function main() {
     });
   }
 
+  const culturalEvents = [
+    { id: 'event-teatro-001', title: 'La casa de Bernarda Alba', synopsis: 'Una puesta en escena sobre el deseo, la autoridad y los silencios de una familia.', category: MovieCategory.TEATRO, posterUrl: 'https://images.unsplash.com/photo-1503095396549-807759245b35?auto=format&fit=crop&w=900&q=80', startTime: '2026-09-04T19:30:00-05:00' },
+    { id: 'event-concierto-001', title: 'Noches de jazz en vivo', synopsis: 'Una velada de jazz contemporáneo con músicos invitados y repertorio latinoamericano.', category: MovieCategory.CONCIERTO, posterUrl: 'https://images.unsplash.com/photo-1524368535928-5b5e00ddc76b?auto=format&fit=crop&w=900&q=80', startTime: '2026-09-05T20:00:00-05:00' },
+  ];
+
+  for (const event of culturalEvents) {
+    await prisma.movieEvent.upsert({
+      where: { id: event.id },
+      update: { title: event.title, synopsis: event.synopsis, duration: 120, category: event.category, posterUrl: event.posterUrl, trailerUrl: null, rating: null, status: EventStatus.NOW_SHOWING },
+      create: { id: event.id, title: event.title, synopsis: event.synopsis, duration: 120, category: event.category, posterUrl: event.posterUrl, trailerUrl: null, rating: null, status: EventStatus.NOW_SHOWING },
+    });
+    await prisma.showtime.upsert({
+      where: { id: `${event.id}-show` },
+      update: { movieId: event.id, roomId: room.id, startTime: new Date(event.startTime), price: 10, availableSeats: room.capacity },
+      create: { id: `${event.id}-show`, movieId: event.id, roomId: room.id, startTime: new Date(event.startTime), price: 10, availableSeats: room.capacity },
+    });
+  }
+
   await prisma.showtime.upsert({
     where: { id: 'show-002' },
     update: { movieEventId: movie2.id, roomId: room.id, startTime: new Date('2026-08-29T18:00:00-05:00'), price: 7, availableSeats: 64 },
