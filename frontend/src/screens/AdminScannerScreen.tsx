@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Alert, Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native';
-import { BarCodeScanner } from 'expo-barcode-scanner';
+import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../auth/AuthContext';
 import { validateTicket } from '../api/client';
@@ -8,23 +8,17 @@ import { colors, typography } from '../theme';
 
 export default function AdminScannerScreen() {
   const { user, token } = useAuth();
-  const [hasPermission, setHasPermission] = useState<boolean | null>(null);
+  const [permission, requestPermission] = useCameraPermissions();
   const [scanning, setScanning] = useState(true);
   const [lastResult, setLastResult] = useState<{ status: string; message: string; valid: boolean; event?: string; seat?: string } | null>(null);
   const [scanCount, setScanCount] = useState(0);
   const [validCount, setValidCount] = useState(0);
 
-  const requestCameraPermission = () => {
-    BarCodeScanner.requestPermissionsAsync().then(({ status }) => {
-      setHasPermission(status === 'granted');
-    }).catch(() => setHasPermission(false));
-  };
-
   useEffect(() => {
     if (user && (user.role === 'ADMIN' || user.role === 'SCANNER')) {
-      requestCameraPermission();
+      void requestPermission();
     }
-  }, [user]);
+  }, [user, requestPermission]);
 
   if (!user || (user.role !== 'ADMIN' && user.role !== 'SCANNER')) {
     return (
@@ -37,7 +31,7 @@ export default function AdminScannerScreen() {
     );
   }
 
-  if (hasPermission === null) {
+  if (!permission || permission.status === 'undetermined') {
     return (
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.centered}>
@@ -47,13 +41,13 @@ export default function AdminScannerScreen() {
     );
   }
 
-  if (hasPermission === false) {
+  if (!permission.granted) {
     return (
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.centered}>
           <Text style={styles.title}>Cámara no disponible</Text>
           <Text style={styles.body}>No se pudo acceder a la cámara del dispositivo.</Text>
-          <Pressable style={styles.permissionButton} onPress={requestCameraPermission}><Ionicons name="camera-outline" size={18} color={colors.background} /><Text style={styles.permissionText}>Intentar de nuevo</Text></Pressable>
+          <Pressable style={styles.permissionButton} onPress={() => void requestPermission()}><Ionicons name="camera-outline" size={18} color={colors.background} /><Text style={styles.permissionText}>Intentar de nuevo</Text></Pressable>
         </View>
       </SafeAreaView>
     );
@@ -109,9 +103,10 @@ export default function AdminScannerScreen() {
         <View style={styles.cameraFrame}>
           {scanning ? (
             <>
-              <BarCodeScanner
+              <CameraView
                 accessibilityLabel="Cámara para escanear el código QR"
-                onBarCodeScanned={handleScan}
+                onBarcodeScanned={handleScan}
+                barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
                 style={StyleSheet.absoluteFillObject}
               />
               <View style={styles.scanGuide} pointerEvents="none">
