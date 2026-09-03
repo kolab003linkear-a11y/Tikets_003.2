@@ -137,7 +137,7 @@ model MovieEvent {
   posterUrl   String        @map("poster_url")
   trailerUrl  String?       @map("trailer_url")
   rating      Decimal?      @db.Decimal(3, 1)
-  ageRating   String?
+  ageRating   String?       @map("age_rating")
   status      EventStatus   @default(NOW_SHOWING)
   createdAt   DateTime      @default(now()) @map("created_at")
   updatedAt   DateTime      @updatedAt @map("updated_at")
@@ -318,8 +318,8 @@ model Match {
   @@map("matches")
 }
 
-// Precio de un sector del estadio, específico para un partido. Si un
-// (matchId, sectorId) no tiene fila aquí, se usa StadiumSector.price
+// Precio de un sector del estadio, espec├¡fico para un partido. Si un
+// (matchId, sectorId) no tiene fila aqu├¡, se usa StadiumSector.price
 // como precio por defecto (ver GET /api/matches y GET /api/admin/matches/:matchId/prices).
 model MatchSectorPrice {
   id        String        @id @default(cuid())

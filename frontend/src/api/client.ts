@@ -1,7 +1,7 @@
 import { Platform } from 'react-native';
 
 const defaultApiUrl = Platform.OS === 'web' ? 'http://localhost:4000' : 'http://192.168.100.8:4000';
-const API_BASE_URL = (process.env.EXPO_PUBLIC_API_URL ?? defaultApiUrl).replace(/\/$/, '');
+export const API_BASE_URL = (process.env.EXPO_PUBLIC_API_URL ?? defaultApiUrl).replace(/\/$/, '');
 
 export type CatalogShowtime = {
   id: string;
@@ -404,7 +404,6 @@ export function createMatchTicket(token: string, matchId: string, sectorId: stri
     body: JSON.stringify({ sectorId, seatNumber }),
   });
 }
-
 export function getAdminStadiums(token: string) {
   return request<{ stadiums: AdminStadium[] }>('/api/admin/stadiums', { headers: { Authorization: `Bearer ${token}` } });
 }
@@ -625,4 +624,3 @@ export function updateMe(token: string, profile: { email: string; fullName?: str
   });
 }
 
-export { API_BASE_URL };

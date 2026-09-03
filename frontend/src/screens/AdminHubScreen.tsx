@@ -14,9 +14,9 @@ import AdminFoodScreen from './AdminFoodScreen';
 import { getAdminModules, ModuleKey, updateAdminModule } from '../api/client';
 import { useModules } from '../modules/ModuleContext';
 
-// "Equipos" y "Partidos" ya no son secciones sueltas aquí: ahora viven como
-// pestañas dentro del sub-navbar del módulo "Estadios" (AdminStadiumsHubScreen).
-// "Comidas" llegó de main (AdminFoodScreen); "Módulos" es nuestro.
+// "Equipos" y "Partidos" ya no son secciones sueltas aqu├¡: ahora viven como
+// pesta├▒as dentro del sub-navbar del m├│dulo "Estadios" (AdminStadiumsHubScreen).
+// "Comidas" lleg├│ de main (AdminFoodScreen); "M├│dulos" es nuestro.
 type AdminSection = 'scanner' | 'events' | 'schedule' | 'stadiums' | 'parking' | 'buses' | 'food' | 'modules';
 
 export default function AdminHubScreen() {
@@ -25,16 +25,16 @@ export default function AdminHubScreen() {
   const isAdmin = user?.role === 'ADMIN';
   const sections: Array<{ key: AdminSection; label: string; icon: keyof typeof Ionicons.glyphMap }> = isAdmin
     ? [
-        { key: 'scanner', label: 'Escáner', icon: 'scan-outline' },
+        { key: 'scanner', label: 'Esc├íner', icon: 'scan-outline' },
         { key: 'events', label: 'Eventos', icon: 'film-outline' },
         { key: 'schedule', label: 'Salas', icon: 'calendar-outline' },
         { key: 'stadiums', label: 'Estadios', icon: 'football-outline' },
         { key: 'parking', label: 'Parqueaderos', icon: 'car-outline' },
         { key: 'buses', label: 'Buses', icon: 'bus-outline' },
         { key: 'food', label: 'Comidas', icon: 'fast-food-outline' },
-        { key: 'modules', label: 'Módulos', icon: 'options-outline' },
+        { key: 'modules', label: 'M├│dulos', icon: 'options-outline' },
       ]
-    : [{ key: 'scanner', label: 'Escáner', icon: 'scan-outline' }];
+    : [{ key: 'scanner', label: 'Esc├íner', icon: 'scan-outline' }];
   const [section, setSection] = useState<AdminSection>('scanner');
   const [moduleError, setModuleError] = useState('');
   const [moduleLoading, setModuleLoading] = useState(false);
@@ -44,14 +44,14 @@ export default function AdminHubScreen() {
     { key: 'stadiums', label: 'Estadios', description: 'Partidos y venta de localidades' },
     { key: 'parking', label: 'Parqueaderos', description: 'Reservas de estacionamiento' },
     { key: 'buses', label: 'Buses', description: 'Rutas y tickets de transporte' },
-    { key: 'assistant', label: 'Asistente', description: 'Asistente de búsqueda para clientes' },
+    { key: 'assistant', label: 'Asistente', description: 'Asistente de b├║squeda para clientes' },
   ];
 
   const loadModules = async () => {
     if (!token) return;
     setModuleLoading(true);
     try { setModules((await getAdminModules(token)).modules); setModuleError(''); }
-    catch (error) { setModuleError(error instanceof Error ? error.message : 'No se pudo cargar la configuración.'); }
+    catch (error) { setModuleError(error instanceof Error ? error.message : 'No se pudo cargar la configuraci├│n.'); }
     finally { setModuleLoading(false); }
   };
 
@@ -59,7 +59,7 @@ export default function AdminHubScreen() {
     if (!token) return;
     setModuleLoading(true);
     try { setModules((await updateAdminModule(token, key, enabled)).modules); setModuleError(''); }
-    catch (error) { setModuleError(error instanceof Error ? error.message : 'No se pudo actualizar el módulo.'); }
+    catch (error) { setModuleError(error instanceof Error ? error.message : 'No se pudo actualizar el m├│dulo.'); }
     finally { setModuleLoading(false); }
   };
 
@@ -73,7 +73,7 @@ export default function AdminHubScreen() {
         <View style={styles.toolbarTitle}>
           <View style={styles.iconBox}><Ionicons name="grid-outline" size={19} color={colors.text} /></View>
           <View>
-            <Text style={styles.overline}>Operación</Text>
+            <Text style={styles.overline}>Operaci├│n</Text>
             <Text style={styles.title}>Centro admin</Text>
           </View>
         </View>
@@ -97,7 +97,7 @@ export default function AdminHubScreen() {
         {section === 'buses' && <AdminBusesScreen />}
         {section === 'food' && <AdminFoodScreen />}
         {section === 'modules' && <View style={styles.modulesPanel}>
-          <View style={styles.modulesHeader}><View><Text style={styles.sectionTitle}>Módulos del cliente</Text><Text style={styles.formHint}>Controla qué experiencias aparecen en la app.</Text></View><Pressable onPress={() => void loadModules()}><Ionicons name="refresh-outline" size={20} color={colors.primary} /></Pressable></View>
+          <View style={styles.modulesHeader}><View><Text style={styles.sectionTitle}>M├│dulos del cliente</Text><Text style={styles.formHint}>Controla qu├® experiencias aparecen en la app.</Text></View><Pressable onPress={() => void loadModules()}><Ionicons name="refresh-outline" size={20} color={colors.primary} /></Pressable></View>
           {moduleLoading && <ActivityIndicator color={colors.primary} />}
           {!!moduleError && <Text style={styles.error}>{moduleError}</Text>}
           {moduleItems.map((item) => <View key={item.key} style={styles.moduleRow}><View style={styles.moduleCopy}><Text style={styles.moduleLabel}>{item.label}</Text><Text style={styles.moduleDescription}>{item.description}</Text></View><Switch accessibilityLabel={`Activar ${item.label}`} value={modules[item.key]} onValueChange={(enabled) => void toggleModule(item.key, enabled)} trackColor={{ false: colors.border, true: colors.primary + '88' }} thumbColor={modules[item.key] ? colors.primary : colors.textSecondary} /></View>)}
