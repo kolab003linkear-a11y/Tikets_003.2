@@ -3,6 +3,5 @@
   "compilerOptions": {
     "strict": true,
     "jsx": "react-jsx",
-    "types": ["react", "react-native"]
   }
 }
