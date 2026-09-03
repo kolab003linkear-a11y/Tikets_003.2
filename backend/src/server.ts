@@ -126,12 +126,36 @@ const stadiumSchema = z.object({
   sectors: z.array(stadiumSectorSchema).min(1).max(100),
 });
 
+const teamSchema = z.object({
+  name: z.string().trim().min(1).max(80),
+  city: z.string().trim().max(80).nullable().optional(),
+  logoUrl: z.string().trim().url().nullable().optional(),
+});
+
+const favoriteTeamSchema = z.object({
+  teamId: z.string().min(1),
+});
+
+// price === null significa "quitar el precio personalizado de este sector
+// para este partido" (vuelve a usar StadiumSector.price por defecto).
+const matchSectorPriceSchema = z.object({
+  sectorId: z.string().min(1),
+  price: z.coerce.number().positive().max(10000).nullable(),
+});
+
 const matchSchema = z.object({
   stadiumId: z.string().min(1),
-  homeTeam: z.string().trim().min(1).max(80),
-  awayTeam: z.string().trim().min(1).max(80),
+  homeTeamId: z.string().min(1),
+  awayTeamId: z.string().min(1),
   startTime: z.coerce.date(),
   status: z.enum(['SCHEDULED', 'LIVE', 'FINISHED', 'CANCELLED']).optional(),
+  // Precios por sector definidos en el momento de crear/editar el partido
+  // (opcional: si se omite, todos los sectores venden al precio base).
+  sectorPrices: z.array(matchSectorPriceSchema).max(100).optional(),
+});
+
+const matchPricesUpdateSchema = z.object({
+  prices: z.array(matchSectorPriceSchema).min(1).max(100),
 });
 
 const stadiumTicketSchema = z.object({
@@ -403,6 +427,101 @@ app.patch('/api/me', authMiddleware, async (req, res, next) => {
   }
 });
 
+app.get('/api/teams', async (_req, res, next) => {
+  try {
+    const teams = await prisma.team.findMany({ orderBy: { name: 'asc' } });
+    return res.json({ teams });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post('/api/admin/teams', authMiddleware, async (req, res, next) => {
+  try {
+    const authenticatedUser = (req as Request & { user: { role: UserRole } }).user;
+    if (authenticatedUser.role !== UserRole.ADMIN) throw new AppError('Only administrators can manage teams.', 403);
+    const payload = teamSchema.parse(req.body);
+    const team = await prisma.team.create({
+      data: { name: payload.name, city: payload.city ?? null, logoUrl: payload.logoUrl ?? null },
+    });
+    return res.status(201).json({ team });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.patch('/api/admin/teams/:teamId', authMiddleware, async (req, res, next) => {
+  try {
+    const authenticatedUser = (req as Request & { user: { role: UserRole } }).user;
+    if (authenticatedUser.role !== UserRole.ADMIN) throw new AppError('Only administrators can manage teams.', 403);
+    const payload = teamSchema.parse(req.body);
+    const team = await prisma.team.update({
+      where: { id: req.params.teamId },
+      data: { name: payload.name, city: payload.city ?? null, logoUrl: payload.logoUrl ?? null },
+    });
+    return res.json({ team });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.delete('/api/admin/teams/:teamId', authMiddleware, async (req, res, next) => {
+  try {
+    const authenticatedUser = (req as Request & { user: { role: UserRole } }).user;
+    if (authenticatedUser.role !== UserRole.ADMIN) throw new AppError('Only administrators can manage teams.', 403);
+    await prisma.team.delete({ where: { id: req.params.teamId } });
+    return res.json({ success: true });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get('/api/me/favorite-teams', authMiddleware, async (req, res, next) => {
+  try {
+    const authenticatedUser = (req as Request & { user: { sub: string } }).user;
+    const favorites = await prisma.userFavoriteTeam.findMany({
+      where: { userId: authenticatedUser.sub },
+      include: { team: true },
+      orderBy: { createdAt: 'desc' },
+    });
+    return res.json({ teams: favorites.map((favorite) => favorite.team) });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post('/api/me/favorite-teams', authMiddleware, async (req, res, next) => {
+  try {
+    const authenticatedUser = (req as Request & { user: { sub: string } }).user;
+    const payload = favoriteTeamSchema.parse(req.body);
+
+    const team = await prisma.team.findUnique({ where: { id: payload.teamId }, select: { id: true } });
+    if (!team) throw new AppError('Team not found.', 404);
+
+    await prisma.userFavoriteTeam.upsert({
+      where: { userId_teamId: { userId: authenticatedUser.sub, teamId: payload.teamId } },
+      update: {},
+      create: { userId: authenticatedUser.sub, teamId: payload.teamId },
+    });
+
+    return res.status(201).json({ success: true });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.delete('/api/me/favorite-teams/:teamId', authMiddleware, async (req, res, next) => {
+  try {
+    const authenticatedUser = (req as Request & { user: { sub: string } }).user;
+    await prisma.userFavoriteTeam.delete({
+      where: { userId_teamId: { userId: authenticatedUser.sub, teamId: req.params.teamId } },
+    });
+    return res.json({ success: true });
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.get('/api/admin/events', authMiddleware, async (req, res, next) => {
   try {
     const authenticatedUser = (req as Request & { user: { role: UserRole } }).user;
@@ -584,7 +703,7 @@ app.get('/api/admin/showtimes', authMiddleware, async (req, res, next) => {
     const authenticatedUser = (req as Request & { user: { role: UserRole } }).user;
     if (authenticatedUser.role !== UserRole.ADMIN) throw new AppError('Only administrators can manage showtimes.', 403);
     const showtimes = await prisma.showtime.findMany({
-      include: { movie: { select: { id: true, title: true } }, room: { select: { id: true, name: true, capacity: true } } },
+      include: { movieEvent: { select: { id: true, title: true } }, room: { select: { id: true, name: true, capacity: true } } },
       orderBy: { startTime: 'asc' },
     });
     return res.json({ showtimes });
@@ -604,10 +723,11 @@ app.post('/api/admin/showtimes', authMiddleware, async (req, res, next) => {
     if (!movie) throw new AppError('Event not found.', 404);
     const availableSeats = payload.availableSeats ?? room.capacity;
     if (availableSeats > room.capacity) throw new AppError('Availability cannot exceed room capacity.', 400);
+    const { movieId, ...restPayload } = payload;
     const showtime = await prisma.showtime.create({
-  data: { ...payload, availableSeats },
+  data: { ...restPayload, movieEventId: movieId, availableSeats },
   include: {
-    movie: { select: { id: true, title: true } },
+    movieEvent: { select: { id: true, title: true } },
     room: { select: { id: true, name: true, capacity: true } },
   },
 });
@@ -626,7 +746,12 @@ app.patch('/api/admin/showtimes/:showtimeId', authMiddleware, async (req, res, n
     if (!room) throw new AppError('Room not found.', 404);
     const availableSeats = payload.availableSeats ?? room.capacity;
     if (availableSeats > room.capacity) throw new AppError('Availability cannot exceed room capacity.', 400);
-    const showtime = await prisma.showtime.update({ where: { id: req.params.showtimeId }, data: { ...payload, availableSeats } });
+    const { movieId, ...restPayload } = payload;
+    const showtime = await prisma.showtime.update({
+      where: { id: req.params.showtimeId },
+      data: { ...restPayload, movieEventId: movieId, availableSeats },
+      include: { movieEvent: { select: { id: true, title: true } }, room: { select: { id: true, name: true, capacity: true } } },
+    });
     return res.json({ showtime });
   } catch (error) {
     next(error);
@@ -650,19 +775,28 @@ app.get('/api/matches', async (_req, res, next) => {
       where: { status: { in: ['SCHEDULED', 'LIVE'] } },
       include: {
         stadium: { include: { sectors: true } },
+        homeTeam: true,
+        awayTeam: true,
         tickets: { where: { status: { in: [StadiumTicketStatus.VALID, StadiumTicketStatus.USED] } }, select: { sectorId: true, seatNumber: true } },
+        sectorPrices: true,
         _count: { select: { tickets: true } },
       },
       orderBy: { startTime: 'asc' },
     });
-    return res.json({ matches: matches.map(({ tickets, ...match }) => ({
+    // El precio que ve el cliente es el de MatchSectorPrice para ESTE partido
+    // si el admin lo definió; si no, se usa el precio base de StadiumSector.
+    return res.json({ matches: matches.map(({ tickets, sectorPrices, ...match }) => ({
       ...match,
       stadium: {
         ...match.stadium,
-        sectors: match.stadium.sectors.map((sector) => ({
-          ...sector,
-          occupiedSeats: tickets.filter((ticket) => ticket.sectorId === sector.id).map((ticket) => ticket.seatNumber),
-        })),
+        sectors: match.stadium.sectors.map((sector) => {
+          const override = sectorPrices.find((entry) => entry.sectorId === sector.id);
+          return {
+            ...sector,
+            price: override ? override.price : sector.price,
+            occupiedSeats: tickets.filter((ticket) => ticket.sectorId === sector.id).map((ticket) => ticket.seatNumber),
+          };
+        }),
       },
     })) });
   } catch (error) {
@@ -700,7 +834,7 @@ app.get('/api/admin/matches', authMiddleware, async (req, res, next) => {
   try {
     const authenticatedUser = (req as Request & { user: { role: UserRole } }).user;
     if (authenticatedUser.role !== UserRole.ADMIN) throw new AppError('Only administrators can manage matches.', 403);
-    const matches = await prisma.match.findMany({ include: { stadium: true, _count: { select: { tickets: true } } }, orderBy: { startTime: 'asc' } });
+    const matches = await prisma.match.findMany({ include: { stadium: true, homeTeam: true, awayTeam: true, _count: { select: { tickets: true, sectorPrices: true } } }, orderBy: { startTime: 'asc' } });
     return res.json({ matches });
   } catch (error) {
     next(error);
@@ -712,11 +846,23 @@ app.post('/api/admin/matches', authMiddleware, async (req, res, next) => {
     const authenticatedUser = (req as Request & { user: { role: UserRole } }).user;
     if (authenticatedUser.role !== UserRole.ADMIN) throw new AppError('Only administrators can manage matches.', 403);
     const payload = matchSchema.parse(req.body);
-    if (payload.homeTeam.toLowerCase() === payload.awayTeam.toLowerCase()) throw new AppError('Home and away teams must be different.', 400);
+    if (payload.homeTeamId === payload.awayTeamId) throw new AppError('Home and away teams must be different.', 400);
     const stadium = await prisma.stadium.findUnique({ where: { id: payload.stadiumId }, select: { id: true } });
     if (!stadium) throw new AppError('Stadium not found.', 404);
-    const match = await prisma.match.create({ data: { ...payload, status: payload.status ?? 'SCHEDULED' }, include: { stadium: true } });
-    return res.status(201).json({ match });
+    const [homeTeam, awayTeam] = await Promise.all([
+      prisma.team.findUnique({ where: { id: payload.homeTeamId }, select: { id: true } }),
+      prisma.team.findUnique({ where: { id: payload.awayTeamId }, select: { id: true } }),
+    ]);
+    if (!homeTeam || !awayTeam) throw new AppError('Home or away team not found.', 404);
+
+    const { sectorPrices, ...matchData } = payload;
+    if (sectorPrices?.length) await assertSectorsBelongToStadium(payload.stadiumId, sectorPrices);
+
+    const match = await prisma.match.create({ data: { ...matchData, status: matchData.status ?? 'SCHEDULED' }, include: { stadium: true, homeTeam: true, awayTeam: true } });
+    if (sectorPrices?.length) await applySectorPrices(match.id, sectorPrices);
+
+    const { prices } = await buildMatchSectorPrices(match.id);
+    return res.status(201).json({ match, prices });
   } catch (error) {
     next(error);
   }
@@ -727,8 +873,103 @@ app.patch('/api/admin/matches/:matchId', authMiddleware, async (req, res, next) 
     const authenticatedUser = (req as Request & { user: { role: UserRole } }).user;
     if (authenticatedUser.role !== UserRole.ADMIN) throw new AppError('Only administrators can manage matches.', 403);
     const payload = matchSchema.parse(req.body);
-    const match = await prisma.match.update({ where: { id: req.params.matchId }, data: { ...payload, status: payload.status ?? 'SCHEDULED' }, include: { stadium: true } });
-    return res.json({ match });
+    if (payload.homeTeamId === payload.awayTeamId) throw new AppError('Home and away teams must be different.', 400);
+
+    const { sectorPrices, ...matchData } = payload;
+    if (sectorPrices?.length) await assertSectorsBelongToStadium(payload.stadiumId, sectorPrices);
+
+    const match = await prisma.match.update({ where: { id: req.params.matchId }, data: { ...matchData, status: matchData.status ?? 'SCHEDULED' }, include: { stadium: true, homeTeam: true, awayTeam: true } });
+    if (sectorPrices?.length) await applySectorPrices(match.id, sectorPrices);
+
+    const { prices } = await buildMatchSectorPrices(match.id);
+    return res.json({ match, prices });
+  } catch (error) {
+    next(error);
+  }
+});
+
+type SectorPriceEntryInput = { sectorId: string; price: number | null };
+
+// Verifica que cada sectorId de la lista pertenezca al estadio del partido
+// (evita asignarle precio a un sector de otro estadio).
+async function assertSectorsBelongToStadium(stadiumId: string, prices: SectorPriceEntryInput[]) {
+  if (prices.length === 0) return;
+  const sectors = await prisma.stadiumSector.findMany({ where: { stadiumId }, select: { id: true } });
+  const validSectorIds = new Set(sectors.map((sector) => sector.id));
+  for (const entry of prices) {
+    if (!validSectorIds.has(entry.sectorId)) throw new AppError('Sector does not belong to this match\'s stadium.', 400);
+  }
+}
+
+// Aplica una lista de precios por sector a un partido: price number = crea o
+// actualiza el precio personalizado; price null = lo quita (vuelve al precio
+// base del sector). La usan la creación/edición de partidos y el endpoint
+// dedicado de precios por partido.
+async function applySectorPrices(matchId: string, prices: SectorPriceEntryInput[]) {
+  if (prices.length === 0) return;
+  await prisma.$transaction(
+    prices.map((entry) =>
+      entry.price === null
+        ? prisma.matchSectorPrice.deleteMany({ where: { matchId, sectorId: entry.sectorId } })
+        : prisma.matchSectorPrice.upsert({
+            where: { matchId_sectorId: { matchId, sectorId: entry.sectorId } },
+            create: { matchId, sectorId: entry.sectorId, price: entry.price },
+            update: { price: entry.price },
+          }),
+    ),
+  );
+}
+
+// Arma, para un partido, la lista de sectores de su estadio con su precio
+// base, el precio personalizado (si existe) y el precio efectivo que verá
+// el cliente. La usan tanto el GET como el PUT de precios por partido.
+async function buildMatchSectorPrices(matchId: string) {
+  const match = await prisma.match.findUnique({
+    where: { id: matchId },
+    include: { stadium: { include: { sectors: true } }, sectorPrices: true },
+  });
+  if (!match) throw new AppError('Match not found.', 404);
+
+  const overrideBySector = new Map(match.sectorPrices.map((entry) => [entry.sectorId, entry]));
+  const prices = match.stadium.sectors.map((sector) => {
+    const override = overrideBySector.get(sector.id);
+    return {
+      sectorId: sector.id,
+      sectorName: sector.name,
+      sectorCode: sector.code,
+      basePrice: sector.price,
+      matchPrice: override ? override.price : null,
+      effectivePrice: override ? override.price : sector.price,
+    };
+  });
+  return { matchId: match.id, stadiumId: match.stadiumId, prices };
+}
+
+app.get('/api/admin/matches/:matchId/prices', authMiddleware, async (req, res, next) => {
+  try {
+    const authenticatedUser = (req as Request & { user: { role: UserRole } }).user;
+    if (authenticatedUser.role !== UserRole.ADMIN) throw new AppError('Only administrators can manage match prices.', 403);
+    const result = await buildMatchSectorPrices(req.params.matchId);
+    return res.json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.put('/api/admin/matches/:matchId/prices', authMiddleware, async (req, res, next) => {
+  try {
+    const authenticatedUser = (req as Request & { user: { role: UserRole } }).user;
+    if (authenticatedUser.role !== UserRole.ADMIN) throw new AppError('Only administrators can manage match prices.', 403);
+    const payload = matchPricesUpdateSchema.parse(req.body);
+
+    const match = await prisma.match.findUnique({ where: { id: req.params.matchId }, select: { id: true, stadiumId: true } });
+    if (!match) throw new AppError('Match not found.', 404);
+
+    await assertSectorsBelongToStadium(match.stadiumId, payload.prices);
+    await applySectorPrices(match.id, payload.prices);
+
+    const result = await buildMatchSectorPrices(match.id);
+    return res.json(result);
   } catch (error) {
     next(error);
   }
@@ -741,7 +982,7 @@ app.post('/api/matches/:matchId/tickets', authMiddleware, async (req, res, next)
     const authenticatedUser = (req as Request & { user: { sub: string } }).user;
     const account = await prisma.user.findUnique({ where: { id: authenticatedUser.sub }, select: { id: true, fullName: true, phone: true } });
     if (!account) throw new AppError('Your session is no longer valid. Please sign in again.', 401);
-    const match = await prisma.match.findUnique({ where: { id: req.params.matchId }, include: { stadium: true } });
+    const match = await prisma.match.findUnique({ where: { id: req.params.matchId }, include: { stadium: true, homeTeam: true, awayTeam: true } });
     if (!match || match.status === 'CANCELLED' || match.status === 'FINISHED') throw new AppError('Match is not available for ticket sales.', 409);
     const sector = await prisma.stadiumSector.findUnique({ where: { id: payload.sectorId } });
     if (!sector || sector.stadiumId !== match.stadiumId) throw new AppError('Sector does not belong to this stadium.', 400);
@@ -759,7 +1000,7 @@ app.post('/api/matches/:matchId/tickets', authMiddleware, async (req, res, next)
     if (existingTicket) throw new AppError('This stadium seat is already taken for this match.', 409);
 
     const qrCodeHash = createHash('sha256').update(`${req.params.matchId}:${payload.sectorId}:${normalizedSeat}:${Date.now()}:${Math.random()}`).digest('hex');
-    const ticket = await prisma.stadiumTicket.create({ data: { matchId: req.params.matchId, sectorId: payload.sectorId, userId: account.id, seatNumber: normalizedSeat, qrCodeHash }, include: { match: { include: { stadium: true } }, sector: true } });
+    const ticket = await prisma.stadiumTicket.create({ data: { matchId: req.params.matchId, sectorId: payload.sectorId, userId: account.id, seatNumber: normalizedSeat, qrCodeHash }, include: { match: { include: { stadium: true, homeTeam: true, awayTeam: true } }, sector: true } });
     return res.status(201).json({ ticket: { id: ticket.id, qrPayload: `stadiumsafe:v1:${ticket.id}:${ticket.qrCodeHash}`, status: ticket.status, seatNumber: ticket.seatNumber, sector: ticket.sector.name, match: ticket.match } });
   } catch (error) {
     next(error);
@@ -1162,7 +1403,7 @@ app.post('/api/payments/demo-confirm', authMiddleware, async (req, res, next) =>
         data: { status: ReservationStatus.PAID },
         include: {
           tickets: true,
-          showtime: { include: { movie: true, room: true } },
+          showtime: { include: { movieEvent: true, room: true } },
         },
       });
 
@@ -1188,14 +1429,14 @@ app.get('/api/tickets', authMiddleware, async (req, res, next) => {
         where: { reservation: { userId: authenticatedUser.sub } },
         include: {
           reservation: {
-            include: { showtime: { include: { movie: true, room: true } } },
+            include: { showtime: { include: { movieEvent: true, room: true } } },
           },
         },
         orderBy: { createdAt: 'desc' },
       }),
       prisma.stadiumTicket.findMany({
         where: { userId: authenticatedUser.sub },
-        include: { match: { include: { stadium: true } }, sector: true },
+        include: { match: { include: { stadium: true, homeTeam: true, awayTeam: true } }, sector: true },
         orderBy: { createdAt: 'desc' },
       }),
       prisma.parkingTicket.findMany({
@@ -1220,7 +1461,7 @@ app.get('/api/tickets', authMiddleware, async (req, res, next) => {
       reservationId: ticket.reservationId,
       reservationStatus: ticket.reservation.status,
       event: {
-        title: ticket.reservation.showtime.movie.title,
+        title: ticket.reservation.showtime.movieEvent.title,
         startTime: ticket.reservation.showtime.startTime,
         room: ticket.reservation.showtime.room.name,
       },
@@ -1236,7 +1477,7 @@ app.get('/api/tickets', authMiddleware, async (req, res, next) => {
       reservationId: `stadium:${ticket.id}`,
       reservationStatus: ReservationStatus.PAID,
       event: {
-        title: `${ticket.match.homeTeam} vs ${ticket.match.awayTeam}`,
+        title: `${ticket.match.homeTeam.name} vs ${ticket.match.awayTeam.name}`,
         startTime: ticket.match.startTime,
         room: `${ticket.match.stadium.name} · ${ticket.sector.name}`,
       },
@@ -1313,7 +1554,7 @@ app.post('/api/admin/tickets/validate', authMiddleware, async (req, res, next) =
     if (stadiumMatches) {
       const stadiumTicket = await prisma.stadiumTicket.findUnique({
         where: { id: stadiumMatches[1] },
-        include: { match: { include: { stadium: true } }, sector: true },
+        include: { match: { include: { stadium: true, homeTeam: true, awayTeam: true } }, sector: true },
       });
 
       if (!stadiumTicket || stadiumTicket.qrCodeHash !== stadiumMatches[2]) {
@@ -1356,7 +1597,7 @@ app.post('/api/admin/tickets/validate', authMiddleware, async (req, res, next) =
       const updatedStadiumTicket = await prisma.stadiumTicket.update({
         where: { id: stadiumTicket.id },
         data: { status: StadiumTicketStatus.USED, usedAt: new Date() },
-        include: { match: { include: { stadium: true } }, sector: true },
+        include: { match: { include: { stadium: true, homeTeam: true, awayTeam: true } }, sector: true },
       });
 
       return res.json({
@@ -1384,7 +1625,7 @@ app.post('/api/admin/tickets/validate', authMiddleware, async (req, res, next) =
       include: {
         reservation: {
           include: {
-            showtime: { include: { movie: true, room: true } },
+            showtime: { include: { movieEvent: true, room: true } },
           },
         },
       },
@@ -1450,7 +1691,7 @@ app.post('/api/admin/tickets/validate', authMiddleware, async (req, res, next) =
       include: {
         reservation: {
           include: {
-            showtime: { include: { movie: true, room: true } },
+            showtime: { include: { movieEvent: true, room: true } },
           },
         },
       },
@@ -1467,7 +1708,7 @@ app.post('/api/admin/tickets/validate', authMiddleware, async (req, res, next) =
         usedAt: updated.usedAt,
         reservationId: updated.reservationId,
         event: {
-          title: updated.reservation.showtime.movie.title,
+          title: updated.reservation.showtime.movieEvent.title,
           startTime: updated.reservation.showtime.startTime,
           room: updated.reservation.showtime.room.name,
         },

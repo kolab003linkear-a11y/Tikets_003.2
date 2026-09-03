@@ -32,6 +32,22 @@ async function main() {
     throw new Error(`Admin seed verification failed for ${admin.email}.`);
   }
 
+  const clientEmail = 'cliente@tikets.com';
+  const clientPassword = 'demo1234';
+  const clientPasswordHash = await bcrypt.hash(clientPassword, 12);
+
+  const client = await prisma.user.upsert({
+    where: { email: clientEmail },
+    update: { passwordHash: clientPasswordHash, role: UserRole.CLIENT, fullName: 'Juan Pérez (Cliente demo)' },
+    create: {
+      email: clientEmail,
+      passwordHash: clientPasswordHash,
+      role: UserRole.CLIENT,
+      fullName: 'Juan Pérez (Cliente demo)',
+    },
+    select: { id: true, email: true },
+  });
+
   const movie1 = await prisma.movieEvent.upsert({
     where: { id: 'movie-1' },
     update: {
@@ -118,7 +134,6 @@ async function main() {
     },
   });
 
-  // Estadios de Ecuador
   const stadiumQuito = await prisma.stadium.upsert({
     where: { id: 'stadium-quito-001' },
     update: { name: 'Estadio Banco Guayaquil', city: 'Quito', imageUrl: 'https://images.unsplash.com/photo-1579952363873-27f3bede9f55?auto=format&fit=crop&w=1200&q=80' },
@@ -206,36 +221,58 @@ async function main() {
     include: { sectors: true },
   });
 
-  const now = new Date();
+  const teamDefs = [
+    { id: 'team-independiente-del-valle', name: 'Independiente del Valle', city: 'Sangolquí' },
+    { id: 'team-universidad-catolica', name: 'Universidad Católica', city: 'Quito' },
+    { id: 'team-delfin', name: 'Delfín', city: 'Manta' },
+    { id: 'team-tecnico-universitario', name: 'Técnico Universitario', city: 'Ambato' },
+    { id: 'team-liga-de-quito', name: 'Liga de Quito', city: 'Quito' },
+    { id: 'team-mushuc-runa', name: 'Mushuc Runa', city: 'Ambato' },
+    { id: 'team-macara', name: 'Macará', city: 'Ambato' },
+    { id: 'team-manta-fc', name: 'Manta F.C.', city: 'Manta' },
+    { id: 'team-deportivo-cuenca', name: 'Deportivo Cuenca', city: 'Cuenca' },
+    { id: 'team-guayaquil-city', name: 'Guayaquil City', city: 'Guayaquil' },
+    { id: 'team-barcelona-sc', name: 'Barcelona SC', city: 'Guayaquil' },
+    { id: 'team-aucas', name: 'Aucas', city: 'Quito' },
+    { id: 'team-leones-del-norte', name: 'Leones del Norte', city: 'Ibarra' },
+    { id: 'team-orense', name: 'Orense', city: 'Machala' },
+    { id: 'team-libertad-fc', name: 'Libertad FC', city: 'Loja' },
+    { id: 'team-emelec', name: 'Emelec', city: 'Guayaquil' },
+  ];
 
-  // Funciones de cine
-  await prisma.showtime.upsert({
-    where: { id: 'show-001' },
-    update: { movieId: movie1.id, roomId: room.id, startTime: new Date('2026-08-29T20:00:00-05:00'), price: 7, availableSeats: 64 },
-    create: {
-      id: 'show-001',
-      movieId: movie1.id,
-      roomId: room.id,
-      startTime: new Date('2026-08-29T20:00:00-05:00'),
-      price: 7,
-      availableSeats: 64,
-    },
-  });
+  const teamsById = new Map();
+  for (const t of teamDefs) {
+    const createdTeam = await prisma.team.upsert({
+      where: { id: t.id },
+      update: { name: t.name, city: t.city },
+      create: { id: t.id, name: t.name, city: t.city },
+      select: { id: true, name: true },
+    });
+    teamsById.set(t.id, createdTeam);
+  }
+
+  const team = (id: string) => teamsById.get(id).id;
 
   const nextWeekShowtimes = [
-    { id: 'show-next-001', movieId: movie1.id, startTime: '2026-09-01T18:00:00-05:00' },
-    { id: 'show-next-002', movieId: movie2.id, startTime: '2026-09-02T19:00:00-05:00' },
-    { id: 'show-next-003', movieId: movie3.id, startTime: '2026-09-03T16:30:00-05:00' },
-    { id: 'show-next-004', movieId: movie1.id, startTime: '2026-09-04T20:00:00-05:00' },
-    { id: 'show-next-005', movieId: movie2.id, startTime: '2026-09-05T18:00:00-05:00' },
-    { id: 'show-next-006', movieId: movie3.id, startTime: '2026-09-06T16:00:00-05:00' },
+    { id: 'show-next-001', movieEventId: movie1.id, startTime: '2026-09-01T18:00:00-05:00' },
+    { id: 'show-next-002', movieEventId: movie2.id, startTime: '2026-09-02T19:00:00-05:00' },
+    { id: 'show-next-003', movieEventId: movie3.id, startTime: '2026-09-03T16:30:00-05:00' },
+    { id: 'show-next-004', movieEventId: movie1.id, startTime: '2026-09-04T20:00:00-05:00' },
+    { id: 'show-next-005', movieEventId: movie2.id, startTime: '2026-09-05T18:00:00-05:00' },
+    { id: 'show-next-006', movieEventId: movie3.id, startTime: '2026-09-06T16:00:00-05:00' },
   ];
+
+  await prisma.showtime.upsert({
+    where: { id: 'show-001' },
+    update: { movieEventId: movie1.id, roomId: room.id, startTime: new Date('2026-08-29T20:00:00-05:00'), price: 7, availableSeats: 64 },
+    create: { id: 'show-001', movieEventId: movie1.id, roomId: room.id, startTime: new Date('2026-08-29T20:00:00-05:00'), price: 7, availableSeats: 64 },
+  });
 
   for (const showtime of nextWeekShowtimes) {
     await prisma.showtime.upsert({
       where: { id: showtime.id },
-      update: { movieId: showtime.movieId, roomId: room.id, startTime: new Date(showtime.startTime), price: 7, availableSeats: room.capacity },
-      create: { id: showtime.id, movieId: showtime.movieId, roomId: room.id, startTime: new Date(showtime.startTime), price: 7, availableSeats: room.capacity },
+      update: { movieEventId: showtime.movieEventId, roomId: room.id, startTime: new Date(showtime.startTime), price: 7, availableSeats: room.capacity },
+      create: { id: showtime.id, movieEventId: showtime.movieEventId, roomId: room.id, startTime: new Date(showtime.startTime), price: 7, availableSeats: room.capacity },
     });
   }
 
@@ -277,108 +314,75 @@ async function main() {
     });
     await prisma.showtime.upsert({
       where: { id: `${event.id}-show` },
-      update: { movieId: event.id, roomId: room.id, startTime: new Date(event.startTime), price: 10, availableSeats: room.capacity },
-      create: { id: `${event.id}-show`, movieId: event.id, roomId: room.id, startTime: new Date(event.startTime), price: 10, availableSeats: room.capacity },
+      update: { movieEventId: event.id, roomId: room.id, startTime: new Date(event.startTime), price: 10, availableSeats: room.capacity },
+      create: { id: `${event.id}-show`, movieEventId: event.id, roomId: room.id, startTime: new Date(event.startTime), price: 10, availableSeats: room.capacity },
     });
   }
 
   await prisma.showtime.upsert({
     where: { id: 'show-002' },
-    update: { movieId: movie2.id, roomId: room.id, startTime: new Date('2026-08-29T18:00:00-05:00'), price: 7, availableSeats: 64 },
-    create: {
-      id: 'show-002',
-      movieId: movie2.id,
-      roomId: room.id,
-      startTime: new Date('2026-08-29T18:00:00-05:00'),
-      price: 7,
-      availableSeats: 64,
-    },
+    update: { movieEventId: movie2.id, roomId: room.id, startTime: new Date('2026-08-29T18:00:00-05:00'), price: 7, availableSeats: 64 },
+    create: { id: 'show-002', movieEventId: movie2.id, roomId: room.id, startTime: new Date('2026-08-29T18:00:00-05:00'), price: 7, availableSeats: 64 },
   });
 
   await prisma.showtime.upsert({
     where: { id: 'show-003' },
-    update: { movieId: movie3.id, roomId: room.id, startTime: new Date('2026-08-29T16:00:00-05:00'), price: 7, availableSeats: 64 },
-    create: {
-      id: 'show-003',
-      movieId: movie3.id,
-      roomId: room.id,
-      startTime: new Date('2026-08-29T16:00:00-05:00'),
-      price: 7,
-      availableSeats: 64,
-    },
+    update: { movieEventId: movie3.id, roomId: room.id, startTime: new Date('2026-08-29T16:00:00-05:00'), price: 7, availableSeats: 64 },
+    create: { id: 'show-003', movieEventId: movie3.id, roomId: room.id, startTime: new Date('2026-08-29T16:00:00-05:00'), price: 7, availableSeats: 64 },
   });
 
-  // Partidos de Ecuador - Clásicos del fútbol ecuatoriano
   await prisma.match.upsert({
     where: { id: 'match-001' },
-    update: { stadiumId: stadiumQuito.id, homeTeam: 'Independiente del Valle', awayTeam: 'Universidad Católica (Quito)', startTime: new Date('2026-08-29T13:00:00-05:00'), status: MatchStatus.SCHEDULED },
-    create: {
-      id: 'match-001',
-      stadiumId: stadiumQuito.id,
-      homeTeam: 'Independiente del Valle',
-      awayTeam: 'Universidad Católica (Quito)',
-      startTime: new Date('2026-08-29T13:00:00-05:00'),
-      status: MatchStatus.SCHEDULED,
-    },
+    update: { stadiumId: stadiumQuito.id, homeTeamId: team('team-independiente-del-valle'), awayTeamId: team('team-universidad-catolica'), startTime: new Date('2026-08-29T13:00:00-05:00'), status: MatchStatus.SCHEDULED },
+    create: { id: 'match-001', stadiumId: stadiumQuito.id, homeTeamId: team('team-independiente-del-valle'), awayTeamId: team('team-universidad-catolica'), startTime: new Date('2026-08-29T13:00:00-05:00'), status: MatchStatus.SCHEDULED },
   });
 
   const nextWeekMatches = [
-    { id: 'match-next-001', stadiumId: stadiumGuayaquil.id, homeTeam: 'Delfín', awayTeam: 'Técnico Universitario', startTime: '2026-09-01T16:30:00-05:00' },
-    { id: 'match-next-002', stadiumId: stadiumQuito.id, homeTeam: 'Liga de Quito', awayTeam: 'Mushuc Runa', startTime: '2026-09-01T19:00:00-05:00' },
-    { id: 'match-next-003', stadiumId: stadiumCapwell.id, homeTeam: 'Macará', awayTeam: 'Manta', startTime: '2026-09-02T14:00:00-05:00' },
-    { id: 'match-next-004', stadiumId: stadiumAmbato.id, homeTeam: 'Deportivo Cuenca', awayTeam: 'Guayaquil City', startTime: '2026-09-02T16:30:00-05:00' },
-    { id: 'match-next-005', stadiumId: stadiumGuayaquil.id, homeTeam: 'Barcelona SC', awayTeam: 'Independiente del Valle', startTime: '2026-09-02T19:00:00-05:00' },
-    { id: 'match-next-006', stadiumId: stadiumQuito.id, homeTeam: 'Universidad Católica', awayTeam: 'Aucas', startTime: '2026-09-03T14:00:00-05:00' },
-    { id: 'match-next-007', stadiumId: stadiumAmbato.id, homeTeam: 'Leones del Norte', awayTeam: 'Orense', startTime: '2026-09-03T16:30:00-05:00' },
-    { id: 'match-next-008', stadiumId: stadiumCapwell.id, homeTeam: 'Libertad FC', awayTeam: 'Emelec', startTime: '2026-09-03T19:00:00-05:00' },
+    { id: 'match-next-001', stadiumId: stadiumGuayaquil.id, homeTeamId: team('team-delfin'), awayTeamId: team('team-tecnico-universitario'), startTime: '2026-09-01T16:30:00-05:00' },
+    { id: 'match-next-002', stadiumId: stadiumQuito.id, homeTeamId: team('team-liga-de-quito'), awayTeamId: team('team-mushuc-runa'), startTime: '2026-09-01T19:00:00-05:00' },
+    { id: 'match-next-003', stadiumId: stadiumCapwell.id, homeTeamId: team('team-macara'), awayTeamId: team('team-manta-fc'), startTime: '2026-09-02T14:00:00-05:00' },
+    { id: 'match-next-004', stadiumId: stadiumAmbato.id, homeTeamId: team('team-deportivo-cuenca'), awayTeamId: team('team-guayaquil-city'), startTime: '2026-09-02T16:30:00-05:00' },
+    { id: 'match-next-005', stadiumId: stadiumGuayaquil.id, homeTeamId: team('team-barcelona-sc'), awayTeamId: team('team-independiente-del-valle'), startTime: '2026-09-02T19:00:00-05:00' },
+    { id: 'match-next-006', stadiumId: stadiumQuito.id, homeTeamId: team('team-universidad-catolica'), awayTeamId: team('team-aucas'), startTime: '2026-09-03T14:00:00-05:00' },
+    { id: 'match-next-007', stadiumId: stadiumAmbato.id, homeTeamId: team('team-leones-del-norte'), awayTeamId: team('team-orense'), startTime: '2026-09-03T16:30:00-05:00' },
+    { id: 'match-next-008', stadiumId: stadiumCapwell.id, homeTeamId: team('team-libertad-fc'), awayTeamId: team('team-emelec'), startTime: '2026-09-03T19:00:00-05:00' },
   ];
 
   for (const match of nextWeekMatches) {
+    const { id, stadiumId, homeTeamId, awayTeamId, startTime } = match;
     await prisma.match.upsert({
-      where: { id: match.id },
-      update: { ...match, status: MatchStatus.SCHEDULED },
-      create: { ...match, status: MatchStatus.SCHEDULED },
+      where: { id },
+      update: { stadiumId, homeTeamId, awayTeamId, startTime: new Date(startTime), status: MatchStatus.SCHEDULED },
+      create: { id, stadiumId, homeTeamId, awayTeamId, startTime: new Date(startTime), status: MatchStatus.SCHEDULED },
     });
   }
 
   await prisma.match.upsert({
     where: { id: 'match-002' },
-    update: { stadiumId: stadiumGuayaquil.id, homeTeam: 'Manta F.C.', awayTeam: 'Barcelona SC', startTime: new Date('2026-08-29T19:00:00-05:00'), status: MatchStatus.SCHEDULED },
-    create: {
-      id: 'match-002',
-      stadiumId: stadiumGuayaquil.id,
-      homeTeam: 'Manta F.C.',
-      awayTeam: 'Barcelona SC',
-      startTime: new Date('2026-08-29T19:00:00-05:00'),
-      status: MatchStatus.SCHEDULED,
-    },
+    update: { stadiumId: stadiumGuayaquil.id, homeTeamId: team('team-manta-fc'), awayTeamId: team('team-barcelona-sc'), startTime: new Date('2026-08-29T19:00:00-05:00'), status: MatchStatus.SCHEDULED },
+    create: { id: 'match-002', stadiumId: stadiumGuayaquil.id, homeTeamId: team('team-manta-fc'), awayTeamId: team('team-barcelona-sc'), startTime: new Date('2026-08-29T19:00:00-05:00'), status: MatchStatus.SCHEDULED },
   });
 
   await prisma.match.upsert({
     where: { id: 'match-003' },
-    update: { stadiumId: stadiumCapwell.id, homeTeam: 'Técnico Universitario', awayTeam: 'Deportivo Cuenca', startTime: new Date('2026-08-28T19:00:00-05:00'), status: MatchStatus.SCHEDULED },
-    create: {
-      id: 'match-003',
-      stadiumId: stadiumCapwell.id,
-      homeTeam: 'Técnico Universitario',
-      awayTeam: 'Deportivo Cuenca',
-      startTime: new Date('2026-08-28T19:00:00-05:00'),
-      status: MatchStatus.SCHEDULED,
-    },
+    update: { stadiumId: stadiumCapwell.id, homeTeamId: team('team-tecnico-universitario'), awayTeamId: team('team-deportivo-cuenca'), startTime: new Date('2026-08-28T19:00:00-05:00'), status: MatchStatus.SCHEDULED },
+    create: { id: 'match-003', stadiumId: stadiumCapwell.id, homeTeamId: team('team-tecnico-universitario'), awayTeamId: team('team-deportivo-cuenca'), startTime: new Date('2026-08-28T19:00:00-05:00'), status: MatchStatus.SCHEDULED },
   });
 
   await prisma.match.upsert({
     where: { id: 'match-004' },
-    update: { stadiumId: stadiumAmbato.id, homeTeam: 'Mushuc Runa', awayTeam: 'Delfín', startTime: new Date('2026-08-28T15:30:00-05:00'), status: MatchStatus.SCHEDULED },
-    create: {
-      id: 'match-004',
-      stadiumId: stadiumAmbato.id,
-      homeTeam: 'Mushuc Runa',
-      awayTeam: 'Delfín',
-      startTime: new Date('2026-08-28T15:30:00-05:00'),
-      status: MatchStatus.SCHEDULED,
-    },
+    update: { stadiumId: stadiumAmbato.id, homeTeamId: team('team-mushuc-runa'), awayTeamId: team('team-delfin'), startTime: new Date('2026-08-28T15:30:00-05:00'), status: MatchStatus.SCHEDULED },
+    create: { id: 'match-004', stadiumId: stadiumAmbato.id, homeTeamId: team('team-mushuc-runa'), awayTeamId: team('team-delfin'), startTime: new Date('2026-08-28T15:30:00-05:00'), status: MatchStatus.SCHEDULED },
   });
+
+  const favoriteTeamIds = ['team-barcelona-sc', 'team-liga-de-quito', 'team-independiente-del-valle'];
+  for (const teamId of favoriteTeamIds) {
+    await prisma.userFavoriteTeam.upsert({
+      where: { userId_teamId: { userId: client.id, teamId } },
+      update: {},
+      create: { userId: client.id, teamId },
+    });
+  }
 
   const parkingLots = [
     { id: 'parking-quito-centro', name: 'Parking Centro Histórico (demo)', address: 'García Moreno y Chile', city: 'Quito', totalSpaces: 120, price: 2.5, operator: 'Operador demo TiKetSafe', openingHours: '06:00-22:00', terminalName: null, accessMode: ParkingAccessMode.QR, vehicleTypes: ['AUTO', 'MOTO'] },
@@ -399,6 +403,7 @@ async function main() {
   for (const route of busRoutes) {
     await prisma.busRoute.upsert({ where: { id: route.id }, update: { ...route, status: BusRouteStatus.ACTIVE }, create: { ...route, status: BusRouteStatus.ACTIVE } });
   }
+
   const busTrips = [
     { id: 'trip-quito-guayaquil-001', routeId: 'route-quito-guayaquil', departureTime: '2026-09-01T07:00:00-05:00', arrivalTime: '2026-09-01T15:00:00-05:00', boardingPlatform: 'Andén demo 12', baggageInfo: '1 pieza incluida (demo)', price: 18, totalSeats: 40 },
     { id: 'trip-quito-guayaquil-002', routeId: 'route-quito-guayaquil', departureTime: '2026-09-01T21:00:00-05:00', arrivalTime: '2026-09-02T05:00:00-05:00', boardingPlatform: 'Andén demo 8', baggageInfo: 'Equipaje sujeto a validación del operador (demo)', price: 20, totalSeats: 40 },
@@ -410,9 +415,12 @@ async function main() {
 
   console.log('Seed ok:', {
     admin: admin.email,
+    client: client.email,
     movies: [movie1.title, movie2.title, movie3.title, ...upcomingMovies.map((movie) => movie.title)],
     stadiums: ['Banco Guayaquil', 'Jocay', 'Bellavista', 'COAC Mushuc Runa'],
+    teams: teamDefs.length,
     matches: 12,
+    favoriteTeams: favoriteTeamIds.length,
     parkingLots: parkingLots.length,
     busTrips: busTrips.length,
   });

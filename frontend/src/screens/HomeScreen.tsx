@@ -198,9 +198,9 @@ export default function HomeScreen() {
               {matches.slice(0, 4).map((match) => (
                 <Pressable key={match.id} style={styles.matchCard} onPress={() => navigation.navigate('Estadios')}>
                   <Text style={styles.matchLeague}>{match.stadium.city.toUpperCase()} · {match.status === 'LIVE' ? 'EN VIVO' : 'PRÓXIMO'}</Text>
-                  <Text style={styles.matchTeams}>{match.homeTeam}</Text>
+                  <Text style={styles.matchTeams}>{match.homeTeam.name}</Text>
                   <Text style={styles.matchVs}>VS</Text>
-                  <Text style={styles.matchTeams}>{match.awayTeam}</Text>
+                  <Text style={styles.matchTeams}>{match.awayTeam.name}</Text>
                   <View style={styles.matchFooter}>
                     <Ionicons name="location-outline" size={14} color={colors.textSecondary} />
                     <Text style={styles.matchVenue}>{match.stadium.name}</Text>
