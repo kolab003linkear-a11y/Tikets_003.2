@@ -82,6 +82,7 @@ const eventSchema = z.object({
   posterUrl: z.string().trim().url(),
   trailerUrl: z.string().trim().url().nullable().optional(),
   rating: z.coerce.number().min(0).max(10).nullable().optional(),
+  ageRating: z.enum(['TODO_PUBLICO', '+7', '+12', '+15', '+18']).nullable().optional(),
   status: z.enum(['NOW_SHOWING', 'COMING_SOON']),
 });
 
@@ -399,6 +400,75 @@ app.post('/api/admin/events', authMiddleware, async (req, res, next) => {
   }
 });
 
+app.get('/api/admin/food', authMiddleware, async (req, res, next) => {
+  try {
+    const authenticatedUser = (req as Request & { user: { role: UserRole } }).user;
+
+    if (authenticatedUser.role !== UserRole.ADMIN) {
+      throw new AppError('Only administrators can manage food products.', 403);
+    }
+
+    const products = await prisma.foodProduct.findMany({
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return res.json({ products });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post('/api/admin/food', authMiddleware, async (req, res, next) => {
+  try {
+    const authenticatedUser = (req as Request & { user: { role: UserRole } }).user;
+
+    if (authenticatedUser.role !== UserRole.ADMIN) {
+      throw new AppError('Only administrators can manage food products.', 403);
+    }
+
+    const product = await prisma.foodProduct.create({
+      data: {
+        name: req.body.name,
+        description: req.body.description ?? null,
+        imageUrl: req.body.imageUrl ?? null,
+        price: Number(req.body.price),
+        category: req.body.category,
+        active: req.body.active ?? true,
+      },
+    });
+
+    return res.status(201).json({ product });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.patch('/api/admin/food/:productId', authMiddleware, async (req, res, next) => {
+  try {
+    const authenticatedUser = (req as Request & { user: { role: UserRole } }).user;
+
+    if (authenticatedUser.role !== UserRole.ADMIN) {
+      throw new AppError('Only administrators can manage food products.', 403);
+    }
+
+    const product = await prisma.foodProduct.update({
+      where: { id: req.params.productId },
+      data: {
+        name: req.body.name,
+        description: req.body.description ?? null,
+        imageUrl: req.body.imageUrl ?? null,
+        price: Number(req.body.price),
+        category: req.body.category,
+        active: req.body.active ?? true,
+      },
+    });
+
+    return res.json({ product });
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.patch('/api/admin/events/:eventId', authMiddleware, async (req, res, next) => {
   try {
     const authenticatedUser = (req as Request & { user: { role: UserRole } }).user;
@@ -491,7 +561,13 @@ app.post('/api/admin/showtimes', authMiddleware, async (req, res, next) => {
     if (!movie) throw new AppError('Event not found.', 404);
     const availableSeats = payload.availableSeats ?? room.capacity;
     if (availableSeats > room.capacity) throw new AppError('Availability cannot exceed room capacity.', 400);
-    const showtime = await prisma.showtime.create({ data: { ...payload, availableSeats } });
+    const showtime = await prisma.showtime.create({
+  data: { ...payload, availableSeats },
+  include: {
+    movie: { select: { id: true, title: true } },
+    room: { select: { id: true, name: true, capacity: true } },
+  },
+});
     return res.status(201).json({ showtime });
   } catch (error) {
     next(error);

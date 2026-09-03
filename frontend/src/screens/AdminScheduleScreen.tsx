@@ -22,6 +22,18 @@ export default function AdminScheduleScreen() {
   const [error, setError] = useState('');
 
   const totalCapacity = useMemo(() => rooms.reduce((total, room) => total + room.capacity, 0), [rooms]);
+  const roomSchedule = useMemo(() => {
+  return rooms.map((room) => {
+    const roomShowtimes = showtimes
+      .filter((showtime) => showtime.room?.id === room.id)
+      .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+
+    return {
+      room,
+      showtimes: roomShowtimes,
+    };
+  });
+}, [rooms, showtimes]);
 
   const loadData = async () => {
     if (!token) return;
@@ -140,6 +152,44 @@ export default function AdminScheduleScreen() {
           <Text style={styles.listTitle}>Funciones programadas</Text>
           {showtimes.map((showtime) => <View style={styles.row} key={showtime.id}><View style={styles.dateBadge}><Text style={styles.dateDay}>{new Date(showtime.startTime).getDate()}</Text><Text style={styles.dateMonth}>{new Date(showtime.startTime).toLocaleDateString('es-ES', { month: 'short' }).replace('.', '').toUpperCase()}</Text></View><View style={styles.info}><Text style={styles.rowTitle}>{showtime.movie.title}</Text><Text style={styles.meta}>{new Date(showtime.startTime).toLocaleString('es-ES', { weekday: 'short', hour: '2-digit', minute: '2-digit' })} · {showtime.room.name}</Text><Text style={styles.showtimeMeta}>${Number(showtime.price).toFixed(2)} · {showtime.availableSeats}/{showtime.room.capacity} libres</Text></View><Pressable accessibilityRole="button" accessibilityLabel={`Editar función de ${showtime.movie.title}`} style={styles.editButton} onPress={() => editShowtime(showtime)}><Ionicons name="pencil-outline" size={17} color={colors.primary} /></Pressable></View>)}
         </>}
+        <Text style={styles.listTitle}>Horario de salas</Text>
+
+{roomSchedule.map(({ room, showtimes: roomShowtimes }) => (
+  <View style={styles.row} key={`schedule-${room.id}`}>
+    <View style={styles.roomIcon}>
+      <Ionicons name="calendar-outline" size={21} color={colors.primary} />
+    </View>
+
+    <View style={styles.info}>
+      <Text style={styles.rowTitle}>{room.name}</Text>
+
+      {roomShowtimes.length === 0 ? (
+        <Text style={styles.meta}>
+  {roomShowtimes.length === 0
+    ? 'Sala disponible · Sin funciones'
+    : `${roomShowtimes.length} función(es) programada(s)`}
+</Text>
+      ) : (
+        roomShowtimes.map((showtime) => (
+          <View key={showtime.id} style={{ marginTop: 6 }}>
+            <Text style={styles.meta}>
+              {showtime.movie?.title ?? 'Evento'} ·{' '}
+              {new Date(showtime.startTime).toLocaleString('es-ES', {
+                day: '2-digit',
+                month: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+              })}
+            </Text>
+            <Text style={styles.showtimeMeta}>
+              {showtime.availableSeats}/{room.capacity} asientos libres
+            </Text>
+          </View>
+        ))
+      )}
+    </View>
+  </View>
+))}
         <Pressable onPress={() => void loadData()}><Text style={styles.refresh}>Actualizar datos</Text></Pressable>
       </ScrollView>
     </SafeAreaView>

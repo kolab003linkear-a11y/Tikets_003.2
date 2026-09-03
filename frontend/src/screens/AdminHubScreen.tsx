@@ -10,8 +10,9 @@ import AdminStadiumsScreen from './AdminStadiumsScreen';
 import ProfileAvatar from '../components/ProfileAvatar';
 import AdminParkingScreen from './AdminParkingScreen';
 import AdminBusesScreen from './AdminBusesScreen';
+import AdminFoodScreen from './AdminFoodScreen';
 
-type AdminSection = 'scanner' | 'events' | 'schedule' | 'stadiums' | 'parking' | 'buses';
+type AdminSection = 'scanner' | 'events' | 'schedule' | 'stadiums' | 'parking' | 'buses' | 'food';
 
 export default function AdminHubScreen() {
   const { user } = useAuth();
@@ -24,6 +25,7 @@ export default function AdminHubScreen() {
         { key: 'stadiums', label: 'Estadios', icon: 'football-outline' },
         { key: 'parking', label: 'Parqueaderos', icon: 'car-outline' },
         { key: 'buses', label: 'Buses', icon: 'bus-outline' },
+        { key: 'food', label: 'Comidas', icon: 'restaurant-outline' },
       ]
     : [{ key: 'scanner', label: 'Escáner', icon: 'scan-outline' }];
   const [section, setSection] = useState<AdminSection>('scanner');
@@ -60,6 +62,7 @@ export default function AdminHubScreen() {
         {section === 'stadiums' && <AdminStadiumsScreen />}
         {section === 'parking' && <AdminParkingScreen />}
         {section === 'buses' && <AdminBusesScreen />}
+        {section === 'food' && <AdminFoodScreen />}
       </View>
     </SafeAreaView>
   );
