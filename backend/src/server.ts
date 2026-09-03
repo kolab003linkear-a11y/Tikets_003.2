@@ -136,19 +136,22 @@ const favoriteTeamSchema = z.object({
   teamId: z.string().min(1),
 });
 
+// price === null significa "quitar el precio personalizado de este sector
+// para este partido" (vuelve a usar StadiumSector.price por defecto).
+const matchSectorPriceSchema = z.object({
+  sectorId: z.string().min(1),
+  price: z.coerce.number().positive().max(10000).nullable(),
+});
+
 const matchSchema = z.object({
   stadiumId: z.string().min(1),
   homeTeamId: z.string().min(1),
   awayTeamId: z.string().min(1),
   startTime: z.coerce.date(),
   status: z.enum(['SCHEDULED', 'LIVE', 'FINISHED', 'CANCELLED']).optional(),
-});
-
-// price === null significa "quitar el precio personalizado de este sector
-// para este partido" (vuelve a usar StadiumSector.price por defecto).
-const matchSectorPriceSchema = z.object({
-  sectorId: z.string().min(1),
-  price: z.coerce.number().positive().max(10000).nullable(),
+  // Precios por sector definidos en el momento de crear/editar el partido
+  // (opcional: si se omite, todos los sectores venden al precio base).
+  sectorPrices: z.array(matchSectorPriceSchema).max(100).optional(),
 });
 
 const matchPricesUpdateSchema = z.object({
@@ -845,8 +848,15 @@ app.post('/api/admin/matches', authMiddleware, async (req, res, next) => {
       prisma.team.findUnique({ where: { id: payload.awayTeamId }, select: { id: true } }),
     ]);
     if (!homeTeam || !awayTeam) throw new AppError('Home or away team not found.', 404);
-    const match = await prisma.match.create({ data: { ...payload, status: payload.status ?? 'SCHEDULED' }, include: { stadium: true, homeTeam: true, awayTeam: true } });
-    return res.status(201).json({ match });
+
+    const { sectorPrices, ...matchData } = payload;
+    if (sectorPrices?.length) await assertSectorsBelongToStadium(payload.stadiumId, sectorPrices);
+
+    const match = await prisma.match.create({ data: { ...matchData, status: matchData.status ?? 'SCHEDULED' }, include: { stadium: true, homeTeam: true, awayTeam: true } });
+    if (sectorPrices?.length) await applySectorPrices(match.id, sectorPrices);
+
+    const { prices } = await buildMatchSectorPrices(match.id);
+    return res.status(201).json({ match, prices });
   } catch (error) {
     next(error);
   }
@@ -858,12 +868,51 @@ app.patch('/api/admin/matches/:matchId', authMiddleware, async (req, res, next) 
     if (authenticatedUser.role !== UserRole.ADMIN) throw new AppError('Only administrators can manage matches.', 403);
     const payload = matchSchema.parse(req.body);
     if (payload.homeTeamId === payload.awayTeamId) throw new AppError('Home and away teams must be different.', 400);
-    const match = await prisma.match.update({ where: { id: req.params.matchId }, data: { ...payload, status: payload.status ?? 'SCHEDULED' }, include: { stadium: true, homeTeam: true, awayTeam: true } });
-    return res.json({ match });
+
+    const { sectorPrices, ...matchData } = payload;
+    if (sectorPrices?.length) await assertSectorsBelongToStadium(payload.stadiumId, sectorPrices);
+
+    const match = await prisma.match.update({ where: { id: req.params.matchId }, data: { ...matchData, status: matchData.status ?? 'SCHEDULED' }, include: { stadium: true, homeTeam: true, awayTeam: true } });
+    if (sectorPrices?.length) await applySectorPrices(match.id, sectorPrices);
+
+    const { prices } = await buildMatchSectorPrices(match.id);
+    return res.json({ match, prices });
   } catch (error) {
     next(error);
   }
 });
+
+type SectorPriceEntryInput = { sectorId: string; price: number | null };
+
+// Verifica que cada sectorId de la lista pertenezca al estadio del partido
+// (evita asignarle precio a un sector de otro estadio).
+async function assertSectorsBelongToStadium(stadiumId: string, prices: SectorPriceEntryInput[]) {
+  if (prices.length === 0) return;
+  const sectors = await prisma.stadiumSector.findMany({ where: { stadiumId }, select: { id: true } });
+  const validSectorIds = new Set(sectors.map((sector) => sector.id));
+  for (const entry of prices) {
+    if (!validSectorIds.has(entry.sectorId)) throw new AppError('Sector does not belong to this match\'s stadium.', 400);
+  }
+}
+
+// Aplica una lista de precios por sector a un partido: price number = crea o
+// actualiza el precio personalizado; price null = lo quita (vuelve al precio
+// base del sector). La usan la creación/edición de partidos y el endpoint
+// dedicado de precios por partido.
+async function applySectorPrices(matchId: string, prices: SectorPriceEntryInput[]) {
+  if (prices.length === 0) return;
+  await prisma.$transaction(
+    prices.map((entry) =>
+      entry.price === null
+        ? prisma.matchSectorPrice.deleteMany({ where: { matchId, sectorId: entry.sectorId } })
+        : prisma.matchSectorPrice.upsert({
+            where: { matchId_sectorId: { matchId, sectorId: entry.sectorId } },
+            create: { matchId, sectorId: entry.sectorId, price: entry.price },
+            update: { price: entry.price },
+          }),
+    ),
+  );
+}
 
 // Arma, para un partido, la lista de sectores de su estadio con su precio
 // base, el precio personalizado (si existe) y el precio efectivo que verá
@@ -910,23 +959,8 @@ app.put('/api/admin/matches/:matchId/prices', authMiddleware, async (req, res, n
     const match = await prisma.match.findUnique({ where: { id: req.params.matchId }, select: { id: true, stadiumId: true } });
     if (!match) throw new AppError('Match not found.', 404);
 
-    const stadiumSectors = await prisma.stadiumSector.findMany({ where: { stadiumId: match.stadiumId }, select: { id: true } });
-    const validSectorIds = new Set(stadiumSectors.map((sector) => sector.id));
-    for (const entry of payload.prices) {
-      if (!validSectorIds.has(entry.sectorId)) throw new AppError('Sector does not belong to this match\'s stadium.', 400);
-    }
-
-    await prisma.$transaction(
-      payload.prices.map((entry) =>
-        entry.price === null
-          ? prisma.matchSectorPrice.deleteMany({ where: { matchId: match.id, sectorId: entry.sectorId } })
-          : prisma.matchSectorPrice.upsert({
-              where: { matchId_sectorId: { matchId: match.id, sectorId: entry.sectorId } },
-              create: { matchId: match.id, sectorId: entry.sectorId, price: entry.price },
-              update: { price: entry.price },
-            }),
-      ),
-    );
+    await assertSectorsBelongToStadium(match.stadiumId, payload.prices);
+    await applySectorPrices(match.id, payload.prices);
 
     const result = await buildMatchSectorPrices(match.id);
     return res.json(result);
