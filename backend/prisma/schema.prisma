@@ -136,7 +136,7 @@ model MovieEvent {
   posterUrl   String        @map("poster_url")
   trailerUrl  String?       @map("trailer_url")
   rating      Decimal?      @db.Decimal(3, 1)
-  ageRating   String?
+  ageRating   String?       @map("age_rating")
   status      EventStatus   @default(NOW_SHOWING)
   createdAt   DateTime      @default(now()) @map("created_at")
   updatedAt   DateTime      @updatedAt @map("updated_at")
