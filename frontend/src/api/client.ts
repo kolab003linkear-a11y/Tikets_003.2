@@ -48,6 +48,9 @@ export type AuthResponse = {
   token: string;
 };
 
+export type ModuleKey = 'catalog' | 'stadiums' | 'parking' | 'buses' | 'assistant';
+export type ModuleSettings = Record<ModuleKey, boolean>;
+
 export type ReservationResponse = {
   success: boolean;
   reservation: {
@@ -264,6 +267,18 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export function getCatalog() {
   return request<CatalogResponse>('/api/catalog');
+}
+
+export function getModules() {
+  return request<{ modules: ModuleSettings }>('/api/modules');
+}
+
+export function getAdminModules(token: string) {
+  return request<{ modules: ModuleSettings }>('/api/admin/modules', { headers: { Authorization: `Bearer ${token}` } });
+}
+
+export function updateAdminModule(token: string, moduleKey: ModuleKey, enabled: boolean) {
+  return request<{ modules: ModuleSettings }>(`/api/admin/modules/${moduleKey}`, { method: 'PATCH', headers: { Authorization: `Bearer ${token}` }, body: JSON.stringify({ enabled }) });
 }
 
 export function getMatches() {

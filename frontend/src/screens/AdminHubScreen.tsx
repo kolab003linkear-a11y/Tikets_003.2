@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, SafeAreaView, StyleSheet, Switch, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../auth/AuthContext';
 import { colors, typography } from '../theme';
@@ -13,9 +13,14 @@ import AdminBusesScreen from './AdminBusesScreen';
 import AdminFoodScreen from './AdminFoodScreen';
 
 type AdminSection = 'scanner' | 'events' | 'schedule' | 'stadiums' | 'parking' | 'buses' | 'food';
+import { getAdminModules, ModuleKey, updateAdminModule } from '../api/client';
+import { useModules } from '../modules/ModuleContext';
+
+type AdminSection = 'scanner' | 'events' | 'schedule' | 'stadiums' | 'parking' | 'buses' | 'modules';
 
 export default function AdminHubScreen() {
-  const { user } = useAuth();
+  const { user, token } = useAuth();
+  const { modules, setModules } = useModules();
   const isAdmin = user?.role === 'ADMIN';
   const sections: Array<{ key: AdminSection; label: string; icon: keyof typeof Ionicons.glyphMap }> = isAdmin
     ? [
@@ -26,9 +31,36 @@ export default function AdminHubScreen() {
         { key: 'parking', label: 'Parqueaderos', icon: 'car-outline' },
         { key: 'buses', label: 'Buses', icon: 'bus-outline' },
         { key: 'food', label: 'Comidas', icon: 'restaurant-outline' },
+        { key: 'modules', label: 'Módulos', icon: 'options-outline' },
       ]
     : [{ key: 'scanner', label: 'Escáner', icon: 'scan-outline' }];
   const [section, setSection] = useState<AdminSection>('scanner');
+  const [moduleError, setModuleError] = useState('');
+  const [moduleLoading, setModuleLoading] = useState(false);
+
+  const moduleItems: Array<{ key: ModuleKey; label: string; description: string }> = [
+    { key: 'catalog', label: 'Cartelera', description: 'Cine, teatro y conciertos' },
+    { key: 'stadiums', label: 'Estadios', description: 'Partidos y venta de localidades' },
+    { key: 'parking', label: 'Parqueaderos', description: 'Reservas de estacionamiento' },
+    { key: 'buses', label: 'Buses', description: 'Rutas y tickets de transporte' },
+    { key: 'assistant', label: 'Asistente', description: 'Asistente de búsqueda para clientes' },
+  ];
+
+  const loadModules = async () => {
+    if (!token) return;
+    setModuleLoading(true);
+    try { setModules((await getAdminModules(token)).modules); setModuleError(''); }
+    catch (error) { setModuleError(error instanceof Error ? error.message : 'No se pudo cargar la configuración.'); }
+    finally { setModuleLoading(false); }
+  };
+
+  const toggleModule = async (key: ModuleKey, enabled: boolean) => {
+    if (!token) return;
+    setModuleLoading(true);
+    try { setModules((await updateAdminModule(token, key, enabled)).modules); setModuleError(''); }
+    catch (error) { setModuleError(error instanceof Error ? error.message : 'No se pudo actualizar el módulo.'); }
+    finally { setModuleLoading(false); }
+  };
 
   if (!user || (user.role !== 'ADMIN' && user.role !== 'SCANNER')) {
     return <AdminScannerScreen />;
@@ -63,6 +95,12 @@ export default function AdminHubScreen() {
         {section === 'parking' && <AdminParkingScreen />}
         {section === 'buses' && <AdminBusesScreen />}
         {section === 'food' && <AdminFoodScreen />}
+        {section === 'modules' && <View style={styles.modulesPanel}>
+          <View style={styles.modulesHeader}><View><Text style={styles.sectionTitle}>Módulos del cliente</Text><Text style={styles.formHint}>Controla qué experiencias aparecen en la app.</Text></View><Pressable onPress={() => void loadModules()}><Ionicons name="refresh-outline" size={20} color={colors.primary} /></Pressable></View>
+          {moduleLoading && <ActivityIndicator color={colors.primary} />}
+          {!!moduleError && <Text style={styles.error}>{moduleError}</Text>}
+          {moduleItems.map((item) => <View key={item.key} style={styles.moduleRow}><View style={styles.moduleCopy}><Text style={styles.moduleLabel}>{item.label}</Text><Text style={styles.moduleDescription}>{item.description}</Text></View><Switch accessibilityLabel={`Activar ${item.label}`} value={modules[item.key]} onValueChange={(enabled) => void toggleModule(item.key, enabled)} trackColor={{ false: colors.border, true: colors.primary + '88' }} thumbColor={modules[item.key] ? colors.primary : colors.textSecondary} /></View>)}
+        </View>}
       </View>
     </SafeAreaView>
   );
@@ -84,4 +122,13 @@ const styles = StyleSheet.create({
   selectorTextActive: { color: colors.text },
   activeLine: { position: 'absolute', bottom: -1, left: 12, right: 12, height: 2, borderRadius: 2, backgroundColor: colors.primary },
   content: { flex: 1 },
+  modulesPanel: { padding: 18, gap: 14 },
+  modulesHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+  sectionTitle: { color: colors.text, fontSize: 18, fontWeight: '800' },
+  formHint: { color: colors.textSecondary, fontSize: 12, marginTop: 4 },
+  error: { color: colors.critical, fontSize: 13 },
+  moduleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: colors.border, paddingVertical: 14 },
+  moduleCopy: { flex: 1, paddingRight: 12 },
+  moduleLabel: { color: colors.text, fontSize: 15, fontWeight: '800' },
+  moduleDescription: { color: colors.textSecondary, fontSize: 12, marginTop: 3 },
 });

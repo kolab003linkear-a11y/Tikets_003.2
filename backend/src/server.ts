@@ -180,6 +180,18 @@ const busTripSchema = z.object({
 
 const busTicketSchema = z.object({ seatNumber: z.coerce.number().int().min(1) });
 
+const moduleKeys = ['catalog', 'stadiums', 'parking', 'buses', 'assistant'] as const;
+const moduleSchema = z.object({ enabled: z.boolean() });
+
+async function getModuleSettings() {
+  const settings = await prisma.moduleSetting.findMany({ where: { key: { in: [...moduleKeys] } } });
+  return Object.fromEntries(moduleKeys.map((key) => [key, settings.find((setting) => setting.key === key)?.enabled ?? true]));
+}
+
+async function isModuleEnabled(key: (typeof moduleKeys)[number]) {
+  return (await prisma.moduleSetting.findUnique({ where: { key }, select: { enabled: true } }))?.enabled ?? true;
+}
+
 class AppError extends Error {
   statusCode: number;
 
@@ -233,6 +245,37 @@ app.get('/api/health', async (_req, res, next) => {
   } catch (error) {
     writeLog('ERROR', 'Database health check failed', error);
     next(new AppError('Database unavailable.', 503));
+  }
+});
+
+app.get('/api/modules', async (_req, res, next) => {
+  try {
+    return res.json({ modules: await getModuleSettings() });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get('/api/admin/modules', authMiddleware, async (req, res, next) => {
+  try {
+    const user = (req as Request & { user: { role: UserRole } }).user;
+    if (user.role !== UserRole.ADMIN) throw new AppError('Only administrators can manage modules.', 403);
+    return res.json({ modules: await getModuleSettings() });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.patch('/api/admin/modules/:moduleKey', authMiddleware, async (req, res, next) => {
+  try {
+    const user = (req as Request & { user: { role: UserRole } }).user;
+    if (user.role !== UserRole.ADMIN) throw new AppError('Only administrators can manage modules.', 403);
+    if (!moduleKeys.includes(req.params.moduleKey as (typeof moduleKeys)[number])) throw new AppError('Unknown module.', 404);
+    const payload = moduleSchema.parse(req.body);
+    await prisma.moduleSetting.upsert({ where: { key: req.params.moduleKey }, update: payload, create: { key: req.params.moduleKey, ...payload } });
+    return res.json({ modules: await getModuleSettings() });
+  } catch (error) {
+    next(error);
   }
 });
 
@@ -592,6 +635,7 @@ app.patch('/api/admin/showtimes/:showtimeId', authMiddleware, async (req, res, n
 
 app.get('/api/stadiums', async (_req, res, next) => {
   try {
+    if (!(await isModuleEnabled('stadiums'))) return res.json({ stadiums: [] });
     const stadiums = await prisma.stadium.findMany({ include: { sectors: true }, orderBy: { name: 'asc' } });
     return res.json({ stadiums });
   } catch (error) {
@@ -601,6 +645,7 @@ app.get('/api/stadiums', async (_req, res, next) => {
 
 app.get('/api/matches', async (_req, res, next) => {
   try {
+    if (!(await isModuleEnabled('stadiums'))) return res.json({ matches: [] });
     const matches = await prisma.match.findMany({
       where: { status: { in: ['SCHEDULED', 'LIVE'] } },
       include: {
@@ -691,6 +736,7 @@ app.patch('/api/admin/matches/:matchId', authMiddleware, async (req, res, next) 
 
 app.post('/api/matches/:matchId/tickets', authMiddleware, async (req, res, next) => {
   try {
+    if (!(await isModuleEnabled('stadiums'))) throw new AppError('The stadiums module is disabled.', 409);
     const payload = stadiumTicketSchema.parse(req.body);
     const authenticatedUser = (req as Request & { user: { sub: string } }).user;
     const account = await prisma.user.findUnique({ where: { id: authenticatedUser.sub }, select: { id: true, fullName: true, phone: true } });
@@ -722,6 +768,7 @@ app.post('/api/matches/:matchId/tickets', authMiddleware, async (req, res, next)
 
 app.get('/api/parking', async (_req, res, next) => {
   try {
+    if (!(await isModuleEnabled('parking'))) return res.json({ parking: [] });
     const requestedDate = _req.query.date ? new Date(String(_req.query.date)) : new Date();
     requestedDate.setHours(0, 0, 0, 0);
     const nextDate = new Date(requestedDate); nextDate.setDate(nextDate.getDate() + 1);
@@ -732,6 +779,7 @@ app.get('/api/parking', async (_req, res, next) => {
 
 app.get('/api/buses', async (_req, res, next) => {
   try {
+    if (!(await isModuleEnabled('buses'))) return res.json({ routes: [] });
     const terminal = _req.query.terminal ? String(_req.query.terminal) : undefined;
     const destination = _req.query.destination ? String(_req.query.destination) : undefined;
     const operator = _req.query.operator ? String(_req.query.operator) : undefined;
@@ -768,6 +816,7 @@ app.patch('/api/admin/parking/:parkingId', authMiddleware, async (req, res, next
 
 app.post('/api/parking/:parkingId/tickets', authMiddleware, async (req, res, next) => {
   try {
+    if (!(await isModuleEnabled('parking'))) throw new AppError('The parking module is disabled.', 409);
     const payload = parkingTicketSchema.parse(req.body);
     const user = (req as Request & { user: { sub: string } }).user;
     const parking = await prisma.parkingLot.findUnique({ where: { id: req.params.parkingId } });
@@ -835,6 +884,7 @@ app.patch('/api/admin/bus-trips/:tripId', authMiddleware, async (req, res, next)
 
 app.post('/api/bus-trips/:tripId/tickets', authMiddleware, async (req, res, next) => {
   try {
+    if (!(await isModuleEnabled('buses'))) throw new AppError('The buses module is disabled.', 409);
     const payload = busTicketSchema.parse(req.body);
     const user = (req as Request & { user: { sub: string } }).user;
     const trip = await prisma.busTrip.findUnique({ where: { id: req.params.tripId }, include: { route: true } });
@@ -848,6 +898,7 @@ app.post('/api/bus-trips/:tripId/tickets', authMiddleware, async (req, res, next
 
 app.get('/api/catalog', async (req, res, next) => {
   try {
+    if (!(await isModuleEnabled('catalog'))) return res.json({ movies: [] });
     const category = String(req.query.category ?? 'ALL');
     const dateParam = req.query.date ? new Date(String(req.query.date)) : undefined;
 

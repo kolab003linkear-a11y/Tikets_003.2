@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Alert, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { cancelReservation, confirmDemoPayment } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
@@ -11,13 +12,17 @@ export default function CheckoutScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const { token } = useAuth();
-  const { reservationId, ticketCount, selectedSeats, total, showtimeId, movieTitle } = route.params;
+  const { reservationId, ticketCount, selectedSeats, total, showtimeId, movieTitle, startTime, roomName, price } = route.params;
   const [cardName, setCardName] = useState('');
   const [cardNumber, setCardNumber] = useState('4242 4242 4242 4242');
   const [expiry, setExpiry] = useState('12/28');
   const [cvv, setCvv] = useState('123');
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const formattedDate = startTime
+    ? new Date(startTime).toLocaleString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })
+    : 'Horario pendiente';
 
   const pay = async () => {
     if (!cardName.trim() || !cardNumber.trim() || !expiry.trim() || !cvv.trim()) {
@@ -77,16 +82,18 @@ export default function CheckoutScreen() {
         </View>
 
         <View style={styles.summaryCard}>
-          <Text style={styles.label}>Resumen</Text>
+          <View style={styles.summaryHeader}><View><Text style={styles.label}>Resumen de compra</Text><Text style={styles.summaryHint}>Verifica tus datos antes de pagar</Text></View><Ionicons name="ticket-outline" size={24} color={colors.primary} /></View>
           <Text style={styles.movieTitle}>{movieTitle}</Text>
-          <Text style={styles.text}>Reserva: {reservationId}</Text>
-          <Text style={styles.text}>Butacas: {selectedSeats.join(', ')}</Text>
-          <Text style={styles.text}>Entradas: {ticketCount}</Text>
-          <Text style={styles.total}>Total: ${total.toFixed(2)}</Text>
+          <View style={styles.infoRow}><Ionicons name="calendar-outline" size={17} color={colors.primary} /><Text style={styles.text}>{formattedDate}</Text></View>
+          <View style={styles.infoRow}><Ionicons name="business-outline" size={17} color={colors.primary} /><Text style={styles.text}>{roomName ?? 'Sala pendiente'}</Text></View>
+          <View style={styles.infoRow}><Ionicons name="grid-outline" size={17} color={colors.primary} /><Text style={styles.text}>{ticketCount} {ticketCount === 1 ? 'entrada' : 'entradas'} · {selectedSeats.join(', ')}</Text></View>
+          <View style={styles.priceBreakdown}><Text style={styles.breakdownText}>${Number(price ?? total / ticketCount).toFixed(2)} x {ticketCount}</Text><Text style={styles.total}>${total.toFixed(2)}</Text></View>
+          <Text style={styles.reservationId}>Reserva temporal: {reservationId}</Text>
         </View>
 
         <View style={styles.formCard}>
-          <Text style={styles.label}>Pago seguro</Text>
+          <View style={styles.paymentHeader}><View><Text style={styles.label}>Pago seguro</Text><Text style={styles.summaryHint}>Tus datos se procesan de forma protegida</Text></View><Ionicons name="lock-closed-outline" size={20} color={colors.success} /></View>
+          <View style={styles.demoNotice}><Ionicons name="information-circle-outline" size={18} color={colors.warning} /><Text style={styles.demoText}>Modo demostración: puedes usar una tarjeta de prueba.</Text></View>
           <TextInput accessibilityLabel="Nombre del titular" style={styles.input} value={cardName} onChangeText={setCardName} placeholder="Nombre del titular" placeholderTextColor={colors.textSecondary} />
           <TextInput accessibilityLabel="Número de tarjeta" style={styles.input} value={cardNumber} onChangeText={setCardNumber} placeholder="Número de tarjeta" placeholderTextColor={colors.textSecondary} keyboardType="numeric" />
           <View style={styles.inlineRow}>
@@ -110,11 +117,20 @@ const styles = StyleSheet.create({
   backText: { color: colors.text, fontSize: 24, fontWeight: '700' },
   title: { color: colors.text, fontSize: 24, fontWeight: '700', marginLeft: 12, fontFamily: typography.display },
   summaryCard: { backgroundColor: colors.surface, borderRadius: 18, borderWidth: 1, borderColor: colors.border, padding: 18, marginBottom: 20 },
+  summaryHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
+  paymentHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 14 },
+  summaryHint: { color: colors.textSecondary, fontSize: 12, marginTop: -3 },
   label: { color: colors.primary, fontSize: 12, textTransform: 'uppercase', letterSpacing: 1, fontWeight: '700', marginBottom: 8 },
   movieTitle: { color: colors.text, fontSize: 22, fontWeight: '800', marginBottom: 10 },
   text: { color: colors.textSecondary, fontSize: 14, marginBottom: 8 },
+  infoRow: { flexDirection: 'row', alignItems: 'center', gap: 9 },
+  priceBreakdown: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: colors.border, marginTop: 5, paddingTop: 13 },
+  breakdownText: { color: colors.textSecondary, fontSize: 13 },
   total: { color: colors.text, fontSize: 20, fontWeight: '800', marginTop: 12 },
+  reservationId: { color: colors.textSecondary, fontSize: 11, marginTop: 12 },
   formCard: { backgroundColor: colors.surface, borderRadius: 18, borderWidth: 1, borderColor: colors.border, padding: 18 },
+  demoNotice: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: colors.warning + '18', borderRadius: 10, padding: 10, marginBottom: 14 },
+  demoText: { flex: 1, color: colors.warning, fontSize: 12, lineHeight: 17 },
   input: { backgroundColor: colors.input, borderColor: colors.borderStrong, borderWidth: 1, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, color: colors.text, fontSize: 15, marginBottom: 12 },
   inlineRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
   half: { flex: 1 },
