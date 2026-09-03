@@ -103,7 +103,7 @@ export default function AdminScheduleScreen() {
 
   const editShowtime = (showtime: AdminShowtime) => {
     setEditingShowtimeId(showtime.id);
-    setShowtimeDraft({ movieId: showtime.movie.id, roomId: showtime.room.id, startTime: showtime.startTime.slice(0, 16), price: Number(showtime.price), availableSeats: showtime.availableSeats });
+    setShowtimeDraft({ movieId: showtime.movieEvent.id, roomId: showtime.room.id, startTime: showtime.startTime.slice(0, 16), price: Number(showtime.price), availableSeats: showtime.availableSeats });
   };
 
   const selectValue = (label: string, options: Array<{ id: string; name: string }>, selected: string, onSelect: (id: string) => void) => (
@@ -150,7 +150,7 @@ export default function AdminScheduleScreen() {
             <Pressable style={styles.primaryButton} onPress={() => void saveShowtime()} disabled={saving}><Text style={styles.buttonText}>{editingShowtimeId ? 'Guardar función' : 'Crear función'}</Text></Pressable>
           </View>
           <Text style={styles.listTitle}>Funciones programadas</Text>
-          {showtimes.map((showtime) => <View style={styles.row} key={showtime.id}><View style={styles.dateBadge}><Text style={styles.dateDay}>{new Date(showtime.startTime).getDate()}</Text><Text style={styles.dateMonth}>{new Date(showtime.startTime).toLocaleDateString('es-ES', { month: 'short' }).replace('.', '').toUpperCase()}</Text></View><View style={styles.info}><Text style={styles.rowTitle}>{showtime.movie.title}</Text><Text style={styles.meta}>{new Date(showtime.startTime).toLocaleString('es-ES', { weekday: 'short', hour: '2-digit', minute: '2-digit' })} · {showtime.room.name}</Text><Text style={styles.showtimeMeta}>${Number(showtime.price).toFixed(2)} · {showtime.availableSeats}/{showtime.room.capacity} libres</Text></View><Pressable accessibilityRole="button" accessibilityLabel={`Editar función de ${showtime.movie.title}`} style={styles.editButton} onPress={() => editShowtime(showtime)}><Ionicons name="pencil-outline" size={17} color={colors.primary} /></Pressable></View>)}
+          {showtimes.map((showtime) => <View style={styles.row} key={showtime.id}><View style={styles.dateBadge}><Text style={styles.dateDay}>{new Date(showtime.startTime).getDate()}</Text><Text style={styles.dateMonth}>{new Date(showtime.startTime).toLocaleDateString('es-ES', { month: 'short' }).replace('.', '').toUpperCase()}</Text></View><View style={styles.info}><Text style={styles.rowTitle}>{showtime.movieEvent.title}</Text><Text style={styles.meta}>{new Date(showtime.startTime).toLocaleString('es-ES', { weekday: 'short', hour: '2-digit', minute: '2-digit' })} · {showtime.room.name}</Text><Text style={styles.showtimeMeta}>${Number(showtime.price).toFixed(2)} · {showtime.availableSeats}/{showtime.room.capacity} libres</Text></View><Pressable accessibilityRole="button" accessibilityLabel={`Editar función de ${showtime.movieEvent.title}`} style={styles.editButton} onPress={() => editShowtime(showtime)}><Ionicons name="pencil-outline" size={17} color={colors.primary} /></Pressable></View>)}
         </>}
         <Text style={styles.listTitle}>Horario de salas</Text>
 
@@ -173,7 +173,7 @@ export default function AdminScheduleScreen() {
         roomShowtimes.map((showtime) => (
           <View key={showtime.id} style={{ marginTop: 6 }}>
             <Text style={styles.meta}>
-              {showtime.movie?.title ?? 'Evento'} ·{' '}
+              {showtime.movieEvent?.title ?? 'Evento'} ·{' '}
               {new Date(showtime.startTime).toLocaleString('es-ES', {
                 day: '2-digit',
                 month: '2-digit',

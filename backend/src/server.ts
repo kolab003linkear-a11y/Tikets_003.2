@@ -723,8 +723,9 @@ app.post('/api/admin/showtimes', authMiddleware, async (req, res, next) => {
     if (!movie) throw new AppError('Event not found.', 404);
     const availableSeats = payload.availableSeats ?? room.capacity;
     if (availableSeats > room.capacity) throw new AppError('Availability cannot exceed room capacity.', 400);
+    const { movieId, ...restPayload } = payload;
     const showtime = await prisma.showtime.create({
-  data: { ...payload, availableSeats },
+  data: { ...restPayload, movieId, availableSeats },
   include: {
     movie: { select: { id: true, title: true } },
     room: { select: { id: true, name: true, capacity: true } },
@@ -745,7 +746,12 @@ app.patch('/api/admin/showtimes/:showtimeId', authMiddleware, async (req, res, n
     if (!room) throw new AppError('Room not found.', 404);
     const availableSeats = payload.availableSeats ?? room.capacity;
     if (availableSeats > room.capacity) throw new AppError('Availability cannot exceed room capacity.', 400);
-    const showtime = await prisma.showtime.update({ where: { id: req.params.showtimeId }, data: { ...payload, availableSeats } });
+    const { movieId, ...restPayload } = payload;
+    const showtime = await prisma.showtime.update({
+      where: { id: req.params.showtimeId },
+      data: { ...restPayload, movieId, availableSeats },
+      include: { movie: { select: { id: true, title: true } }, room: { select: { id: true, name: true, capacity: true } } },
+    });
     return res.json({ showtime });
   } catch (error) {
     next(error);

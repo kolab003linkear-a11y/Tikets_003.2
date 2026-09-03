@@ -77,7 +77,7 @@ export type PaymentResponse = {
     }>;
     showtime: {
       startTime: string;
-      movie: { title: string };
+      movieEvent: { title: string };
       room: { name: string };
     };
   };
@@ -135,7 +135,7 @@ export type AdminShowtime = {
   startTime: string;
   price: number | string;
   availableSeats: number;
-  movie: { id: string; title: string };
+  movieEvent: { id: string; title: string };
   room: { id: string; name: string; capacity: number };
 };
 

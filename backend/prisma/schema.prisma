@@ -137,7 +137,7 @@ model MovieEvent {
   posterUrl   String        @map("poster_url")
   trailerUrl  String?       @map("trailer_url")
   rating      Decimal?      @db.Decimal(3, 1)
-  ageRating   String?
+  ageRating   String?       @map("age_rating")
   status      EventStatus   @default(NOW_SHOWING)
   createdAt   DateTime      @default(now()) @map("created_at")
   updatedAt   DateTime      @updatedAt @map("updated_at")
@@ -158,22 +158,19 @@ model Room {
 }
 
 model Showtime {
-  id              String   @id @default(cuid())
-  movieId         String   // Add this field
-  movie           MovieEvent @relation(fields: [movieId], references: [id])
-  roomId          String
-  room            Room     @relation(fields: [roomId], references: [id])
-  startTime       DateTime
-  price           Float
-  availableSeats  Int
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-}
+  id             String       @id @default(cuid())
+  movieId        String       @map("movie_id")
+  roomId         String       @map("room_id")
+  startTime      DateTime     @map("start_time")
+  price          Decimal      @db.Decimal(10, 2)
+  availableSeats Int          @default(0) @map("available_seats")
+  movie          MovieEvent   @relation(fields: [movieId], references: [id], onDelete: Cascade)
+  room           Room         @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  reservations   Reservation[]
 
-model MovieEvent {
-  id        String   @id
-  // ... other fields
-  showtimes Showtime[]
+  @@unique([movieId, roomId, startTime])
+  @@index([startTime])
+  @@index([movieId])
 }
 
 
