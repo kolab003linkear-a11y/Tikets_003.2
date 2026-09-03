@@ -16,11 +16,13 @@ import { BusRoute, CatalogMovie, getBuses, getCatalog, getMatches, getParking, P
 import { colors, typography } from '../theme';
 import AppState from '../components/AppState';
 import ProfileAvatar from '../components/ProfileAvatar';
+import { useModules } from '../modules/ModuleContext';
 
 const categories = ['Todos', 'CINE', 'TEATRO', 'CONCIERTO'];
 
 export default function HomeScreen() {
   const navigation = useNavigation<any>();
+  const { isEnabled } = useModules();
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('Todos');
   const [movies, setMovies] = useState<CatalogMovie[]>([]);
@@ -87,9 +89,9 @@ export default function HomeScreen() {
             <Text style={styles.title}>Tu agenda cultural</Text>
           </View>
           <View style={styles.headerActions}>
-            <Pressable accessibilityRole="button" accessibilityLabel="Abrir asistente" style={styles.iconButton} onPress={() => navigation.navigate('Assistant')}>
+            {isEnabled('assistant') && <Pressable accessibilityRole="button" accessibilityLabel="Abrir asistente" style={styles.iconButton} onPress={() => navigation.navigate('Assistant')}>
               <Ionicons name="sparkles-outline" size={21} color={colors.text} />
-            </Pressable>
+            </Pressable>}
             <Pressable accessibilityRole="button" accessibilityLabel="Abrir notificaciones" style={styles.iconButton}>
               <Ionicons name="notifications-outline" size={21} color={colors.text} />
               <View style={styles.notificationDot} />
@@ -156,20 +158,20 @@ export default function HomeScreen() {
             <Text style={styles.quickTitle}>Teatro</Text>
             <Text style={styles.quickMeta}>Vive la escena</Text>
           </Pressable>
-          <Pressable style={[styles.quickCard, styles.quickCardGreen]} onPress={() => navigation.navigate('Estadios')}>
+          {isEnabled('stadiums') && <Pressable style={[styles.quickCard, styles.quickCardGreen]} onPress={() => navigation.navigate('Estadios')}>
             <Ionicons name="football-outline" size={24} color={colors.text} />
             <Text style={styles.quickTitle}>Estadios</Text>
             <Text style={styles.quickMeta}>Siente el partido</Text>
-          </Pressable>
-          <Pressable style={[styles.quickCard, styles.quickCardCoral]} onPress={() => navigation.navigate('Parqueaderos')}>
+          </Pressable>}
+          {isEnabled('parking') && <Pressable style={[styles.quickCard, styles.quickCardCoral]} onPress={() => navigation.navigate('Parqueaderos')}>
             <Ionicons name="car-outline" size={24} color={colors.text} /><Text style={styles.quickTitle}>Parqueaderos</Text><Text style={styles.quickMeta}>{parking.length} disponibles</Text>
-          </Pressable>
-          <Pressable style={[styles.quickCard, styles.quickCardBlue]} onPress={() => navigation.navigate('Buses')}>
+          </Pressable>}
+          {isEnabled('buses') && <Pressable style={[styles.quickCard, styles.quickCardBlue]} onPress={() => navigation.navigate('Buses')}>
             <Ionicons name="bus-outline" size={24} color={colors.text} /><Text style={styles.quickTitle}>Buses</Text><Text style={styles.quickMeta}>{busRoutes.length} rutas activas</Text>
-          </Pressable>
+          </Pressable>}
         </ScrollView>
 
-        {matches.length > 0 && (
+        {isEnabled('stadiums') && matches.length > 0 && (
           <>
             <View style={styles.sectionHeading}>
               <View>

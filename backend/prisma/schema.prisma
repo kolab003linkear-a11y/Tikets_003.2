@@ -112,6 +112,14 @@ model User {
   @@map("users")
 }
 
+model ModuleSetting {
+  key       String   @id
+  enabled   Boolean  @default(true)
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("module_settings")
+}
+
 model MovieEvent {
   id          String        @id @default(cuid())
   title       String
