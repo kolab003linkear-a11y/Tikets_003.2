@@ -314,8 +314,8 @@ async function main() {
     });
     await prisma.showtime.upsert({
       where: { id: `${event.id}-show` },
-      update: { movieId: event.id, roomId: room.id, startTime: new Date(event.startTime), price: 10, availableSeats: room.capacity },
-      create: { id: `${event.id}-show`, movieId: event.id, roomId: room.id, startTime: new Date(event.startTime), price: 10, availableSeats: room.capacity },
+      update: { movieEventId: event.id, roomId: room.id, startTime: new Date(event.startTime), price: 10, availableSeats: room.capacity },
+      create: { id: `${event.id}-show`, movieEventId: event.id, roomId: room.id, startTime: new Date(event.startTime), price: 10, availableSeats: room.capacity },
     });
   }
 
