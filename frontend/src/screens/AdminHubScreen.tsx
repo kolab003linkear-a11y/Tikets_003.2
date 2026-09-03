@@ -19,6 +19,7 @@ type AdminSection =
   | 'stadiums'
   | 'parking'
   | 'buses'
+  | 'modules'
   | 'food';
 import { getAdminModules, ModuleKey, updateAdminModule } from '../api/client';
 import { useModules } from '../modules/ModuleContext';
@@ -41,6 +42,7 @@ export default function AdminHubScreen() {
       { key: 'stadiums', label: 'Estadios', icon: 'football-outline' },
       { key: 'parking', label: 'Parqueaderos', icon: 'car-outline' },
       { key: 'buses', label: 'Buses', icon: 'bus-outline' },
+      { key: 'modules', label: 'Módulos', icon: 'options-outline' },
       { key: 'food', label: 'Comidas', icon: 'fast-food-outline' },
     ]
   : [{ key: 'scanner', label: 'Escáner', icon: 'scan-outline' }];
@@ -105,7 +107,7 @@ export default function AdminHubScreen() {
         {section === 'parking' && <AdminParkingScreen />}
         {section === 'buses' && <AdminBusesScreen />}
         {section === 'food' && <AdminFoodScreen />}
-        {section === 'events' && <View style={styles.modulesPanel}>
+        {section === 'modules' && <View style={styles.modulesPanel}>
           <View style={styles.modulesHeader}><View><Text style={styles.sectionTitle}>Módulos del cliente</Text><Text style={styles.formHint}>Controla qué experiencias aparecen en la app.</Text></View><Pressable onPress={() => void loadModules()}><Ionicons name="refresh-outline" size={20} color={colors.primary} /></Pressable></View>
           {moduleLoading && <ActivityIndicator color={colors.primary} />}
           {!!moduleError && <Text style={styles.error}>{moduleError}</Text>}

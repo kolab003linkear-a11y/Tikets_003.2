@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { colors } from '../theme';
 import { useAuth } from '../auth/AuthContext';
+import { API_BASE_URL } from '../api/client';
 
 type FoodCategory = 'COMBO' | 'BEBIDA' | 'COMIDA' | 'SNACK';
 
@@ -31,7 +32,7 @@ export default function AdminFoodScreen() {
     try {
       setLoading(true);
 
-      const response = await fetch('http://localhost:4001/api/admin/food', {
+      const response = await fetch(`${API_BASE_URL}/api/admin/food`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -63,7 +64,7 @@ export default function AdminFoodScreen() {
 
   try {
     const response = await fetch(
-      `http://localhost:4001/api/admin/food/${product.id}`,
+      `${API_BASE_URL}/api/admin/food/${product.id}`,
       {
         method: 'PATCH',
         headers: {
@@ -116,8 +117,8 @@ export default function AdminFoodScreen() {
     try {
       const response = await fetch(
   editingId
-    ? `http://localhost:4001/api/admin/food/${editingId}`
-    : 'http://localhost:4001/api/admin/food',
+    ? `${API_BASE_URL}/api/admin/food/${editingId}`
+    : `${API_BASE_URL}/api/admin/food`,
   {
     method: editingId ? 'PATCH' : 'POST',
     headers: {
