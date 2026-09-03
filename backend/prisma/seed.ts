@@ -254,25 +254,25 @@ async function main() {
   const team = (id: string) => teamsById.get(id).id;
 
   const nextWeekShowtimes = [
-    { id: 'show-next-001', movieId: movie1.id, startTime: '2026-09-01T18:00:00-05:00' },
-    { id: 'show-next-002', movieId: movie2.id, startTime: '2026-09-02T19:00:00-05:00' },
-    { id: 'show-next-003', movieId: movie3.id, startTime: '2026-09-03T16:30:00-05:00' },
-    { id: 'show-next-004', movieId: movie1.id, startTime: '2026-09-04T20:00:00-05:00' },
-    { id: 'show-next-005', movieId: movie2.id, startTime: '2026-09-05T18:00:00-05:00' },
-    { id: 'show-next-006', movieId: movie3.id, startTime: '2026-09-06T16:00:00-05:00' },
+    { id: 'show-next-001', movieEventId: movie1.id, startTime: '2026-09-01T18:00:00-05:00' },
+    { id: 'show-next-002', movieEventId: movie2.id, startTime: '2026-09-02T19:00:00-05:00' },
+    { id: 'show-next-003', movieEventId: movie3.id, startTime: '2026-09-03T16:30:00-05:00' },
+    { id: 'show-next-004', movieEventId: movie1.id, startTime: '2026-09-04T20:00:00-05:00' },
+    { id: 'show-next-005', movieEventId: movie2.id, startTime: '2026-09-05T18:00:00-05:00' },
+    { id: 'show-next-006', movieEventId: movie3.id, startTime: '2026-09-06T16:00:00-05:00' },
   ];
 
   await prisma.showtime.upsert({
     where: { id: 'show-001' },
-    update: { movieId: movie1.id, roomId: room.id, startTime: new Date('2026-08-29T20:00:00-05:00'), price: 7, availableSeats: 64 },
-    create: { id: 'show-001', movieId: movie1.id, roomId: room.id, startTime: new Date('2026-08-29T20:00:00-05:00'), price: 7, availableSeats: 64 },
+    update: { movieEventId: movie1.id, roomId: room.id, startTime: new Date('2026-08-29T20:00:00-05:00'), price: 7, availableSeats: 64 },
+    create: { id: 'show-001', movieEventId: movie1.id, roomId: room.id, startTime: new Date('2026-08-29T20:00:00-05:00'), price: 7, availableSeats: 64 },
   });
 
   for (const showtime of nextWeekShowtimes) {
     await prisma.showtime.upsert({
       where: { id: showtime.id },
-      update: { movieId: showtime.movieId, roomId: room.id, startTime: new Date(showtime.startTime), price: 7, availableSeats: room.capacity },
-      create: { id: showtime.id, movieId: showtime.movieId, roomId: room.id, startTime: new Date(showtime.startTime), price: 7, availableSeats: room.capacity },
+      update: { movieEventId: showtime.movieEventId, roomId: room.id, startTime: new Date(showtime.startTime), price: 7, availableSeats: room.capacity },
+      create: { id: showtime.id, movieEventId: showtime.movieEventId, roomId: room.id, startTime: new Date(showtime.startTime), price: 7, availableSeats: room.capacity },
     });
   }
 
@@ -303,14 +303,14 @@ async function main() {
 
   await prisma.showtime.upsert({
     where: { id: 'show-002' },
-    update: { movieId: movie2.id, roomId: room.id, startTime: new Date('2026-08-29T18:00:00-05:00'), price: 7, availableSeats: 64 },
-    create: { id: 'show-002', movieId: movie2.id, roomId: room.id, startTime: new Date('2026-08-29T18:00:00-05:00'), price: 7, availableSeats: 64 },
+    update: { movieEventId: movie2.id, roomId: room.id, startTime: new Date('2026-08-29T18:00:00-05:00'), price: 7, availableSeats: 64 },
+    create: { id: 'show-002', movieEventId: movie2.id, roomId: room.id, startTime: new Date('2026-08-29T18:00:00-05:00'), price: 7, availableSeats: 64 },
   });
 
   await prisma.showtime.upsert({
     where: { id: 'show-003' },
-    update: { movieId: movie3.id, roomId: room.id, startTime: new Date('2026-08-29T16:00:00-05:00'), price: 7, availableSeats: 64 },
-    create: { id: 'show-003', movieId: movie3.id, roomId: room.id, startTime: new Date('2026-08-29T16:00:00-05:00'), price: 7, availableSeats: 64 },
+    update: { movieEventId: movie3.id, roomId: room.id, startTime: new Date('2026-08-29T16:00:00-05:00'), price: 7, availableSeats: 64 },
+    create: { id: 'show-003', movieEventId: movie3.id, roomId: room.id, startTime: new Date('2026-08-29T16:00:00-05:00'), price: 7, availableSeats: 64 },
   });
 
   await prisma.match.upsert({

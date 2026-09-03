@@ -703,7 +703,7 @@ app.get('/api/admin/showtimes', authMiddleware, async (req, res, next) => {
     const authenticatedUser = (req as Request & { user: { role: UserRole } }).user;
     if (authenticatedUser.role !== UserRole.ADMIN) throw new AppError('Only administrators can manage showtimes.', 403);
     const showtimes = await prisma.showtime.findMany({
-      include: { movie: { select: { id: true, title: true } }, room: { select: { id: true, name: true, capacity: true } } },
+      include: { movieEvent: { select: { id: true, title: true } }, room: { select: { id: true, name: true, capacity: true } } },
       orderBy: { startTime: 'asc' },
     });
     return res.json({ showtimes });
@@ -723,10 +723,11 @@ app.post('/api/admin/showtimes', authMiddleware, async (req, res, next) => {
     if (!movie) throw new AppError('Event not found.', 404);
     const availableSeats = payload.availableSeats ?? room.capacity;
     if (availableSeats > room.capacity) throw new AppError('Availability cannot exceed room capacity.', 400);
+    const { movieId, ...restPayload } = payload;
     const showtime = await prisma.showtime.create({
-  data: { ...payload, availableSeats },
+  data: { ...restPayload, movieEventId: movieId, availableSeats },
   include: {
-    movie: { select: { id: true, title: true } },
+    movieEvent: { select: { id: true, title: true } },
     room: { select: { id: true, name: true, capacity: true } },
   },
 });
@@ -745,7 +746,12 @@ app.patch('/api/admin/showtimes/:showtimeId', authMiddleware, async (req, res, n
     if (!room) throw new AppError('Room not found.', 404);
     const availableSeats = payload.availableSeats ?? room.capacity;
     if (availableSeats > room.capacity) throw new AppError('Availability cannot exceed room capacity.', 400);
-    const showtime = await prisma.showtime.update({ where: { id: req.params.showtimeId }, data: { ...payload, availableSeats } });
+    const { movieId, ...restPayload } = payload;
+    const showtime = await prisma.showtime.update({
+      where: { id: req.params.showtimeId },
+      data: { ...restPayload, movieEventId: movieId, availableSeats },
+      include: { movieEvent: { select: { id: true, title: true } }, room: { select: { id: true, name: true, capacity: true } } },
+    });
     return res.json({ showtime });
   } catch (error) {
     next(error);
@@ -1397,7 +1403,7 @@ app.post('/api/payments/demo-confirm', authMiddleware, async (req, res, next) =>
         data: { status: ReservationStatus.PAID },
         include: {
           tickets: true,
-          showtime: { include: { movie: true, room: true } },
+          showtime: { include: { movieEvent: true, room: true } },
         },
       });
 
@@ -1423,7 +1429,7 @@ app.get('/api/tickets', authMiddleware, async (req, res, next) => {
         where: { reservation: { userId: authenticatedUser.sub } },
         include: {
           reservation: {
-            include: { showtime: { include: { movie: true, room: true } } },
+            include: { showtime: { include: { movieEvent: true, room: true } } },
           },
         },
         orderBy: { createdAt: 'desc' },
@@ -1455,7 +1461,7 @@ app.get('/api/tickets', authMiddleware, async (req, res, next) => {
       reservationId: ticket.reservationId,
       reservationStatus: ticket.reservation.status,
       event: {
-        title: ticket.reservation.showtime.movie.title,
+        title: ticket.reservation.showtime.movieEvent.title,
         startTime: ticket.reservation.showtime.startTime,
         room: ticket.reservation.showtime.room.name,
       },
@@ -1619,7 +1625,7 @@ app.post('/api/admin/tickets/validate', authMiddleware, async (req, res, next) =
       include: {
         reservation: {
           include: {
-            showtime: { include: { movie: true, room: true } },
+            showtime: { include: { movieEvent: true, room: true } },
           },
         },
       },
@@ -1685,7 +1691,7 @@ app.post('/api/admin/tickets/validate', authMiddleware, async (req, res, next) =
       include: {
         reservation: {
           include: {
-            showtime: { include: { movie: true, room: true } },
+            showtime: { include: { movieEvent: true, room: true } },
           },
         },
       },
@@ -1702,7 +1708,7 @@ app.post('/api/admin/tickets/validate', authMiddleware, async (req, res, next) =
         usedAt: updated.usedAt,
         reservationId: updated.reservationId,
         event: {
-          title: updated.reservation.showtime.movie.title,
+          title: updated.reservation.showtime.movieEvent.title,
           startTime: updated.reservation.showtime.startTime,
           room: updated.reservation.showtime.room.name,
         },
