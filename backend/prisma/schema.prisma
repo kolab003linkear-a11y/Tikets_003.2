@@ -13,6 +13,13 @@ enum UserRole {
   SCANNER
 }
 
+enum FoodCategory {
+  COMBO
+  BEBIDA
+  COMIDA
+  SNACK
+}
+
 enum MovieCategory {
   CINE
   TEATRO
@@ -128,7 +135,8 @@ model MovieEvent {
   category    MovieCategory
   posterUrl   String        @map("poster_url")
   trailerUrl  String?       @map("trailer_url")
-  rating      Decimal?      @db.Decimal(2, 1)
+  rating      Decimal?      @db.Decimal(3, 1)
+  ageRating   String?
   status      EventStatus   @default(NOW_SHOWING)
   createdAt   DateTime      @default(now()) @map("created_at")
   updatedAt   DateTime      @updatedAt @map("updated_at")
@@ -149,21 +157,22 @@ model Room {
 }
 
 model Showtime {
-  id             String       @id @default(cuid())
-  movieId        String       @map("movie_id")
-  roomId         String       @map("room_id")
-  startTime      DateTime     @map("start_time")
-  price          Decimal      @db.Decimal(10, 2)
-  availableSeats Int          @default(0) @map("available_seats")
-  movie          MovieEvent   @relation(fields: [movieId], references: [id], onDelete: Cascade)
-  room           Room         @relation(fields: [roomId], references: [id], onDelete: Cascade)
-  reservations   Reservation[]
+  id          String       @id @default(cuid())
+  movieEventId String      @map("movie_event_id")
+  roomId      String       @map("room_id")
+  startTime   DateTime     @map("start_time")
+  endTime     DateTime?    @map("end_time")
+  movieEvent  MovieEvent   @relation(fields: [movieEventId], references: [id], onDelete: Cascade)
+  room        Room         @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  reservations Reservation[]
 
-  @@unique([movieId, roomId, startTime])
-  @@index([startTime])
-  @@index([movieId])
+  @@unique([roomId, startTime])
+  @@index([movieEventId, startTime])
+  @@index([roomId, startTime])
   @@map("showtimes")
 }
+
+
 
 model Reservation {
   id         String             @id @default(cuid())
@@ -176,6 +185,7 @@ model Reservation {
   showtime   Showtime          @relation(fields: [showtimeId], references: [id], onDelete: Cascade)
   user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   tickets    Ticket[]
+  items      ReservationItem[]
 
   @@index([showtimeId, status])
   @@index([userId, status])
@@ -195,6 +205,36 @@ model Ticket {
   @@index([reservationId])
   @@index([status])
   @@map("tickets")
+}
+
+model FoodProduct {
+  id          String       @id @default(cuid())
+  name        String
+  description String?
+  imageUrl    String?      @map("image_url")
+  price       Decimal      @db.Decimal(10, 2)
+  category    FoodCategory
+  active      Boolean      @default(true)
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+  items       ReservationItem[]
+
+  @@index([category, active])
+  @@map("food_products")
+}
+
+model ReservationItem {
+  id            String      @id @default(cuid())
+  reservationId String      @map("reservation_id")
+  productId     String      @map("product_id")
+  quantity      Int         @default(1)
+  unitPrice     Decimal     @db.Decimal(10, 2) @map("unit_price")
+  reservation   Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+  product       FoodProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([reservationId, productId])
+  @@index([reservationId])
+  @@map("reservation_items")
 }
 
 model Stadium {
