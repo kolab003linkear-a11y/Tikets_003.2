@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Image,
   FlatList,
+  Modal,
   ScrollView,
   Pressable,
   SafeAreaView,
@@ -25,6 +26,7 @@ export default function HomeScreen() {
   const { isEnabled } = useModules();
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('Todos');
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [movies, setMovies] = useState<CatalogMovie[]>([]);
   const [matches, setMatches] = useState<StadiumMatch[]>([]);
   const [parking, setParking] = useState<ParkingLot[]>([]);
@@ -92,10 +94,21 @@ export default function HomeScreen() {
             {isEnabled('assistant') && <Pressable accessibilityRole="button" accessibilityLabel="Abrir asistente" style={styles.iconButton} onPress={() => navigation.navigate('Assistant')}>
               <Ionicons name="sparkles-outline" size={21} color={colors.text} />
             </Pressable>}
-            <Pressable accessibilityRole="button" accessibilityLabel="Abrir notificaciones" style={styles.iconButton}>
+            <Pressable accessibilityRole="button" accessibilityLabel="Abrir notificaciones" accessibilityState={{ expanded: notificationsOpen }} style={styles.iconButton} onPress={() => setNotificationsOpen(true)}>
               <Ionicons name="notifications-outline" size={21} color={colors.text} />
-              <View style={styles.notificationDot} />
+              {notificationsOpen === false && <View style={styles.notificationDot} />}
             </Pressable>
+                  <Modal visible={notificationsOpen} transparent animationType="fade" onRequestClose={() => setNotificationsOpen(false)}>
+                    <Pressable style={styles.modalBackdrop} onPress={() => setNotificationsOpen(false)}>
+                      <Pressable style={styles.notificationsPanel} onPress={(event) => event.stopPropagation()}>
+                        <View style={styles.notificationsHeader}>
+                          <View><Text style={styles.notificationsKicker}>CENTRO DE AVISOS</Text><Text style={styles.notificationsTitle}>Notificaciones</Text></View>
+                          <Pressable accessibilityRole="button" accessibilityLabel="Cerrar notificaciones" style={styles.closeButton} onPress={() => setNotificationsOpen(false)}><Ionicons name="close-outline" size={22} color={colors.text} /></Pressable>
+                        </View>
+                        <View style={styles.emptyNotifications}><Ionicons name="checkmark-circle-outline" size={34} color={colors.success} /><Text style={styles.emptyTitle}>Todo al día</Text><Text style={styles.emptyText}>No tienes notificaciones nuevas.</Text></View>
+                      </Pressable>
+                    </Pressable>
+                  </Modal>
             <ProfileAvatar />
           </View>
         </View>
@@ -297,6 +310,15 @@ const styles = StyleSheet.create({
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   iconButton: { width: 42, height: 42, borderRadius: 21, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.border },
   notificationDot: { position: 'absolute', top: 9, right: 10, width: 6, height: 6, borderRadius: 3, backgroundColor: colors.critical },
+    modalBackdrop: { flex: 1, justifyContent: 'flex-start', alignItems: 'flex-end', paddingTop: 76, paddingHorizontal: 16, backgroundColor: colors.overlay },
+    notificationsPanel: { width: '100%', maxWidth: 380, backgroundColor: colors.surface, borderRadius: 16, borderWidth: 1, borderColor: colors.border, padding: 18 },
+    notificationsHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
+    notificationsKicker: { color: colors.primary, fontSize: 10, fontWeight: '800', letterSpacing: 1.2 },
+    notificationsTitle: { color: colors.text, fontSize: 20, fontWeight: '800', marginTop: 4 },
+    closeButton: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center', borderRadius: 10, backgroundColor: colors.surfaceRaised },
+    emptyNotifications: { alignItems: 'center', paddingVertical: 28 },
+    emptyTitle: { color: colors.text, fontSize: 16, fontWeight: '800', marginTop: 10 },
+    emptyText: { color: colors.textSecondary, fontSize: 13, marginTop: 5 },
   avatar: { width: 42, height: 42, borderRadius: 21, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
   avatarText: { color: colors.text, fontWeight: '700' },
   searchInput: {
