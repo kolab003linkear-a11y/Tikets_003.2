@@ -213,14 +213,6 @@ export type AdminMatch = {
   _count?: { tickets: number; sectorPrices: number };
 };
 
-export type AdminMatchInput = {
-  stadiumId: string;
-  homeTeamId: string;
-  awayTeamId: string;
-  startTime: string;
-  status?: AdminMatch['status'];
-};
-
 // Precio de un sector de estadio para UN partido en concreto (módulo
 // "Precios por partido"). matchPrice es null cuando el admin no ha
 // personalizado ese sector todavía y por eso effectivePrice = basePrice.
@@ -244,6 +236,19 @@ export type AdminMatchPricesResponse = {
   stadiumId: string;
   prices: MatchSectorPriceEntry[];
 };
+
+export type AdminMatchInput = {
+  stadiumId: string;
+  homeTeamId: string;
+  awayTeamId: string;
+  startTime: string;
+  status?: AdminMatch['status'];
+  // Precios por sector definidos junto con el partido (crear o editar).
+  // Opcional: si se omite, todos los sectores venden al precio base.
+  sectorPrices?: MatchSectorPriceInput[];
+};
+
+export type AdminMatchSaveResponse = { match: AdminMatch; prices: MatchSectorPriceEntry[] };
 
 export type ParkingLot = {
   id: string;
@@ -332,6 +337,28 @@ export function getTeams() {
   return request<{ teams: Team[] }>('/api/teams');
 }
 
+// Equipos favoritos del cliente (pantalla de Estadios). El backend ya
+// vinculaba User<->Team desde el modelo UserFavoriteTeam; esto solo conecta
+// el front a esos endpoints existentes.
+export function getFavoriteTeams(token: string) {
+  return request<{ teams: Team[] }>('/api/me/favorite-teams', { headers: { Authorization: `Bearer ${token}` } });
+}
+
+export function addFavoriteTeam(token: string, teamId: string) {
+  return request<{ success: boolean }>('/api/me/favorite-teams', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ teamId }),
+  });
+}
+
+export function removeFavoriteTeam(token: string, teamId: string) {
+  return request<{ success: boolean }>(`/api/me/favorite-teams/${teamId}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
 export function createAdminTeam(token: string, team: AdminTeamInput) {
   return request<{ team: Team }>('/api/admin/teams', {
     method: 'POST',
@@ -380,7 +407,7 @@ export function getAdminMatches(token: string) {
 }
 
 export function createAdminMatch(token: string, match: AdminMatchInput) {
-  return request<{ match: AdminMatch }>('/api/admin/matches', {
+  return request<AdminMatchSaveResponse>('/api/admin/matches', {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}` },
     body: JSON.stringify(match),
@@ -388,7 +415,7 @@ export function createAdminMatch(token: string, match: AdminMatchInput) {
 }
 
 export function updateAdminMatch(token: string, matchId: string, match: AdminMatchInput) {
-  return request<{ match: AdminMatch }>(`/api/admin/matches/${matchId}`, {
+  return request<AdminMatchSaveResponse>(`/api/admin/matches/${matchId}`, {
     method: 'PATCH',
     headers: { Authorization: `Bearer ${token}` },
     body: JSON.stringify(match),

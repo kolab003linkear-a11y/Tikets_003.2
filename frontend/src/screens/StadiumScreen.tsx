@@ -1,8 +1,8 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, FlatList, Image, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import React, { useCallback, useMemo, useState } from 'react';
+import { Alert, FlatList, Image, Modal, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
-import { createMatchTicket, getMatches, StadiumMatch, Team } from '../api/client';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { addFavoriteTeam, createMatchTicket, getFavoriteTeams, getMatches, getTeams, removeFavoriteTeam, StadiumMatch, Team } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { colors, typography } from '../theme';
 import AppButton from '../components/AppButton';
@@ -38,22 +38,58 @@ function StadiumImage({ uri, style }: { uri: string; style: object }) {
   return <Image source={{ uri: source }} style={style} resizeMode="cover" onError={() => setSource(defaultStadiumImage)} />;
 }
 
+function FavoriteToggle({
+  active,
+  onToggle,
+  size = 18,
+  style,
+}: {
+  active: boolean;
+  onToggle: () => void;
+  size?: number;
+  style?: object;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={active ? 'Quitar de favoritos' : 'Marcar como favorito'}
+      accessibilityState={{ selected: active }}
+      hitSlop={8}
+      style={[styles.favoriteButton, style]}
+      onPress={onToggle}
+    >
+      <Ionicons name={active ? 'heart' : 'heart-outline'} size={size} color={active ? colors.critical : colors.textSecondary} />
+    </Pressable>
+  );
+}
+
 export default function StadiumScreen() {
   const navigation = useNavigation<any>();
   const { token, user, startGuestSession } = useAuth();
   const [matches, setMatches] = useState<StadiumMatch[]>([]);
-  const [selectedMatch, setSelectedMatch] = useState<StadiumMatch | null>(null);
+  // Se guarda solo el id, no una copia del partido: así, cuando `matches` se
+  // refresca (después de comprar, o al recuperar el foco de la pantalla),
+  // `selectedMatch` (más abajo) automáticamente refleja los asientos
+  // ocupados más recientes en vez de quedarse con la foto del momento en que
+  // se eligió el partido.
+  const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null);
   const [selectedSectorId, setSelectedSectorId] = useState('');
-  const [seatNumber, setSeatNumber] = useState('');
+  // Se puede elegir más de una localidad para el mismo partido/sector: al
+  // comprar se genera un ticket independiente por cada una.
+  const [selectedSeats, setSelectedSeats] = useState<string[]>([]);
+  const [manualSeatDraft, setManualSeatDraft] = useState('');
   const [loading, setLoading] = useState(true);
   const [buying, setBuying] = useState(false);
   const [error, setError] = useState('');
-  const [filter, setFilter] = useState<'TODOS' | 'LIVE' | 'SCHEDULED'>('TODOS');
+  const [filter, setFilter] = useState<'TODOS' | 'LIVE' | 'SCHEDULED' | 'FAVORITOS'>('TODOS');
   const [cityFilter, setCityFilter] = useState('Todas');
   const [teamSearch, setTeamSearch] = useState('');
   const [fullName, setFullName] = useState(user?.fullName ?? '');
   const [phone, setPhone] = useState(user?.phone ?? '');
   const [email, setEmail] = useState(user?.email ?? '');
+  const [favoriteTeamIds, setFavoriteTeamIds] = useState<Set<string>>(new Set());
+  const [allTeams, setAllTeams] = useState<Team[]>([]);
+  const [favoritesModalVisible, setFavoritesModalVisible] = useState(false);
 
   const loadMatches = useCallback(async () => {
     setLoading(true);
@@ -68,35 +104,143 @@ export default function StadiumScreen() {
     }
   }, []);
 
-  useEffect(() => { void loadMatches(); }, [loadMatches]);
+  const loadFavorites = useCallback(async () => {
+    if (!token) return;
+    try {
+      const response = await getFavoriteTeams(token);
+      setFavoriteTeamIds(new Set(response.teams.map((team) => team.id)));
+    } catch {
+      // Si falla, simplemente no se muestran favoritos marcados; no es un error bloqueante.
+    }
+  }, [token]);
+
+  const loadAllTeams = useCallback(async () => {
+    try {
+      const response = await getTeams();
+      setAllTeams(response.teams);
+    } catch {
+      // Si falla, el botón de favoritos simplemente mostrará una lista vacía hasta reintentar.
+    }
+  }, []);
+
+  // Se recarga cada vez que esta pantalla vuelve a tener foco (no solo al
+  // montarse): así, si el usuario compra un ticket, navega a la pantalla del
+  // ticket y regresa, los asientos ocupados se ven actualizados en vez de
+  // quedarse con la foto de matches que había ANTES de la compra.
+  useFocusEffect(
+    useCallback(() => {
+      void loadMatches();
+      void loadFavorites();
+      void loadAllTeams();
+    }, [loadMatches, loadFavorites, loadAllTeams]),
+  );
+
+  const toggleFavoriteTeam = useCallback(
+    async (teamId: string) => {
+      if (!token) {
+        Alert.alert('Inicia sesión', 'Necesitamos identificarte para guardar tus equipos favoritos.');
+        return;
+      }
+      const wasFavorite = favoriteTeamIds.has(teamId);
+      setFavoriteTeamIds((current) => {
+        const next = new Set(current);
+        if (wasFavorite) next.delete(teamId);
+        else next.add(teamId);
+        return next;
+      });
+      try {
+        if (wasFavorite) await removeFavoriteTeam(token, teamId);
+        else await addFavoriteTeam(token, teamId);
+      } catch (favoriteError) {
+        setFavoriteTeamIds((current) => {
+          const next = new Set(current);
+          if (wasFavorite) next.add(teamId);
+          else next.delete(teamId);
+          return next;
+        });
+        Alert.alert('No se pudo actualizar', favoriteError instanceof Error ? favoriteError.message : 'Inténtalo nuevamente.');
+      }
+    },
+    [favoriteTeamIds, token],
+  );
+
+  // Marca un asiento como ocupado en el estado local al instante, sin
+  // esperar al refetch de la próxima vez que la pantalla tenga foco. Cubre
+  // el caso de comprar dos entradas seguidas para el mismo partido antes de
+  // salir de esta pantalla.
+  const markSeatOccupied = useCallback((matchId: string, sectorId: string, seat: string) => {
+    setMatches((current) =>
+      current.map((match) => {
+        if (match.id !== matchId) return match;
+        return {
+          ...match,
+          stadium: {
+            ...match.stadium,
+            sectors: match.stadium.sectors.map((sector) =>
+              sector.id === sectorId && !(sector.occupiedSeats ?? []).includes(seat)
+                ? { ...sector, occupiedSeats: [...(sector.occupiedSeats ?? []), seat] }
+                : sector,
+            ),
+          },
+        };
+      }),
+    );
+  }, []);
 
   const visibleMatches = useMemo(
     () => matches.filter((match) => {
-      const matchesStatus = filter === 'TODOS' || match.status === filter;
+      const matchesStatus =
+        filter === 'TODOS'
+          ? true
+          : filter === 'FAVORITOS'
+          ? favoriteTeamIds.has(match.homeTeam.id) || favoriteTeamIds.has(match.awayTeam.id)
+          : match.status === filter;
       const matchesCity = cityFilter === 'Todas' || match.stadium.city === cityFilter;
       const search = teamSearch.trim().toLowerCase();
       const matchesTeam = !search || `${match.homeTeam.name} ${match.awayTeam.name}`.toLowerCase().includes(search);
       return matchesStatus && matchesCity && matchesTeam;
     }),
-    [cityFilter, filter, matches, teamSearch],
+    [cityFilter, favoriteTeamIds, filter, matches, teamSearch],
   );
 
   const cities = useMemo(() => ['Todas', ...new Set(matches.map((match) => match.stadium.city))], [matches]);
 
+  const selectedMatch = useMemo(
+    () => matches.find((match) => match.id === selectedMatchId) ?? null,
+    [matches, selectedMatchId],
+  );
+
   const chooseMatch = (match: StadiumMatch) => {
-    setSelectedMatch(match);
+    setSelectedMatchId(match.id);
     setSelectedSectorId(match.stadium.sectors[0]?.id ?? '');
-    setSeatNumber('');
+    setSelectedSeats([]);
+    setManualSeatDraft('');
   };
 
   const chooseSector = (sectorId: string) => {
     setSelectedSectorId(sectorId);
-    setSeatNumber('');
+    setSelectedSeats([]);
+    setManualSeatDraft('');
+  };
+
+  const toggleSeat = (seat: string) => {
+    setSelectedSeats((current) => (current.includes(seat) ? current.filter((s) => s !== seat) : [...current, seat]));
+  };
+
+  const addManualSeat = () => {
+    const seat = manualSeatDraft.trim().toUpperCase();
+    if (!seat) return;
+    setSelectedSeats((current) => (current.includes(seat) ? current : [...current, seat]));
+    setManualSeatDraft('');
+  };
+
+  const removeSeat = (seat: string) => {
+    setSelectedSeats((current) => current.filter((s) => s !== seat));
   };
 
   const buyTicket = async () => {
-    if (!selectedMatch || !selectedSectorId || !seatNumber.trim()) {
-      Alert.alert('Datos incompletos', 'Selecciona un sector e indica tu localidad.');
+    if (!selectedMatch || !selectedSectorId || selectedSeats.length === 0) {
+      Alert.alert('Datos incompletos', 'Selecciona un sector y al menos una localidad.');
       return;
     }
     if (!/^\S+@\S+\.\S+$/.test(email.trim()) || fullName.trim().length < 2 || !/^[+\d\s()-]{7,30}$/.test(phone.trim())) {
@@ -106,17 +250,55 @@ export default function StadiumScreen() {
     setBuying(true);
     try {
       const session = user && token ? { user, token } : await startGuestSession(email.trim().toLowerCase(), fullName.trim(), phone.trim());
-      const response = await createMatchTicket(session.token, selectedMatch.id, selectedSectorId, seatNumber);
+      const matchId = selectedMatch.id;
+      const sectorId = selectedSectorId;
+      const successes: Array<{ ticketId: string; qrPayload: string; status: string; seatNumber: string; sector: string }> = [];
+      const failures: Array<{ seat: string; message: string }> = [];
+
+      // Se generan de a uno, en secuencia (no en paralelo), para evitar que
+      // dos localidades del mismo pedido choquen entre sí si el backend
+      // valida disponibilidad justo en ese instante.
+      for (const seat of selectedSeats) {
+        try {
+          const response = await createMatchTicket(session.token, matchId, sectorId, seat);
+          successes.push({
+            ticketId: response.ticket.id,
+            qrPayload: response.ticket.qrPayload,
+            status: response.ticket.status,
+            seatNumber: response.ticket.seatNumber,
+            sector: response.ticket.sector,
+          });
+          markSeatOccupied(matchId, sectorId, response.ticket.seatNumber);
+        } catch (seatError) {
+          failures.push({ seat, message: seatError instanceof Error ? seatError.message : 'Error desconocido.' });
+        }
+      }
+
+      if (successes.length === 0) {
+        Alert.alert('No se pudo generar ningún ticket', failures[0]?.message ?? 'Inténtalo nuevamente.');
+        return;
+      }
+
+      if (failures.length > 0) {
+        Alert.alert(
+          'Algunas localidades no se pudieron reservar',
+          `Se generaron ${successes.length} de ${selectedSeats.length} tickets. No se pudo con: ${failures.map((f) => f.seat).join(', ')}.`,
+        );
+      }
+
       navigation.navigate('Ticket', {
-        ticketId: response.ticket.id,
-        qrPayload: response.ticket.qrPayload,
-        status: response.ticket.status,
+        tickets: successes.map((ticket) => ({
+          ticketId: ticket.ticketId,
+          qrPayload: ticket.qrPayload,
+          status: ticket.status,
+          seatNumber: ticket.seatNumber,
+        })),
         movieTitle: `${selectedMatch.homeTeam.name} vs ${selectedMatch.awayTeam.name}`,
-        selectedSeats: [response.ticket.seatNumber],
+        selectedSeats: successes.map((ticket) => ticket.seatNumber),
         startTime: selectedMatch.startTime,
-        roomName: `${selectedMatch.stadium.name} · ${response.ticket.sector}`,
+        roomName: `${selectedMatch.stadium.name} · ${successes[0].sector}`,
       });
-      setSelectedMatch(null);
+      setSelectedMatchId(null);
     } catch (buyError) {
       Alert.alert('No se pudo generar el ticket', buyError instanceof Error ? buyError.message : 'Inténtalo nuevamente.');
     } finally {
@@ -155,7 +337,7 @@ export default function StadiumScreen() {
     <SafeAreaView style={styles.safeArea}>
       {selectedMatch ? (
         <ScrollView contentContainerStyle={styles.containerScroll}>
-          <Pressable onPress={() => setSelectedMatch(null)} style={styles.backButton}>
+          <Pressable onPress={() => setSelectedMatchId(null)} style={styles.backButton}>
             <Ionicons name="arrow-back" size={18} color={colors.primary} />
             <Text style={styles.backText}>Volver a partidos</Text>
           </Pressable>
@@ -168,12 +350,24 @@ export default function StadiumScreen() {
             <View style={styles.matchHeader}>
               <View style={styles.purchaseTeam}>
                 <View style={styles.largeTeamBadge}>{getTeamLogo(selectedMatch.homeTeam) ? <Image source={{ uri: getTeamLogo(selectedMatch.homeTeam) }} style={styles.largeTeamLogo} /> : <Text style={styles.largeTeamInitial}>{selectedMatch.homeTeam.name.charAt(0)}</Text>}</View>
-                <Text style={styles.matchTitle}>{selectedMatch.homeTeam.name}</Text>
+                <View style={styles.teamNameRow}>
+                  <Text style={styles.matchTitle}>{selectedMatch.homeTeam.name}</Text>
+                  <FavoriteToggle
+                    active={favoriteTeamIds.has(selectedMatch.homeTeam.id)}
+                    onToggle={() => void toggleFavoriteTeam(selectedMatch.homeTeam.id)}
+                  />
+                </View>
               </View>
               <View style={styles.vsBlock}><Text style={styles.vs}>VS</Text><Text style={styles.matchDate}>{new Date(selectedMatch.startTime).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}</Text></View>
               <View style={styles.purchaseTeam}>
                 <View style={[styles.largeTeamBadge, styles.awayBadge]}>{getTeamLogo(selectedMatch.awayTeam) ? <Image source={{ uri: getTeamLogo(selectedMatch.awayTeam) }} style={styles.largeTeamLogo} /> : <Text style={styles.largeTeamInitial}>{selectedMatch.awayTeam.name.charAt(0)}</Text>}</View>
-                <Text style={styles.matchTitle}>{selectedMatch.awayTeam.name}</Text>
+                <View style={styles.teamNameRow}>
+                  <Text style={styles.matchTitle}>{selectedMatch.awayTeam.name}</Text>
+                  <FavoriteToggle
+                    active={favoriteTeamIds.has(selectedMatch.awayTeam.id)}
+                    onToggle={() => void toggleFavoriteTeam(selectedMatch.awayTeam.id)}
+                  />
+                </View>
               </View>
             </View>
             <View style={styles.info}>
@@ -187,7 +381,7 @@ export default function StadiumScreen() {
 
             <View style={styles.selectionHeading}>
               <Text style={styles.sectionTitle}>Elige tu sector</Text>
-              <Text style={styles.selectionHint}>1 entrada</Text>
+              <Text style={styles.selectionHint}>1 o más entradas</Text>
             </View>
             <View style={styles.options}>
               {selectedMatch.stadium.sectors.map((sector) => (
@@ -212,8 +406,8 @@ export default function StadiumScreen() {
             </View>
 
             <View style={styles.selectionHeading}>
-              <Text style={styles.sectionTitle}>Elige tu localidad</Text>
-              <Text style={styles.selectionHint}>{seatNumber ? 'Seleccionada' : 'Obligatorio'}</Text>
+              <Text style={styles.sectionTitle}>Elige tus localidades</Text>
+              <Text style={styles.selectionHint}>{selectedSeats.length > 0 ? `${selectedSeats.length} seleccionada${selectedSeats.length === 1 ? '' : 's'}` : 'Obligatorio'}</Text>
             </View>
             {availableSeats.length > 0 ? (
               <>
@@ -222,6 +416,7 @@ export default function StadiumScreen() {
                   <View style={styles.legendItem}><View style={[styles.legendSwatch, styles.legendOccupied]} /><Text style={styles.legendText}>Ocupada</Text></View>
                   <View style={styles.legendItem}><View style={[styles.legendSwatch, styles.legendSelected]} /><Text style={styles.legendText}>Seleccionada</Text></View>
                 </View>
+                <Text style={styles.multiSeatHint}>Toca todas las localidades que quieras comprar: se genera un ticket por cada una.</Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.seatMapScroll}>
                   <View style={styles.seatMap}>
                     {sectorRows.map((row) => (
@@ -230,17 +425,18 @@ export default function StadiumScreen() {
                         <View style={styles.seatsGrid}>
                           {row.seats.map((seat) => {
                             const occupied = occupiedSeats.includes(seat);
+                            const selected = selectedSeats.includes(seat);
                             return (
                               <Pressable
                                 key={seat}
                                 accessibilityRole="button"
                                 accessibilityLabel={`Localidad ${seat}`}
-                                accessibilityState={{ selected: seatNumber === seat, disabled: occupied }}
-                                style={[styles.seat, occupied && styles.seatOccupied, seatNumber === seat && styles.seatSelected]}
+                                accessibilityState={{ selected, disabled: occupied }}
+                                style={[styles.seat, occupied && styles.seatOccupied, selected && styles.seatSelected]}
                                 disabled={occupied}
-                                onPress={() => setSeatNumber(seat)}
+                                onPress={() => toggleSeat(seat)}
                               >
-                                <Text style={[styles.seatText, seatNumber === seat && styles.seatTextSelected]}>{seat.replace(/^[A-Za-z]+/, '')}</Text>
+                                <Text style={[styles.seatText, selected && styles.seatTextSelected]}>{seat.replace(/^[A-Za-z]+/, '')}</Text>
                               </Pressable>
                             );
                           })}
@@ -252,16 +448,34 @@ export default function StadiumScreen() {
               </>
             ) : (
               <View style={styles.noSeats}>
-                <Text style={styles.noSeatsText}>{sectorSeats.length > 0 ? 'Este sector ya no tiene localidades disponibles.' : 'Ingresa tu localidad manualmente'}</Text>
-                <AppInput label="Localidad" value={seatNumber} onChangeText={setSeatNumber} placeholder="Ej. A1" autoCapitalize="characters" />
+                <Text style={styles.noSeatsText}>{sectorSeats.length > 0 ? 'Este sector ya no tiene localidades disponibles.' : 'Ingresa cada localidad y agrégala a tu selección'}</Text>
+                <AppInput label="Localidad" value={manualSeatDraft} onChangeText={setManualSeatDraft} placeholder="Ej. A1" autoCapitalize="characters" onSubmitEditing={addManualSeat} />
+                <AppButton label="Agregar localidad" variant="secondary" onPress={addManualSeat} disabled={!manualSeatDraft.trim()} style={styles.addSeatButton} />
               </View>
             )}
 
-            {seatNumber && (
+            {selectedSeats.length > 0 && (
+              <View style={styles.selectedSeatsChips}>
+                {selectedSeats.map((seat) => (
+                  <Pressable key={seat} style={styles.selectedSeatChip} onPress={() => removeSeat(seat)} accessibilityRole="button" accessibilityLabel={`Quitar localidad ${seat}`}>
+                    <Text style={styles.selectedSeatChipText}>{seat}</Text>
+                    <Ionicons name="close" size={12} color={colors.background} />
+                  </Pressable>
+                ))}
+              </View>
+            )}
+
+            {selectedSeats.length > 0 && (
               <View style={styles.summary}>
-                <Text style={styles.summaryText}>Localidad seleccionada: <Text style={styles.summaryBold}>{seatNumber}</Text></Text>
+                <Text style={styles.summaryText}>Localidades: <Text style={styles.summaryBold}>{selectedSeats.join(', ')}</Text></Text>
                 <Text style={styles.summaryText}>Sector: <Text style={styles.summaryBold}>{selectedMatch.stadium.sectors.find((s) => s.id === selectedSectorId)?.name}</Text></Text>
-                <Text style={styles.summaryText}>Precio: <Text style={styles.summaryBold}>${Number(selectedMatch.stadium.sectors.find((s) => s.id === selectedSectorId)?.price).toFixed(2)}</Text></Text>
+                <Text style={styles.summaryText}>Precio por localidad: <Text style={styles.summaryBold}>${Number(selectedMatch.stadium.sectors.find((s) => s.id === selectedSectorId)?.price).toFixed(2)}</Text></Text>
+                <Text style={styles.summaryText}>
+                  Total ({selectedSeats.length} ticket{selectedSeats.length === 1 ? '' : 's'}):{' '}
+                  <Text style={styles.summaryBold}>
+                    ${(Number(selectedMatch.stadium.sectors.find((s) => s.id === selectedSectorId)?.price ?? 0) * selectedSeats.length).toFixed(2)}
+                  </Text>
+                </Text>
               </View>
             )}
 
@@ -272,8 +486,13 @@ export default function StadiumScreen() {
               <AppInput label="Nombre completo" autoCapitalize="words" value={fullName} onChangeText={setFullName} placeholder="Ej. Ana García" />
               <AppInput label="Teléfono" keyboardType="phone-pad" value={phone} onChangeText={setPhone} placeholder="099 123 4567" />
             </View>}
-            <AppButton label="Generar ticket QR" onPress={() => void buyTicket()} disabled={buying || !seatNumber} loading={buying} />
-            <AppButton label="Cancelar" variant="secondary" onPress={() => setSelectedMatch(null)} disabled={buying} />
+            <AppButton
+              label={selectedSeats.length > 1 ? `Generar ${selectedSeats.length} tickets QR` : 'Generar ticket QR'}
+              onPress={() => void buyTicket()}
+              disabled={buying || selectedSeats.length === 0}
+              loading={buying}
+            />
+            <AppButton label="Cancelar" variant="secondary" onPress={() => setSelectedMatchId(null)} disabled={buying} />
           </AppCard>
         </ScrollView>
       ) : (
@@ -288,10 +507,25 @@ export default function StadiumScreen() {
                   <Text style={styles.overline}>Experiencias en vivo</Text>
                   <Text style={styles.title}>Estadios</Text>
                 </View>
-                <View style={styles.headerIcon}>
-                  <Ionicons name="football" size={22} color={colors.text} />
+                <View style={styles.headerActions}>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Elegir equipos favoritos"
+                    style={styles.favoritesEntryButton}
+                    onPress={() => setFavoritesModalVisible(true)}
+                  >
+                    <Ionicons name="heart" size={18} color={colors.critical} />
+                    {favoriteTeamIds.size > 0 && (
+                      <View style={styles.favoritesBadge}>
+                        <Text style={styles.favoritesBadgeText}>{favoriteTeamIds.size}</Text>
+                      </View>
+                    )}
+                  </Pressable>
+                  <View style={styles.headerIcon}>
+                    <Ionicons name="football" size={22} color={colors.text} />
+                  </View>
+                  <ProfileAvatar />
                 </View>
-                <ProfileAvatar />
               </View>
               <View style={styles.heroCard}>
                 <Image
@@ -325,7 +559,7 @@ export default function StadiumScreen() {
                 <Text style={styles.sectionHint}>{visibleMatches.length} disponibles</Text>
               </View>
               <View style={styles.filters}>
-                {(['TODOS', 'LIVE', 'SCHEDULED'] as const).map((item) => (
+                {(['TODOS', 'LIVE', 'SCHEDULED', 'FAVORITOS'] as const).map((item) => (
                   <Pressable
                     key={item}
                     accessibilityRole="button"
@@ -334,8 +568,11 @@ export default function StadiumScreen() {
                     onPress={() => setFilter(item)}
                   >
                     {item === 'LIVE' && <View style={styles.liveDot} />}
+                    {item === 'FAVORITOS' && (
+                      <Ionicons name="heart" size={12} color={filter === item ? colors.text : colors.critical} />
+                    )}
                     <Text style={[styles.filterText, filter === item && styles.filterTextSelected]}>
-                      {item === 'TODOS' ? 'Todos' : item === 'LIVE' ? 'En vivo' : 'Próximos'}
+                      {item === 'TODOS' ? 'Todos' : item === 'LIVE' ? 'En vivo' : item === 'SCHEDULED' ? 'Próximos' : 'Favoritos'}
                     </Text>
                   </Pressable>
                 ))}
@@ -394,9 +631,23 @@ export default function StadiumScreen() {
               <View style={styles.matchRow}>
                 <View style={[styles.teamBadge, styles.homeBadge]}>{getTeamLogo(item.homeTeam) ? <Image source={{ uri: getTeamLogo(item.homeTeam) }} style={styles.teamLogo} /> : <Text style={styles.teamInitial}>{item.homeTeam.name.charAt(0)}</Text>}</View>
                 <View style={styles.matchTeam}>
-                  <Text style={styles.teamName}>{item.homeTeam.name}</Text>
+                  <View style={styles.teamNameRow}>
+                    <Text style={styles.teamName}>{item.homeTeam.name}</Text>
+                    <FavoriteToggle
+                      size={14}
+                      active={favoriteTeamIds.has(item.homeTeam.id)}
+                      onToggle={() => void toggleFavoriteTeam(item.homeTeam.id)}
+                    />
+                  </View>
                   <Text style={styles.vs}>contra</Text>
-                  <Text style={styles.teamName}>{item.awayTeam.name}</Text>
+                  <View style={styles.teamNameRow}>
+                    <Text style={styles.teamName}>{item.awayTeam.name}</Text>
+                    <FavoriteToggle
+                      size={14}
+                      active={favoriteTeamIds.has(item.awayTeam.id)}
+                      onToggle={() => void toggleFavoriteTeam(item.awayTeam.id)}
+                    />
+                  </View>
                 </View>
                 <View style={[styles.teamBadge, styles.awayBadge]}>{getTeamLogo(item.awayTeam) ? <Image source={{ uri: getTeamLogo(item.awayTeam) }} style={styles.teamLogo} /> : <Text style={styles.teamInitial}>{item.awayTeam.name.charAt(0)}</Text>}</View>
               </View>
@@ -421,6 +672,63 @@ export default function StadiumScreen() {
           )}
         />
       )}
+
+      <Modal visible={favoritesModalVisible} animationType="slide" transparent onRequestClose={() => setFavoritesModalVisible(false)}>
+        <View style={styles.modalBackdrop}>
+          <Pressable style={styles.modalBackdropTap} onPress={() => setFavoritesModalVisible(false)} accessibilityLabel="Cerrar" accessibilityRole="button" />
+          <View style={styles.modalCard}>
+            <View style={styles.modalTopBar}>
+              <View style={styles.modalHandle} />
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Cerrar selección de favoritos"
+                style={styles.modalCloseButton}
+                onPress={() => setFavoritesModalVisible(false)}
+              >
+                <Ionicons name="close" size={18} color={colors.textSecondary} />
+              </Pressable>
+            </View>
+            <View style={styles.modalHeaderText}>
+              <Text style={styles.modalTitle}>Tus equipos favoritos</Text>
+              <Text style={styles.modalSubtitle}>Elige uno o varios. Verás sus partidos más rápido con el filtro "Favoritos".</Text>
+            </View>
+            <ScrollView contentContainerStyle={styles.modalScroll}>
+              {allTeams.length === 0 ? (
+                <Text style={styles.noSeatsText}>No hay equipos disponibles por ahora.</Text>
+              ) : (
+                allTeams.map((team) => {
+                  const active = favoriteTeamIds.has(team.id);
+                  return (
+                    <Pressable
+                      key={team.id}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: active }}
+                      style={[styles.teamRow, active && styles.teamRowSelected]}
+                      onPress={() => void toggleFavoriteTeam(team.id)}
+                    >
+                      <View style={styles.teamRowBadge}>
+                        {getTeamLogo(team) ? (
+                          <Image source={{ uri: getTeamLogo(team) }} style={styles.teamRowLogo} />
+                        ) : (
+                          <Text style={styles.teamInitial}>{team.name.charAt(0)}</Text>
+                        )}
+                      </View>
+                      <View style={styles.teamRowInfo}>
+                        <Text style={styles.teamRowName}>{team.name}</Text>
+                        {!!team.city && <Text style={styles.teamRowCity}>{team.city}</Text>}
+                      </View>
+                      <Ionicons name={active ? 'heart' : 'heart-outline'} size={20} color={active ? colors.critical : colors.textSecondary} />
+                    </Pressable>
+                  );
+                })
+              )}
+            </ScrollView>
+            <View style={styles.modalFooter}>
+              <AppButton label="Listo" onPress={() => setFavoritesModalVisible(false)} />
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -433,7 +741,11 @@ const styles = StyleSheet.create({
   title: { color: colors.text, fontSize: 30, fontWeight: '800', fontFamily: typography.display },
   subtitle: { color: colors.textSecondary, fontSize: 14, lineHeight: 20, marginBottom: 8 },
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   headerIcon: { width: 44, height: 44, borderRadius: 14, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
+  favoritesEntryButton: { width: 44, height: 44, borderRadius: 14, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
+  favoritesBadge: { position: 'absolute', top: -4, right: -4, minWidth: 18, height: 18, borderRadius: 9, backgroundColor: colors.critical, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3 },
+  favoritesBadgeText: { color: '#fff', fontSize: 10, fontWeight: '800' },
   heroCard: { height: 190, borderRadius: 18, overflow: 'hidden', marginBottom: 14, backgroundColor: colors.surface },
   heroImage: { width: '100%', height: '100%' },
   heroOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: colors.overlayStrong, justifyContent: 'flex-end', padding: 16 },
@@ -508,17 +820,23 @@ const styles = StyleSheet.create({
   seatRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
   rowLabel: { width: 22, color: colors.textSecondary, fontSize: 10, fontWeight: '800', textAlign: 'center' },
   seatsGrid: { flexDirection: 'row', gap: 4 },
-  seat: { width: 28, height: 28, borderRadius: 7, borderWidth: 1, borderColor: colors.border, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background },
-  seatOccupied: { backgroundColor: colors.input, borderColor: colors.border, opacity: 0.45 },
-  seatSelected: { backgroundColor: colors.primary, borderColor: colors.primary },
+  // Libre = verde, ocupada = roja, seleccionada = azul (colors.primary).
+  seat: { width: 28, height: 28, borderRadius: 7, borderWidth: 1.5, borderColor: colors.success, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.success + '2A' },
+  seatOccupied: { backgroundColor: colors.critical + '2A', borderColor: colors.critical, opacity: 0.75 },
+  seatSelected: { backgroundColor: colors.primary, borderColor: colors.primary, opacity: 1 },
   seatText: { color: colors.text, fontSize: 9, fontWeight: '700' },
   seatTextSelected: { color: colors.background },
   noSeats: { gap: 8 },
   noSeatsText: { color: colors.textSecondary, fontSize: 12, textAlign: 'center' },
+  multiSeatHint: { color: colors.textSecondary, fontSize: 11, marginTop: -2, marginBottom: 2 },
+  addSeatButton: { alignSelf: 'flex-start' },
+  selectedSeatsChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginTop: 2 },
+  selectedSeatChip: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.primary, borderRadius: 999, paddingHorizontal: 11, paddingVertical: 6 },
+  selectedSeatChipText: { color: colors.background, fontSize: 12, fontWeight: '800' },
   legend: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 4 },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  legendSwatch: { width: 11, height: 11, borderRadius: 3, backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border },
-  legendOccupied: { backgroundColor: colors.input, opacity: 0.5 },
+  legendSwatch: { width: 11, height: 11, borderRadius: 3, backgroundColor: colors.success + '2A', borderWidth: 1, borderColor: colors.success },
+  legendOccupied: { backgroundColor: colors.critical + '2A', borderColor: colors.critical },
   legendSelected: { backgroundColor: colors.primary, borderColor: colors.primary },
   legendText: { color: colors.textSecondary, fontSize: 10 },
   summary: { backgroundColor: colors.primary + '15', borderRadius: 8, padding: 12, gap: 4 },
@@ -527,6 +845,8 @@ const styles = StyleSheet.create({
   matchRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginVertical: 8 },
   matchTeam: { flex: 1, alignItems: 'center', gap: 2 },
   teamName: { color: colors.text, fontSize: 16, fontWeight: '800', textAlign: 'center' },
+  teamNameRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  favoriteButton: { padding: 2 },
   teamBadge: { width: 40, height: 40, borderRadius: 12, backgroundColor: colors.surfaceRaised, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.borderStrong },
   teamLogo: { width: 27, height: 27 },
   homeBadge: { backgroundColor: '#123F55' },
@@ -541,4 +861,22 @@ const styles = StyleSheet.create({
   profileCard: { backgroundColor: colors.surfaceRaised, borderRadius: 14, borderWidth: 1, borderColor: colors.borderStrong, padding: 14, marginTop: 8 },
   profileTitle: { color: colors.text, fontSize: 16, fontWeight: '800', marginBottom: 4 },
   profileHint: { color: colors.textSecondary, fontSize: 12, lineHeight: 18, marginBottom: 8 },
+  modalBackdrop: { flex: 1, backgroundColor: colors.overlayStrong, justifyContent: 'flex-end' },
+  modalBackdropTap: { flex: 1 },
+  modalCard: { backgroundColor: colors.background, borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '80%' },
+  modalTopBar: { alignItems: 'center', paddingTop: 10 },
+  modalHandle: { width: 40, height: 4, borderRadius: 2, backgroundColor: colors.borderStrong },
+  modalCloseButton: { position: 'absolute', right: 12, top: 6, width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surfaceRaised },
+  modalHeaderText: { paddingHorizontal: 16, paddingTop: 10 },
+  modalTitle: { color: colors.text, fontSize: 19, fontWeight: '800' },
+  modalSubtitle: { color: colors.textSecondary, fontSize: 12, lineHeight: 17, marginTop: 4 },
+  modalScroll: { padding: 16, gap: 8 },
+  modalFooter: { padding: 16, paddingTop: 8, borderTopWidth: 1, borderTopColor: colors.border },
+  teamRow: { flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1, borderColor: colors.border, borderRadius: 12, padding: 10, backgroundColor: colors.surface },
+  teamRowSelected: { borderColor: colors.critical, backgroundColor: colors.critical + '12' },
+  teamRowBadge: { width: 38, height: 38, borderRadius: 11, backgroundColor: colors.surfaceRaised, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.borderStrong },
+  teamRowLogo: { width: 26, height: 26 },
+  teamRowInfo: { flex: 1 },
+  teamRowName: { color: colors.text, fontSize: 14, fontWeight: '700' },
+  teamRowCity: { color: colors.textSecondary, fontSize: 11, marginTop: 2 },
 });
