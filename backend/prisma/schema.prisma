@@ -79,6 +79,12 @@ enum ParkingTicketMode {
   TICKET
 }
 
+enum ParkingSpaceStatus {
+  AVAILABLE
+  MAINTENANCE
+  CLOSED
+}
+
 enum BusOriginTerminal {
   QUITUMBE
   CARCELEN
@@ -369,9 +375,27 @@ model ParkingLot {
   createdAt   DateTime          @default(now()) @map("created_at")
   updatedAt   DateTime          @updatedAt @map("updated_at")
   tickets     ParkingTicket[]
+  spaces      ParkingSpace[]
 
   @@index([city, status])
   @@map("parking_lots")
+}
+
+model ParkingSpace {
+  id          String             @id @default(cuid())
+  parkingId   String             @map("parking_id")
+  spaceNumber Int                @map("space_number")
+  floor       Int                @default(1)
+  code        String
+  status      ParkingSpaceStatus @default(AVAILABLE)
+  createdAt   DateTime           @default(now()) @map("created_at")
+  updatedAt   DateTime           @updatedAt @map("updated_at")
+  parking     ParkingLot         @relation(fields: [parkingId], references: [id], onDelete: Cascade)
+
+  @@unique([parkingId, spaceNumber])
+  @@unique([parkingId, code])
+  @@index([parkingId, status])
+  @@map("parking_spaces")
 }
 
 model ParkingTicket {
@@ -391,7 +415,7 @@ model ParkingTicket {
   parking     ParkingLot          @relation(fields: [parkingId], references: [id], onDelete: Cascade)
   user        User                @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([parkingId, spaceNumber, date])
+  @@index([parkingId, spaceNumber, date])
   @@index([userId, status])
   @@map("parking_tickets")
 }

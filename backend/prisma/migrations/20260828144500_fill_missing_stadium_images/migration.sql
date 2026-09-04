@@ -1,0 +1,2 @@
+-- Historical migration already applied in existing databases.
+-- The original migration is intentionally represented as a no-op locally.

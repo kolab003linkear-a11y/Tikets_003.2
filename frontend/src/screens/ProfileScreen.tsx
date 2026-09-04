@@ -31,12 +31,11 @@ export default function ProfileScreen() {
 
   const initials = (fullName || user?.email?.split('@')[0] || 'OM').split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase();
   const roleLabel = user?.role === 'ADMIN' ? 'Administrador' : user?.role === 'SCANNER' ? 'Control de acceso' : 'Cliente';
-  const showDemoAdmin = !!user && user.role !== 'ADMIN' && user.role !== 'SCANNER';
+  const showAdminAccess = !!user && user.role !== 'ADMIN' && user.role !== 'SCANNER';
   
   // Debug logging
   console.log('[ProfileScreen] user:', user);
   console.log('[ProfileScreen] user?.role:', user?.role);
-  console.log('[ProfileScreen] showDemoAdmin:', showDemoAdmin);
   
   const memberSince = user?.createdAt
     ? new Date(user.createdAt).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })
@@ -106,14 +105,14 @@ export default function ProfileScreen() {
         {settingsOpen && <View style={styles.settingsPanel}>
           <View style={styles.settingsHeading}><Ionicons name="options-outline" size={18} color={colors.primary} /><Text style={styles.settingsTitle}>Configuración rápida</Text></View>
           <Pressable style={styles.settingsRow} onPress={() => setSettingsOpen(false)}><Ionicons name="create-outline" size={18} color={colors.textSecondary} /><View style={styles.settingsCopy}><Text style={styles.settingsRowTitle}>Datos personales</Text><Text style={styles.settingsRowText}>Edita tu correo más abajo</Text></View><Ionicons name="chevron-down" size={17} color={colors.textSecondary} /></Pressable>
-          {showDemoAdmin && (
+          {showAdminAccess && (
             <Pressable style={styles.settingsRow} onPress={() => {
               setSettingsOpen(false);
               setAdminLoginError('');
               setAdminLoginOpen(true);
             }}>
               <Ionicons name="shield-checkmark-outline" size={18} color={colors.warning} />
-              <View style={styles.settingsCopy}><Text style={styles.settingsRowTitle}>Entrar como admin</Text><Text style={styles.settingsRowText}>Demo: admin@tikets.com</Text></View>
+              <View style={styles.settingsCopy}><Text style={styles.settingsRowTitle}>Entrar como administrador</Text><Text style={styles.settingsRowText}>admin@tikets.com</Text></View>
               <Ionicons name="chevron-forward" size={17} color={colors.textSecondary} />
             </Pressable>
           )}
@@ -175,6 +174,11 @@ export default function ProfileScreen() {
             <Text style={styles.quickTitle}>Estadios</Text>
             <Text style={styles.quickHint}>Explorar partidos</Text>
           </Pressable>
+          {user?.role === 'ADMIN' && <Pressable accessibilityRole="button" accessibilityLabel="Abrir gestión de parqueaderos" style={styles.quickItem} onPress={() => navigation.navigate('AdminParking')}>
+  <View style={[styles.quickIcon, styles.quickIconBlue]}><Ionicons name="car-outline" size={20} color="#fff" /></View>
+  <Text style={styles.quickTitle}>Parqueaderos</Text>
+  <Text style={styles.quickHint}>Gestión ParkSwift</Text>
+          </Pressable>}
           <Pressable style={styles.quickItem} onPress={() => setSettingsOpen(true)}>
             <View style={[styles.quickIcon, styles.quickIconGreen]}><Ionicons name="lock-closed-outline" size={20} color={colors.success} /></View>
             <Text style={styles.quickTitle}>Cuenta segura</Text>

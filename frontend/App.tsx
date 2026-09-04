@@ -27,6 +27,7 @@ import AdminHubScreen from './src/screens/AdminHubScreen';
 import StadiumScreen from './src/screens/StadiumScreen';
 import AssistantScreen from './src/screens/AssistantScreen';
 import ParkingScreen from './src/screens/ParkingScreen';
+import AdminParkingScreen from './src/screens/AdminParkingScreen';
 import BusScreen from './src/screens/BusScreen';
 
 import CinemaScreen from './src/screens/CinemaScreen';
@@ -232,6 +233,7 @@ function AppContent() {
           <Stack.Screen name="Checkout" component={CheckoutScreen} />
           <Stack.Screen name="Ticket" component={TicketScreen} />
           <Stack.Screen name="Profile" component={ProfileScreen} />
+          <Stack.Screen name="AdminParking" component={AdminParkingScreen} />
           <Stack.Screen name="Assistant" component={AssistantScreen} />
         </Stack.Navigator>
       </NavigationContainer>

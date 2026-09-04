@@ -55,7 +55,7 @@ Para una guia completa de inicio manual en Windows PowerShell, consulta [MANUAL_
 Configura las variables del backend en `backend/.env`:
 
 ```env
-DATABASE_URL="postgresql://postgres:postgres@localhost:5433/tiKets?schema=public"
+DATABASE_URL="postgresql://postgres:postgres@localhost:55432/tiKets?schema=public"
 PORT=4001
 NODE_ENV="development"
 JWT_SECRET="cambia-esta-clave-por-una-segura"
@@ -63,6 +63,7 @@ CORS_ORIGINS="http://localhost:8082"
 STRIPE_SECRET_KEY="sk_test_xxx"
 PAYPHONE_API_KEY="your_payphone_key"
 PAYPHONE_WEBHOOK_SECRET="your_webhook_secret"
+PAYMENT_WEBHOOK_SECRET="your_payment_webhook_secret"
 ```
 
 Para una configuracion inicial, puedes partir de `backend/.env.example`.
@@ -124,6 +125,7 @@ Todos los endpoints se sirven bajo `/api`.
 | POST | `/reservations/create` | Usuario autenticado |
 | POST | `/reservations/:id/cancel` | Propietario de la reserva |
 | POST | `/payments/demo-confirm` | Usuario autenticado |
+| POST | `/payments/webhook` | Proveedor de pagos con firma HMAC |
 | GET | `/tickets` | Usuario autenticado |
 | POST | `/admin/tickets/validate` | Admin o scanner |
 | GET | `/parking?date=AAAA-MM-DD` | Publico, disponibilidad demo por fecha |
@@ -140,6 +142,8 @@ Authorization: Bearer <token>
 ```
 
 El pago implementado actualmente es de demostracion. La integracion con Stripe o PayPhone queda preparada mediante variables de entorno, pero requiere completar el proveedor real antes de produccion.
+
+El webhook requiere `x-payment-signature`, calculada como HMAC-SHA256 con `PAYMENT_WEBHOOK_SECRET` sobre el texto `{event}:{reservationId}`.
 
 ## Datos demo e integracion real
 

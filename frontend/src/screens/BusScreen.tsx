@@ -9,6 +9,7 @@ import AppButton from '../components/AppButton';
 import AppCard from '../components/AppCard';
 import AppInput from '../components/AppInput';
 import AppState from '../components/AppState';
+import { PaymentModal } from '../components/parking/PaymentModal';
 
 export default function BusScreen() {
   const navigation = useNavigation<any>();
@@ -21,6 +22,7 @@ export default function BusScreen() {
   const [operator, setOperator] = useState('');
   const [loading, setLoading] = useState(true);
   const [buying, setBuying] = useState(false);
+  const [paymentOpen, setPaymentOpen] = useState(false);
   const [error, setError] = useState('');
   const [email, setEmail] = useState(user?.email ?? '');
   const [fullName, setFullName] = useState(user?.fullName ?? '');
@@ -44,9 +46,13 @@ export default function BusScreen() {
   }, [terminal, destination, operator]);
 
   const buy = async () => {
-    const number = Number(seat);
+    const number = Number(seat.trim());
     if (!selected || !Number.isInteger(number) || number < 1 || number > selected.totalSeats) {
       Alert.alert('Datos incompletos', 'Elige un viaje y un asiento válido.');
+      return;
+    }
+    if (selected.occupiedSeats?.includes(number)) {
+      Alert.alert('Asiento ocupado', `El asiento ${number} ya está reservado. Elige otro asiento disponible.`);
       return;
     }
     if ((!user || !token) && (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim()) || fullName.trim().length < 2 || phone.trim().length < 7)) {
@@ -62,6 +68,7 @@ export default function BusScreen() {
       navigation.navigate('Ticket', {
         ticketId: response.ticket.id,
         qrPayload: response.ticket.qrPayload,
+        ticketType: 'BUS',
         status: response.ticket.status,
         movieTitle: `${route.origin} → ${route.destination}`,
         selectedSeats: [`Asiento ${response.ticket.seatNumber}`],
@@ -78,6 +85,8 @@ export default function BusScreen() {
 
   if (selected) {
     const route = selected.route!;
+    const occupiedSeats = selected.occupiedSeats ?? [];
+    const availableSeatNumbers = Array.from({ length: selected.totalSeats }, (_, index) => index + 1).filter((number) => !occupiedSeats.includes(number));
     return (
       <SafeAreaView style={styles.safe}>
         <ScrollView contentContainerStyle={styles.content}>
@@ -86,13 +95,17 @@ export default function BusScreen() {
             <Text style={styles.backText}>Volver a buses</Text>
           </Pressable>
           <AppCard style={styles.card}>
-            <Text style={styles.kicker}>Viaje demo seleccionado</Text>
+            <Text style={styles.kicker}>Viaje seleccionado</Text>
             <Text style={styles.title}>{route.origin} → {route.destination}</Text>
             <Text style={styles.meta}>Terminal: {route.originTerminal} · {route.operator}</Text>
             <Text style={styles.meta}>Salida: {new Date(selected.departureTime).toLocaleString('es-ES', { dateStyle: 'medium', timeStyle: 'short' })}</Text>
             <Text style={styles.meta}>Llegada: {selected.arrivalTime ? new Date(selected.arrivalTime).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) : 'Por confirmar'}</Text>
             <Text style={styles.meta}>Andén: {selected.boardingPlatform ?? 'Por confirmar'} · Equipaje: {selected.baggageInfo ?? 'Por confirmar'}</Text>
             <Text style={styles.price}>${Number(selected.price).toFixed(2)} · {selected.availableSeats ?? 0} asientos libres</Text>
+            <Text style={styles.seatStatus}>
+              {occupiedSeats.length > 0 ? `Ocupados: ${occupiedSeats.join(', ')}. ` : ''}
+              Disponibles: {availableSeatNumbers.join(', ')}
+            </Text>
             <AppInput label={`Asiento (1-${selected.totalSeats})`} value={seat} onChangeText={setSeat} keyboardType="numeric" placeholder="Ej. 12" />
             {!user?.fullName || !user?.phone ? (
               <View style={styles.guest}>
@@ -102,9 +115,10 @@ export default function BusScreen() {
                 <AppInput label="Teléfono" value={phone} onChangeText={setPhone} keyboardType="phone-pad" />
               </View>
             ) : null}
-            <AppButton label="Comprar ticket QR" onPress={() => void buy()} loading={buying} disabled={buying || selected.availableSeats === 0} />
+            <AppButton label="Comprar ticket QR" onPress={() => setPaymentOpen(true)} loading={buying} disabled={buying || selected.availableSeats === 0} />
             <AppButton label="Cancelar" variant="secondary" onPress={() => setSelected(null)} />
           </AppCard>
+          <PaymentModal isOpen={paymentOpen} onClose={() => setPaymentOpen(false)} totalAmount={Number(selected.price)} onConfirmPayment={() => { setPaymentOpen(false); void buy(); }} processing={buying} cancelLabel="Cancelar boleto" />
         </ScrollView>
       </SafeAreaView>
     );
@@ -150,6 +164,7 @@ const styles = StyleSheet.create({
   name: { color: colors.text, fontSize: 17, fontWeight: '800' },
   meta: { color: colors.textSecondary, fontSize: 12 },
   price: { color: colors.success, fontSize: 16, fontWeight: '800' },
+  seatStatus: { color: colors.textSecondary, fontSize: 12, lineHeight: 18 },
   back: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   backText: { color: colors.primary, fontWeight: '700' },
   guest: { borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 10, gap: 7 },

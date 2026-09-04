@@ -39,6 +39,15 @@ export default function MyTicketsScreen() {
   );
 
   const stadiumTicket = (ticket: TicketDetails) => ticket.qrPayload.startsWith('stadiumsafe:');
+  const parkingTicket = (ticket: TicketDetails) => ticket.qrPayload.startsWith('parkingsafe:');
+  const parkingSpotLabel = (ticket: TicketDetails) => {
+    const spaceNumber = Number(ticket.seatNumber);
+    const floor = Math.floor((spaceNumber - 1) / 8) + 1;
+    const index = (spaceNumber - 1) % 8;
+    const code = `${String.fromCharCode(65 + Math.floor(index / 4))}${(index % 4) + 1}`;
+    return `Plaza ${code} - Piso ${floor}`;
+  };
+  const displayTitle = (ticket: TicketDetails) => parkingTicket(ticket) ? ticket.event.title.replace(/\s*\((?:demo|demostración)\)/gi, '') : ticket.event.title;
   const statusLabel = (status: TicketDetails['status']) => status === 'VALID' ? 'Activo' : status === 'USED' ? 'Usado' : 'Expirado';
 
   const openTicket = (ticket: TicketDetails) => {
@@ -46,8 +55,8 @@ export default function MyTicketsScreen() {
       ticketId: ticket.id,
       qrPayload: ticket.qrPayload,
       status: ticket.status,
-      movieTitle: ticket.event.title,
-      selectedSeats: [ticket.seatNumber],
+      movieTitle: displayTitle(ticket),
+      selectedSeats: [parkingTicket(ticket) ? parkingSpotLabel(ticket) : ticket.seatNumber],
       startTime: ticket.event.startTime,
       roomName: ticket.event.room,
     });
@@ -87,15 +96,15 @@ export default function MyTicketsScreen() {
         renderItem={({ item }) => (
           <Pressable accessibilityRole="button" accessibilityLabel={`Abrir ticket de ${item.event.title}, localidad ${item.seatNumber}`} style={[styles.card, item.status === 'VALID' && styles.activeCard, item.status === 'USED' && styles.usedCard]} onPress={() => openTicket(item)}>
             <View style={styles.cardTopline}>
-              <View style={styles.typeRow}><Ionicons name={stadiumTicket(item) ? 'football-outline' : 'film-outline'} size={15} color={colors.primary} /><Text style={styles.typeText}>{stadiumTicket(item) ? 'ESTADIO' : 'EVENTO'}</Text></View>
+              <View style={styles.typeRow}><Ionicons name={stadiumTicket(item) ? 'football-outline' : parkingTicket(item) ? 'car-outline' : 'film-outline'} size={15} color={colors.primary} /><Text style={styles.typeText}>{stadiumTicket(item) ? 'ESTADIO' : parkingTicket(item) ? 'PARQUEADERO' : 'EVENTO'}</Text></View>
               <View style={[styles.statusBadge, item.status !== 'VALID' && styles.statusBadgeMuted]}><Text style={[styles.status, item.status !== 'VALID' && styles.statusMuted]}>{statusLabel(item.status)}</Text></View>
             </View>
-            <Text style={styles.movieTitle}>{item.event.title}</Text>
+            <Text style={styles.movieTitle}>{displayTitle(item)}</Text>
             {item.status === 'VALID' && <View style={styles.readyLine}><Ionicons name="checkmark-circle" size={14} color={colors.success} /><Text style={styles.readyText}>Entrada lista para usar</Text></View>}
             <View style={styles.detailsBlock}>
               <View style={styles.detailRow}><Ionicons name="calendar-outline" size={16} color={colors.textSecondary} /><Text style={styles.meta}>{new Date(item.event.startTime).toLocaleString('es-ES', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</Text></View>
               <View style={styles.detailRow}><Ionicons name="location-outline" size={16} color={colors.textSecondary} /><Text style={styles.meta} numberOfLines={1}>{item.event.room}</Text></View>
-              <View style={styles.detailRow}><Ionicons name="grid-outline" size={16} color={colors.textSecondary} /><Text style={styles.meta}>Localidad {item.seatNumber}</Text></View>
+              <View style={styles.detailRow}><Ionicons name="grid-outline" size={16} color={colors.textSecondary} /><Text style={styles.meta}>{parkingTicket(item) ? parkingSpotLabel(item) : `Localidad ${item.seatNumber}`}</Text></View>
             </View>
             <View style={styles.cardFooter}>
               <Text style={styles.ticketId}>ID {item.id.slice(-8).toUpperCase()}</Text>

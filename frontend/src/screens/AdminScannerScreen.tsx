@@ -10,7 +10,7 @@ export default function AdminScannerScreen() {
   const { user, token } = useAuth();
   const [permission, requestPermission] = useCameraPermissions();
   const [scanning, setScanning] = useState(true);
-  const [lastResult, setLastResult] = useState<{ status: string; message: string; valid: boolean; event?: string; seat?: string } | null>(null);
+  const [lastResult, setLastResult] = useState<{ status: string; message: string; valid: boolean; event?: string; seat?: string; usedAt?: string | null } | null>(null);
   const [scanCount, setScanCount] = useState(0);
   const [validCount, setValidCount] = useState(0);
 
@@ -59,10 +59,16 @@ export default function AdminScannerScreen() {
       return;
     }
 
+    const qrCode = data.trim();
+    if (!qrCode) {
+      Alert.alert('QR vacío', 'El código no contiene información válida.');
+      return;
+    }
+
     setScanning(false);
     setScanCount((count) => count + 1);
     try {
-      const response = await validateTicket(token, data);
+      const response = await validateTicket(token, qrCode);
       if (response.valid) setValidCount((count) => count + 1);
       setLastResult({
         status: response.status,
@@ -70,6 +76,7 @@ export default function AdminScannerScreen() {
         valid: response.valid,
         event: response.ticket?.event?.title,
         seat: response.ticket?.seatNumber,
+        usedAt: response.ticket?.usedAt,
       });
       Alert.alert(response.valid ? 'Entrada validada' : 'Resultado de validación', response.message);
     } catch (error) {
@@ -107,7 +114,7 @@ export default function AdminScannerScreen() {
                 accessibilityLabel="Cámara para escanear el código QR"
                 onBarcodeScanned={handleScan}
                 barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
-                style={StyleSheet.absoluteFillObject}
+                style={StyleSheet.absoluteFill}
               />
               <View style={styles.scanGuide} pointerEvents="none">
                 <View style={[styles.corner, styles.cornerTopLeft]} /><View style={[styles.corner, styles.cornerTopRight]} />
@@ -136,6 +143,7 @@ export default function AdminScannerScreen() {
             </View>
             <Text style={styles.resultValue}>{lastResult.message}</Text>
             {lastResult.event && <Text style={styles.resultDetail}>{lastResult.event}{lastResult.seat ? ` · Localidad ${lastResult.seat}` : ''}</Text>}
+            {lastResult.status === 'USED' && lastResult.usedAt && <Text style={styles.resultDetail}>Marcado como usado: {new Date(lastResult.usedAt).toLocaleString('es-ES')}</Text>}
             <Pressable accessibilityRole="button" style={styles.nextButton} onPress={scanNext}><Ionicons name="scan-outline" size={18} color={colors.background} /><Text style={styles.nextButtonText}>Escanear siguiente</Text></Pressable>
           </View>
         ) : (
@@ -172,7 +180,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
-  scanGuide: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center' },
+  scanGuide: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center' },
   corner: { position: 'absolute', width: 34, height: 34, borderColor: colors.primary },
   cornerTopLeft: { top: '24%', left: '14%', borderTopWidth: 3, borderLeftWidth: 3 },
   cornerTopRight: { top: '24%', right: '14%', borderTopWidth: 3, borderRightWidth: 3 },

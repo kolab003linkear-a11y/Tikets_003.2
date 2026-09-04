@@ -17,6 +17,7 @@
     "dev:backend": "npm --workspace backend run dev",
     "dev:frontend": "npm --workspace frontend run start",
     "install:all": "npm install --workspaces",
+    "build": "npm run build:backend",
     "build:backend": "npm --workspace backend run build",
     "ops:check": "powershell -ExecutionPolicy Bypass -File scripts/check-services.ps1"
   }

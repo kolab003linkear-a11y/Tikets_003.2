@@ -72,7 +72,7 @@ Copy-Item backend\.env.example backend\.env
 El archivo debe usar estos valores:
 
 ```env
-DATABASE_URL="postgresql://postgres:postgres@localhost:5433/tiKets?schema=public"
+DATABASE_URL="postgresql://postgres:postgres@localhost:55432/tiKets?schema=public"
 PORT=4001
 NODE_ENV="development"
 JWT_SECRET="tiKets-dev-secret"
@@ -223,7 +223,7 @@ npm --workspace backend run db:up
 Comprueba qué proceso usa los puertos:
 
 ```powershell
-Get-NetTCPConnection -LocalPort 4001,8082,5433 -ErrorAction SilentlyContinue
+Get-NetTCPConnection -LocalPort 4001,8082,55432 -ErrorAction SilentlyContinue
 ```
 
 Cierra la aplicación que esté usando el puerto y repite los pasos.
