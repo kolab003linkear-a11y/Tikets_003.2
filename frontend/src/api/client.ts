@@ -488,7 +488,7 @@ export function createParkingTicket(token: string, parkingId: string, spaceNumbe
   return request<ParkingTicketResponse>(`/api/parking/${parkingId}/tickets`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: JSON.stringify({ spaceNumber, date }) });
 }
 
-export function payParkingTicket(token: string, ticketId: string, paymentMethod: 'CARD' | 'GOOGLE_PAY' | 'APPLE_PAY' | 'PAYPAL' | 'CASH') {
+export function payParkingTicket(token: string, ticketId: string, paymentMethod: 'CARD' | 'DEUNA' | 'GOOGLE_PAY' | 'APPLE_PAY' | 'PAYPAL' | 'CASH') {
   return request<{ success: boolean; ticket: ParkingTicketResponse['ticket']; paymentMethod: string }>(`/api/parking/tickets/${ticketId}/pay`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: JSON.stringify({ paymentMethod }) });
 }
 
@@ -548,7 +548,7 @@ export function createReservation(token: string, userId: string, showtimeId: str
   });
 }
 
-export function confirmDemoPayment(token: string, reservationId: string, paymentMethod: 'CARD' | 'GOOGLE_PAY' | 'APPLE_PAY' | 'PAYPAL' | 'CASH' = 'CARD') {
+export function confirmDemoPayment(token: string, reservationId: string, paymentMethod: 'CARD' | 'DEUNA' | 'GOOGLE_PAY' | 'APPLE_PAY' | 'PAYPAL' | 'CASH' = 'CARD') {
   return request<PaymentResponse>('/api/payments/demo-confirm', {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}` },

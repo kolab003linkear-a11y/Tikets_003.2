@@ -32,6 +32,7 @@ export default function ParkingScreen() {
   const [buying, setBuying] = useState<boolean>(false);
   const [paying, setPaying] = useState(false);
   const [search, setSearch] = useState('');
+  const [closedTicketId, setClosedTicketId] = useState<string | null>(null);
 
   const cleanParkingName = (name: string) => name.replace(/\s*\((?:demo|demostración)\)/gi, '').trim();
   const getSpotCode = (spaceNumber: number) => {
@@ -55,14 +56,14 @@ export default function ParkingScreen() {
     if (!token) return;
     try {
       const response = await getMyTickets(token);
-      const active = response.tickets.find((item: TicketDetails) => item.qrPayload.startsWith('parkingsafe:') && item.status === 'VALID');
+      const active = response.tickets.find((item: TicketDetails) => item.id !== closedTicketId && item.qrPayload.startsWith('parkingsafe:') && item.status === 'VALID');
       if (active) {
         setTicket({ id: active.id, spaceNumber: Number(active.seatNumber), date: active.event.startTime, createdAt: active.createdAt, status: 'VALID', qrPayload: active.qrPayload, parking: { id: '', name: cleanParkingName(active.event.title), address: active.event.room, city: '', totalSpaces: 0, price: 0, operator: '', openingHours: '', terminalName: null, accessMode: 'QR', vehicleTypes: [], status: 'ACTIVE' } });
       }
     } catch {
       // The parking list remains usable when ticket history is unavailable.
     }
-  }, [token]);
+  }, [closedTicketId, token]);
 
   useFocusEffect(useCallback(() => { void restoreActiveTicket(); }, [restoreActiveTicket]));
 
@@ -181,6 +182,7 @@ export default function ParkingScreen() {
           setPaying(true);
           try {
             await payParkingTicket(token, ticket.id, method);
+            setClosedTicketId(ticket.id);
             setTicket(null);
             setBuying(false);
             await loadParking();

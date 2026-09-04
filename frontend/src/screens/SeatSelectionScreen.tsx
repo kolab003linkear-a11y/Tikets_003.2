@@ -23,6 +23,7 @@ import {
 import {
   cancelReservation,
   createReservation,
+  getCatalog,
 } from '../api/client';
 
 import { useAuth } from '../auth/AuthContext';
@@ -696,11 +697,6 @@ export default function SeatSelectionScreen() {
         return;
       }
 
-      if (!token || !user?.id) {
-        navigation.navigate('Auth', { fromPurchase: true });
-        return;
-      }
-
       const cleanEmail = email.trim();
       const cleanName = fullName.trim();
       const cleanPhone = phone.trim();
@@ -798,7 +794,7 @@ export default function SeatSelectionScreen() {
 
         const reservationSeats =
           isConcert
-            ? concertTicketCodes
+            ? Array.from({ length: quantity }, (_, index) => `${String.fromCharCode(65 + Math.floor(index / 8))}${(index % 8) + 1}`)
             : selectedSeats;
 
         if (
@@ -813,11 +809,25 @@ export default function SeatSelectionScreen() {
         // CREAR RESERVA
         // =================================================
 
+        let reservationShowtimeId = showtimeId;
+        if (isConcert || isTheater) {
+          const catalog = await getCatalog();
+          const expectedCategory = isConcert ? 'CONCIERTO' : 'TEATRO';
+          const matchingMovie = catalog.movies.find((movie) => {
+            const sameTitle = movie.title.toLowerCase() === eventTitle.toLowerCase();
+            return sameTitle && movie.category === expectedCategory && movie.showtimes.length > 0;
+          }) ?? catalog.movies.find((movie) => movie.category === expectedCategory && movie.showtimes.length > 0);
+          reservationShowtimeId = matchingMovie?.showtimes[0]?.id ?? '';
+          if (!reservationShowtimeId) {
+            throw new Error('No encontramos una función disponible para este evento.');
+          }
+        }
+
         const response =
           await createReservation(
             sessionToken,
             sessionUser.id,
-            showtimeId,
+            reservationShowtimeId,
             reservationSeats,
           );
 

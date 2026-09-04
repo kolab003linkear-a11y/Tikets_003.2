@@ -3,7 +3,7 @@ import { ActivityIndicator, Alert, Modal, Platform, Pressable, SafeAreaView, Scr
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../auth/AuthContext';
-import { colors, typography } from '../theme';
+import { colors, radii, shadows, typography } from '../theme';
 import AppCard from '../components/AppCard';
 import AppInput from '../components/AppInput';
 import AppScreenHeader from '../components/AppScreenHeader';
@@ -33,6 +33,9 @@ export default function ProfileScreen() {
   const initials = (fullName || user?.email?.split('@')[0] || 'OM').split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase();
   const roleLabel = !user ? 'Invitado' : user.role === 'ADMIN' ? 'Administrador' : user.role === 'SCANNER' ? 'Control de acceso' : 'Cliente';
   const showAdminAccess = !user || (user.role !== 'ADMIN' && user.role !== 'SCANNER');
+  const profileCompletion = user
+    ? Math.round(([user.fullName, user.email, user.phone].filter(Boolean).length / 3) * 100)
+    : 0;
 
   const memberSince = user?.createdAt
     ? new Date(user.createdAt).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })
@@ -155,27 +158,32 @@ export default function ProfileScreen() {
             <Text style={styles.memberText}>{user ? `Miembro desde ${memberSince}` : 'Acceso libre'}</Text>
             <View style={styles.sessionStatus}><View style={styles.sessionDot} /><Text style={styles.sessionText}>{user ? 'Sesión activa' : 'Modo invitado'}</Text></View>
           </View>
+          {user && <View style={styles.completionBlock}>
+            <View style={styles.completionHeader}><Text style={styles.completionLabel}>Perfil completado</Text><Text style={styles.completionValue}>{profileCompletion}%</Text></View>
+            <View style={styles.completionTrack}><View style={[styles.completionFill, { width: `${profileCompletion}%` }]} /></View>
+            <Text style={styles.completionHint}>{profileCompletion === 100 ? 'Todo listo para tus próximas compras.' : 'Completa tus datos para agilizar tus reservas.'}</Text>
+          </View>}
         </View>
 
         {user && <>
           <Text style={styles.sectionTitle}>Accesos rápidos</Text>
           <View style={styles.quickGrid}>
-            <Pressable style={styles.quickItem} onPress={() => navigation.navigate('HomeTabs', { screen: 'Mis Tickets' })}>
+            <Pressable style={({ pressed }) => [styles.quickItem, pressed && styles.quickItemPressed]} onPress={() => navigation.navigate('HomeTabs', { screen: 'Mis Tickets' })}>
               <View style={[styles.quickIcon, styles.quickIconBlue]}><Ionicons name="ticket-outline" size={20} color={colors.primary} /></View>
               <Text style={styles.quickTitle}>Mis tickets</Text>
               <Text style={styles.quickHint}>Ver tus entradas</Text>
             </Pressable>
-            <Pressable style={styles.quickItem} onPress={() => navigation.navigate('HomeTabs', { screen: 'Estadios' })}>
+            <Pressable style={({ pressed }) => [styles.quickItem, pressed && styles.quickItemPressed]} onPress={() => navigation.navigate('HomeTabs', { screen: 'Estadios' })}>
               <View style={[styles.quickIcon, styles.quickIconGold]}><Ionicons name="football-outline" size={20} color={colors.warning} /></View>
               <Text style={styles.quickTitle}>Estadios</Text>
               <Text style={styles.quickHint}>Explorar partidos</Text>
             </Pressable>
-            {user.role === 'ADMIN' && <Pressable accessibilityRole="button" accessibilityLabel="Abrir gestión de parqueaderos" style={styles.quickItem} onPress={() => navigation.navigate('AdminParking')}>
+            {user.role === 'ADMIN' && <Pressable accessibilityRole="button" accessibilityLabel="Abrir gestión de parqueaderos" style={({ pressed }) => [styles.quickItem, pressed && styles.quickItemPressed]} onPress={() => navigation.navigate('AdminParking')}>
               <View style={[styles.quickIcon, styles.quickIconBlue]}><Ionicons name="car-outline" size={20} color="#fff" /></View>
               <Text style={styles.quickTitle}>Parqueaderos</Text>
               <Text style={styles.quickHint}>Gestión ParkSwift</Text>
             </Pressable>}
-            <Pressable style={styles.quickItem} onPress={() => setSettingsOpen(true)}>
+            <Pressable style={({ pressed }) => [styles.quickItem, pressed && styles.quickItemPressed]} onPress={() => setSettingsOpen(true)}>
               <View style={[styles.quickIcon, styles.quickIconGreen]}><Ionicons name="lock-closed-outline" size={20} color={colors.success} /></View>
               <Text style={styles.quickTitle}>Cuenta segura</Text>
               <Text style={styles.quickHint}>Sesión protegida</Text>
@@ -277,7 +285,7 @@ const styles = StyleSheet.create({
   cancelButton: { alignItems: 'center', paddingVertical: 12, marginTop: 4 },
   cancelText: { color: colors.textSecondary, fontWeight: '700' },
   activeDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: colors.success },
-  identityCard: { backgroundColor: colors.surface, borderRadius: 18, borderWidth: 1, borderColor: colors.borderStrong, padding: 18, marginBottom: 24 },
+  identityCard: { backgroundColor: colors.surface, borderRadius: radii.large, borderWidth: 1, borderColor: colors.borderStrong, padding: 18, marginBottom: 24, ...shadows.card },
   identityTop: { flexDirection: 'row', alignItems: 'center' },
   avatar: { width: 64, height: 64, borderRadius: 20, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
   avatarText: { color: colors.text, fontSize: 22, fontWeight: '800' },
@@ -291,16 +299,24 @@ const styles = StyleSheet.create({
   sessionStatus: { flexDirection: 'row', alignItems: 'center', gap: 5, marginLeft: 'auto' },
   sessionDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.success },
   sessionText: { color: colors.success, fontSize: 10, fontWeight: '700' },
+  completionBlock: { borderTopWidth: 1, borderTopColor: colors.border, marginTop: 16, paddingTop: 13 },
+  completionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  completionLabel: { color: colors.textSecondary, fontSize: 11, fontWeight: '700' },
+  completionValue: { color: colors.primary, fontSize: 12, fontWeight: '800' },
+  completionTrack: { height: 7, borderRadius: radii.pill, backgroundColor: colors.input, overflow: 'hidden', marginTop: 8 },
+  completionFill: { height: '100%', borderRadius: radii.pill, backgroundColor: colors.primary },
+  completionHint: { color: colors.textSecondary, fontSize: 11, marginTop: 7 },
   sectionTitle: { color: colors.text, fontSize: 18, fontWeight: '800', marginBottom: 11 },
   quickGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 25 },
-  quickItem: { flex: 1, minWidth: '46%', backgroundColor: colors.surface, borderRadius: 14, borderWidth: 1, borderColor: colors.border, padding: 14 },
+  quickItem: { flex: 1, minWidth: '46%', backgroundColor: colors.surface, borderRadius: radii.card, borderWidth: 1, borderColor: colors.border, padding: 14, ...shadows.card },
+  quickItemPressed: { opacity: 0.82, transform: [{ scale: 0.98 }] },
   quickIcon: { width: 38, height: 38, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginBottom: 11 },
   quickIconBlue: { backgroundColor: colors.primary + '20' },
   quickIconGreen: { backgroundColor: colors.success + '20' },
   quickIconGold: { backgroundColor: colors.warning + '20' },
   quickTitle: { color: colors.text, fontSize: 14, fontWeight: '800' },
   quickHint: { color: colors.textSecondary, fontSize: 11, marginTop: 4 },
-  accessCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surfaceRaised, borderRadius: 14, borderWidth: 1, borderColor: colors.border, padding: 14, marginBottom: 25, gap: 11 },
+  accessCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surfaceRaised, borderRadius: radii.card, borderWidth: 1, borderColor: colors.border, padding: 14, marginBottom: 25, gap: 11, ...shadows.card },
   accessIcon: { width: 40, height: 40, borderRadius: 12, backgroundColor: colors.warning + '20', alignItems: 'center', justifyContent: 'center' },
   accessCopy: { flex: 1 },
   accessTitle: { color: colors.text, fontSize: 14, fontWeight: '800' },

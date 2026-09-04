@@ -309,6 +309,18 @@ export default function StadiumScreen() {
     }
   };
 
+  const beginPayment = () => {
+    if (!selectedMatch || !selectedSectorId || selectedSeats.length === 0) {
+      Alert.alert('Datos incompletos', 'Selecciona un sector y al menos una localidad.');
+      return;
+    }
+    if (!user || !token) {
+      navigation.navigate('Auth', { fromPurchase: true });
+      return;
+    }
+    setPaymentOpen(true);
+  };
+
   const getSectorRows = (sectorId: string): Array<{ label: string; seats: string[] }> => {
     const sector = selectedMatch?.stadium.sectors.find((s) => s.id === sectorId);
     if (!sector || !sector.seatLayout) return [];
@@ -483,14 +495,13 @@ export default function StadiumScreen() {
             )}
 
             <AppButton
-              label={selectedSeats.length > 1 ? `Generar ${selectedSeats.length} tickets QR` : 'Generar ticket QR'}
-              onPress={() => void buyTicket()}
+              label="Continuar al pago"
+              onPress={beginPayment}
               disabled={buying || selectedSeats.length === 0}
-              loading={buying}
             />
             <AppButton label="Cancelar" variant="secondary" onPress={() => setSelectedMatchId(null)} disabled={buying} />
           </AppCard>
-          <PaymentModal isOpen={paymentOpen} onClose={() => setPaymentOpen(false)} totalAmount={Number(selectedSector?.price ?? 0)} onConfirmPayment={() => { setPaymentOpen(false); void buyTicket(); }} processing={buying} />
+          <PaymentModal isOpen={paymentOpen} onClose={() => setPaymentOpen(false)} totalAmount={Number(selectedSector?.price ?? 0) * selectedSeats.length} onConfirmPayment={() => { setPaymentOpen(false); void buyTicket(); }} processing={buying} />
         </ScrollView>
       ) : (
         <FlatList

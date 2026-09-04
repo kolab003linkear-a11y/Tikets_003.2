@@ -73,7 +73,7 @@ const webhookSchema = z.object({
 
 const paymentConfirmationSchema = z.object({
   reservationId: z.string().min(1),
-  paymentMethod: z.enum(['CARD', 'GOOGLE_PAY', 'APPLE_PAY', 'PAYPAL', 'CASH']).optional(),
+  paymentMethod: z.enum(['CARD', 'DEUNA', 'GOOGLE_PAY', 'APPLE_PAY', 'PAYPAL', 'CASH']).optional(),
 });
 
 const profileSchema = z.object({
@@ -229,7 +229,7 @@ const parkingTicketSchema = z.object({
 });
 
 const parkingPaymentSchema = z.object({
-  paymentMethod: z.enum(['CARD', 'GOOGLE_PAY', 'APPLE_PAY', 'PAYPAL', 'CASH']),
+  paymentMethod: z.enum(['CARD', 'DEUNA', 'GOOGLE_PAY', 'APPLE_PAY', 'PAYPAL', 'CASH']),
 });
 
 const busRouteSchema = z.object({

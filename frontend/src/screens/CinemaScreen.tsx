@@ -3,6 +3,7 @@ import React, { useMemo, useState } from 'react';
 import {
   Alert,
   Modal,
+  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -12,11 +13,28 @@ import {
 
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import { getCatalog } from '../api/client';
 
 import { colors } from '../theme';
 
 export default function CinemaScreen() {
   const navigation = useNavigation<any>();
+
+  const posterImages: Record<string, string> = {
+    Michael: 'https://images.unsplash.com/photo-1485846234645-a62644f84728?auto=format&fit=crop&w=600&q=85',
+    Avatar: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=600&q=85',
+    'Lilo & Stitch': 'https://images.unsplash.com/photo-1513106580091-1d82408b8cd6?auto=format&fit=crop&w=600&q=85',
+    Superman: 'https://images.unsplash.com/photo-1534809027769-b00d750a6bac?auto=format&fit=crop&w=600&q=85',
+    'Cómo entrenar a tu dragón': 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=600&q=85',
+    'Una película de Minecraft': 'https://images.unsplash.com/photo-1493711662062-fa541adb3fc8?auto=format&fit=crop&w=600&q=85',
+    'Misión Imposible': 'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?auto=format&fit=crop&w=600&q=85',
+    'Jurassic World': 'https://images.unsplash.com/photo-1533470192397-8e7b7f1d8f6e?auto=format&fit=crop&w=600&q=85',
+    'Avengers: Secret Wars': 'https://images.unsplash.com/photo-1531259683007-016a7b628fc3?auto=format&fit=crop&w=600&q=85',
+    'Toy Story 5': 'https://images.unsplash.com/photo-1594736797933-d0501ba2fe65?auto=format&fit=crop&w=600&q=85',
+    'Zootopia 2': 'https://images.unsplash.com/photo-1551969014-7d2c4cddf0b6?auto=format&fit=crop&w=600&q=85',
+    'Avatar: Fuego y Ceniza': 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=600&q=85',
+  };
+  const fallbackPoster = 'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?auto=format&fit=crop&w=600&q=85';
 
   /* ======================================================
      ESTADOS
@@ -337,36 +355,39 @@ export default function CinemaScreen() {
      SELECCIONAR PELÍCULA
      ====================================================== */
 
-  const handleMovie = (movie: any) => {
-    navigation.navigate('SeatSelection', {
+  const handleMovie = async (movie: any) => {
+    try {
+      const catalog = await getCatalog();
+      const catalogMovie = catalog.movies.find((item) => item.title.toLowerCase() === movie.title.toLowerCase());
+      const selectedMovie = catalogMovie?.showtimes.length ? catalogMovie : catalog.movies.find((item) => item.showtimes.length > 0);
+      const showtime = selectedMovie?.showtimes[0];
+
+      if (!selectedMovie || !showtime) {
+        Alert.alert('Función no disponible', 'No encontramos horarios disponibles para esta película.');
+        return;
+      }
+
+      navigation.navigate('SeatSelection', {
       type: 'cinema',
 
-      movieTitle: movie.title,
+      movieTitle: selectedMovie.title,
       movie,
 
-      showtimeId: movie.id,
+      showtimeId: showtime.id,
 
-      price: movie.price,
+      price: Number(showtime.price),
+      startTime: showtime.startTime,
+      roomName: showtime.room.name,
 
       city: selectedCity,
       venue: selectedComplex,
 
-      seatLayout: {
-        rows: [
-          'A',
-          'B',
-          'C',
-          'D',
-          'E',
-          'F',
-          'G',
-          'H',
-        ],
-        columns: 8,
-      },
-
-      occupiedSeats: [],
-    });
+      seatLayout: showtime.room.seatLayout,
+      occupiedSeats: showtime.occupiedSeats,
+      });
+    } catch (error) {
+      Alert.alert('No se pudo cargar la función', error instanceof Error ? error.message : 'Inténtalo nuevamente.');
+    }
   };
 
   /* ======================================================
@@ -840,17 +861,13 @@ export default function CinemaScreen() {
               >
 
                 <View style={styles.poster}>
-
-                  <Ionicons
-                    name="film"
-                    size={42}
-                    color={colors.primary}
+                  <Image
+                    source={{ uri: posterImages[movie.title] ?? fallbackPoster }}
+                    style={styles.posterImage}
+                    resizeMode="cover"
                   />
-
-                  <Text style={styles.posterText}>
-                    {movie.title}
-                  </Text>
-
+                  <View style={styles.posterOverlay} />
+                  <Text style={styles.posterText}>{movie.title}</Text>
                 </View>
 
 
@@ -885,9 +902,7 @@ export default function CinemaScreen() {
                     'ahora' ? (
                     <Pressable
                       style={styles.button}
-                      onPress={() =>
-                        handleMovie(movie)
-                      }
+                      onPress={() => void handleMovie(movie)}
                     >
 
                       <Text
@@ -1773,6 +1788,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
 
     padding: 8,
+  },
+
+  posterImage: {
+    ...StyleSheet.absoluteFillObject,
+    width: undefined,
+    height: undefined,
+    borderRadius: 14,
+  },
+
+  posterOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 14,
+    backgroundColor: 'rgba(7, 13, 24, 0.28)',
   },
 
   posterText: {

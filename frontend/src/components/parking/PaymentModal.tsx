@@ -13,10 +13,11 @@ interface PaymentModalProps {
   cancelLabel?: string;
 }
 
-export type PaymentMethod = 'CARD' | 'GOOGLE_PAY' | 'APPLE_PAY' | 'PAYPAL' | 'CASH';
+export type PaymentMethod = 'CARD' | 'DEUNA' | 'GOOGLE_PAY' | 'APPLE_PAY' | 'PAYPAL' | 'CASH';
 
 export const paymentMethods: Array<{ key: PaymentMethod; label: string; icon: keyof typeof Ionicons.glyphMap }> = [
   { key: 'CARD', label: 'Tarjeta •••• 4242', icon: 'card-outline' },
+  { key: 'DEUNA', label: 'Deuna', icon: 'wallet-outline' },
   { key: 'GOOGLE_PAY', label: 'Google Pay', icon: 'logo-google' },
   { key: 'APPLE_PAY', label: 'Apple Pay', icon: 'logo-apple' },
   { key: 'PAYPAL', label: 'PayPal', icon: 'logo-paypal' },
