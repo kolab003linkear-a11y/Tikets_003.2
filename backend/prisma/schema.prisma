@@ -157,19 +157,22 @@ model Room {
 }
 
 model Showtime {
-  id          String       @id @default(cuid())
-  movieEventId String      @map("movie_event_id")
-  roomId      String       @map("room_id")
-  startTime   DateTime     @map("start_time")
-  endTime     DateTime?    @map("end_time")
-  movieEvent  MovieEvent   @relation(fields: [movieEventId], references: [id], onDelete: Cascade)
-  room        Room         @relation(fields: [roomId], references: [id], onDelete: Cascade)
-  reservations Reservation[]
+  id              String   @id @default(cuid())
+  movieId         String   // Add this field
+  movie           MovieEvent @relation(fields: [movieId], references: [id])
+  roomId          String
+  room            Room     @relation(fields: [roomId], references: [id])
+  startTime       DateTime
+  price           Float
+  availableSeats  Int
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
 
-  @@unique([roomId, startTime])
-  @@index([movieEventId, startTime])
-  @@index([roomId, startTime])
-  @@map("showtimes")
+model MovieEvent {
+  id        String   @id
+  // ... other fields
+  showtimes Showtime[]
 }
 
 
