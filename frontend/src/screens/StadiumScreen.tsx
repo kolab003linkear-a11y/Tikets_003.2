@@ -744,7 +744,7 @@ const styles = StyleSheet.create({
   favoritesBadgeText: { color: '#fff', fontSize: 10, fontWeight: '800' },
   heroCard: { height: 190, borderRadius: 18, overflow: 'hidden', marginBottom: 14, backgroundColor: colors.surface },
   heroImage: { width: '100%', height: '100%' },
-  heroOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: colors.overlayStrong, justifyContent: 'flex-end', padding: 16 },
+  heroOverlay: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: colors.overlayStrong, justifyContent: 'flex-end', padding: 16 },
   heroTag: { color: colors.warning, fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 1 },
   heroTitle: { color: colors.text, fontSize: 27, fontWeight: '800', marginTop: 4, fontFamily: typography.display },
   heroText: { color: colors.text, fontSize: 13, lineHeight: 19, marginTop: 5, maxWidth: '82%' },
