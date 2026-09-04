@@ -1,6 +1,6 @@
 import React from 'react';
 import { ActivityIndicator, Pressable, PressableProps, StyleSheet, Text } from 'react-native';
-import { colors } from '../theme';
+import { colors, radii, shadows } from '../theme';
 
 type AppButtonProps = PressableProps & {
   label: string;
@@ -30,8 +30,8 @@ export default function AppButton({ label, variant = 'primary', loading = false,
 }
 
 const styles = StyleSheet.create({
-  base: { minHeight: 48, borderRadius: 12, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 },
-  primary: { backgroundColor: colors.primary },
+  base: { minHeight: 48, borderRadius: radii.control, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 },
+  primary: { backgroundColor: colors.primary, ...shadows.button },
   secondary: { backgroundColor: colors.surfaceRaised, borderWidth: 1, borderColor: colors.border },
   disabled: { opacity: 0.55 },
   pressed: { opacity: 0.8, transform: [{ scale: 0.98 }] },

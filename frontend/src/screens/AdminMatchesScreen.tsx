@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { ActivityIndicator, Modal, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, typography } from '../theme';
+import AppScreenHeader from '../components/AppScreenHeader';
 import { AdminMatch } from '../api/client';
 import AdminMatchPricesScreen from './AdminMatchPricesScreen';
 import { MatchStatusOption, useAdminMatchesController } from './AdminMatchesScreen.controller';
@@ -181,16 +182,7 @@ export default function AdminMatchesScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.container}>
-        <View style={styles.headerRow}>
-          <View>
-            <Text style={styles.overline}>Programación</Text>
-            <Text style={styles.title}>Partidos</Text>
-          </View>
-          <View style={styles.headerIcon}>
-            <Ionicons name="trophy-outline" size={21} color={colors.text} />
-          </View>
-        </View>
-        <Text style={styles.subtitle}>Programa partidos combinando un estadio, un equipo local y uno visitante.</Text>
+        <AppScreenHeader eyebrow="Programación" title="Partidos" subtitle="Programa partidos combinando un estadio, un equipo local y uno visitante." right={<View style={styles.headerIcon}><Ionicons name="trophy-outline" size={21} color={colors.text} /></View>} />
 
         <View style={styles.statsRow}>
           <View style={styles.statItem}>

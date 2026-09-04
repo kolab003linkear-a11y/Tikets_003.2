@@ -216,26 +216,47 @@ function AppContent() {
   return (
     <ErrorBoundary>
       <NavigationContainer>
-        <Stack.Navigator
-          initialRouteName="HomeTabs"
-          screenOptions={{
-            headerShown: false,
-          }}
-        >
-          <Stack.Screen name="HomeTabs" component={HomeTabs} />
-          <Stack.Screen name="Auth" component={AuthScreen} />
-          <Stack.Screen name="Cine" component={CinemaScreen} />
-          <Stack.Screen name="Teatro" component={TheaterScreen} />
-          <Stack.Screen name="Conciertos" component={ConcertScreen} />
-          <Stack.Screen name="SeatSelection" component={SeatSelectionScreen} />
-          <Stack.Screen name="Checkout" component={CheckoutScreen} />
-          <Stack.Screen name="Ticket" component={TicketScreen} />
-          <Stack.Screen name="Profile" component={ProfileScreen} />
-          <Stack.Screen name="AdminParking" component={AdminParkingScreen} />
-          <Stack.Screen name="Assistant" component={AssistantScreen} />
-        </Stack.Navigator>
+        <>
+          <Stack.Navigator
+            initialRouteName="HomeTabs"
+            screenOptions={{
+              headerShown: false,
+            }}
+          >
+            <Stack.Screen name="HomeTabs" component={HomeTabs} />
+            <Stack.Screen name="Auth" component={AuthScreen} />
+            <Stack.Screen name="Cine" component={CinemaScreen} />
+            <Stack.Screen name="Teatro" component={TheaterScreen} />
+            <Stack.Screen name="Conciertos" component={ConcertScreen} />
+            <Stack.Screen name="EstadiosModulo" component={StadiumScreen} />
+            <Stack.Screen name="ParqueaderosModulo" component={ParkingScreen} />
+            <Stack.Screen name="SeatSelection" component={SeatSelectionScreen} />
+            <Stack.Screen name="Checkout" component={CheckoutScreen} />
+            <Stack.Screen name="Ticket" component={TicketScreen} />
+            <Stack.Screen name="Profile" component={ProfileScreen} />
+            <Stack.Screen name="AdminParking" component={AdminParkingScreen} />
+            <Stack.Screen name="Assistant" component={AssistantScreen} />
+          </Stack.Navigator>
+          <HomeShortcut />
+        </>
       </NavigationContainer>
     </ErrorBoundary>
+  );
+}
+
+function HomeShortcut() {
+  const navigation = useNavigation<any>();
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel="Ir al inicio"
+      style={({ pressed }) => [styles.homeShortcut, pressed && styles.homeShortcutPressed]}
+      onPress={() => navigation.navigate('HomeTabs', { screen: 'Inicio' })}
+    >
+      <Ionicons name="home" size={20} color={colors.text} />
+      <Text style={styles.homeShortcutText}>Inicio</Text>
+    </Pressable>
   );
 }
 
@@ -325,6 +346,32 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     textAlign: 'center',
+  },
+  homeShortcut: {
+    position: 'absolute',
+    right: 18,
+    bottom: 22,
+    minHeight: 46,
+    borderRadius: 23,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    backgroundColor: colors.primary,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.28,
+    shadowRadius: 10,
+    elevation: 6,
+  },
+  homeShortcutPressed: {
+    opacity: 0.82,
+    transform: [{ scale: 0.96 }],
+  },
+  homeShortcutText: {
+    color: colors.text,
+    fontSize: 13,
+    fontWeight: '800',
   },
   placeholder: {
     flex: 1,

@@ -3,7 +3,7 @@ import { ActivityIndicator, FlatList, Pressable, SafeAreaView, StyleSheet, Text,
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { CatalogMovie, getCatalog, getMatches, StadiumMatch } from '../api/client';
-import { colors } from '../theme';
+import { colors, radii, shadows } from '../theme';
 
 type Message = { id: string; from: 'assistant' | 'user'; text: string };
 
@@ -127,16 +127,16 @@ export default function AssistantScreen() {
         </View>
       </View>
       {loading ? <View style={styles.loading}><ActivityIndicator color={colors.primary} /></View> : <FlatList data={messages} keyExtractor={(message) => message.id} contentContainerStyle={styles.messages} showsVerticalScrollIndicator={false} renderItem={({ item }) => <View style={[styles.bubble, item.from === 'user' ? styles.userBubble : styles.assistantBubble]}><Text style={styles.bubbleText}>{item.text}</Text></View>} />}
-      <View style={styles.suggestions}>{suggestions.map((suggestion) => <Pressable key={suggestion} style={styles.suggestion} onPress={() => send(suggestion)}><Text style={styles.suggestionText}>{suggestion}</Text></Pressable>)}</View>
-      <View style={styles.composer}><TextInput accessibilityLabel="Escribe tu pregunta" value={input} onChangeText={setInput} onSubmitEditing={() => send()} placeholder="Escribe tu pregunta..." placeholderTextColor={colors.textSecondary} style={styles.input} returnKeyType="send" /><Pressable accessibilityRole="button" accessibilityLabel="Enviar pregunta" style={styles.sendButton} onPress={() => send()}><Ionicons name="arrow-up" size={20} color={colors.background} /></Pressable></View>
+      <View style={styles.suggestions}>{suggestions.map((suggestion) => <Pressable key={suggestion} accessibilityRole="button" style={({ pressed }) => [styles.suggestion, pressed && styles.suggestionPressed]} onPress={() => send(suggestion)}><Text style={styles.suggestionText}>{suggestion}</Text></Pressable>)}</View>
+      <View style={styles.composer}><TextInput accessibilityLabel="Escribe tu pregunta" value={input} onChangeText={setInput} onSubmitEditing={() => send()} placeholder="Escribe tu pregunta..." placeholderTextColor={colors.textSecondary} style={styles.input} returnKeyType="send" /><Pressable accessibilityRole="button" accessibilityLabel="Enviar pregunta" style={({ pressed }) => [styles.sendButton, pressed && styles.sendButtonPressed]} onPress={() => send()}><Ionicons name="arrow-up" size={20} color={colors.background} /></Pressable></View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.background },
-  header: { flexDirection: 'row', alignItems: 'center', padding: 18, borderBottomWidth: 1, borderBottomColor: colors.border },
-  botIcon: { width: 44, height: 44, borderRadius: 14, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
+  header: { flexDirection: 'row', alignItems: 'center', padding: 18, backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.border },
+  botIcon: { width: 44, height: 44, borderRadius: radii.control, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', ...shadows.button },
   headerCopy: { flex: 1, marginLeft: 12 },
   kicker: { color: colors.primary, fontSize: 10, fontWeight: '800', letterSpacing: 1.1 },
   title: { color: colors.text, fontSize: 21, fontWeight: '800', marginTop: 3 },
@@ -144,17 +144,19 @@ const styles = StyleSheet.create({
   onlineDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: colors.success },
   onlineText: { color: colors.success, fontSize: 11, fontWeight: '700' },
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  headerButton: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  headerButton: { width: 36, height: 36, borderRadius: radii.control, backgroundColor: colors.surfaceRaised, alignItems: 'center', justifyContent: 'center' },
   loading: { flex: 1, justifyContent: 'center' },
   messages: { padding: 18, gap: 12, flexGrow: 1, justifyContent: 'flex-end' },
-  bubble: { maxWidth: '84%', padding: 14, borderRadius: 17 },
-  assistantBubble: { alignSelf: 'flex-start', backgroundColor: colors.surfaceRaised, borderBottomLeftRadius: 5 },
-  userBubble: { alignSelf: 'flex-end', backgroundColor: colors.primary, borderBottomRightRadius: 5 },
+  bubble: { maxWidth: '84%', padding: 14, borderRadius: radii.card },
+  assistantBubble: { alignSelf: 'flex-start', backgroundColor: colors.surfaceRaised, borderBottomLeftRadius: 5, borderWidth: 1, borderColor: colors.border },
+  userBubble: { alignSelf: 'flex-end', backgroundColor: colors.primary, borderBottomRightRadius: 5, ...shadows.button },
   bubbleText: { color: colors.text, fontSize: 14, lineHeight: 20 },
   suggestions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: 18, paddingBottom: 12 },
-  suggestion: { borderWidth: 1, borderColor: colors.borderStrong, borderRadius: 18, paddingHorizontal: 12, paddingVertical: 9 },
+  suggestion: { borderWidth: 1, borderColor: colors.borderStrong, borderRadius: radii.pill, backgroundColor: colors.surface, paddingHorizontal: 12, paddingVertical: 9 },
+  suggestionPressed: { backgroundColor: colors.surfaceRaised, opacity: 0.85 },
   suggestionText: { color: colors.primary, fontSize: 12, fontWeight: '700' },
-  composer: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, borderTopWidth: 1, borderTopColor: colors.border },
-  input: { flex: 1, height: 48, backgroundColor: colors.input, borderWidth: 1, borderColor: colors.borderStrong, borderRadius: 14, color: colors.text, paddingHorizontal: 14 },
-  sendButton: { width: 46, height: 46, borderRadius: 23, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
+  composer: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, backgroundColor: colors.surface, borderTopWidth: 1, borderTopColor: colors.border },
+  input: { flex: 1, height: 48, backgroundColor: colors.input, borderWidth: 1, borderColor: colors.borderStrong, borderRadius: radii.control, color: colors.text, paddingHorizontal: 14 },
+  sendButton: { width: 46, height: 46, borderRadius: radii.pill, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', ...shadows.button },
+  sendButtonPressed: { opacity: 0.8, transform: [{ scale: 0.96 }] },
 });

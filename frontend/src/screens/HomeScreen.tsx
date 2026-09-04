@@ -14,7 +14,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { BusRoute, CatalogMovie, getBuses, getCatalog, getMatches, getParking, ParkingLot, StadiumMatch } from '../api/client';
-import { colors, typography } from '../theme';
+import { colors, radii, shadows, typography } from '../theme';
 import AppState from '../components/AppState';
 import ProfileAvatar from '../components/ProfileAvatar';
 import { useModules } from '../modules/ModuleContext';
@@ -219,6 +219,37 @@ export default function HomeScreen() {
           ))}
         </View>
 
+        <View style={styles.sectionHeading}>
+          <View>
+            <Text style={styles.kicker}>ACCESOS RÁPIDOS</Text>
+            <Text style={styles.sectionTitle}>Explora por experiencia</Text>
+          </View>
+        </View>
+
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.quickActions}>
+          {[
+            { key: 'cine', label: 'Cine', detail: 'Películas y funciones', icon: 'film-outline' as const, tone: styles.quickCardBlue, action: () => navigation.navigate('Cine') },
+            { key: 'concerts', label: 'Conciertos', detail: 'Música en vivo', icon: 'musical-notes-outline' as const, tone: styles.quickCardCoral, action: () => navigation.navigate('Conciertos') },
+            { key: 'theater', label: 'Teatro', detail: 'Obras y espectáculos', icon: 'easel-outline' as const, tone: styles.quickCardGreen, action: () => navigation.navigate('Teatro') },
+            { key: 'matches', label: 'Partidos', detail: 'Estadios y localidades', icon: 'football-outline' as const, tone: styles.quickCardGold, action: () => navigation.navigate('EstadiosModulo') },
+            { key: 'parking', label: 'Parqueaderos', detail: 'Reserva tu plaza', icon: 'car-outline' as const, tone: styles.quickCardNavy, action: () => navigation.navigate('ParqueaderosModulo') },
+          ].map((item) => (
+            <Pressable
+              key={item.key}
+              accessibilityRole="button"
+              accessibilityLabel={`Abrir ${item.label}`}
+              style={({ pressed }) => [styles.quickCard, item.tone, pressed && styles.quickCardPressed]}
+              onPress={item.action}
+            >
+              <Ionicons name={item.icon} size={25} color={colors.text} />
+              <View>
+                <Text style={styles.quickTitle}>{item.label}</Text>
+                <Text style={styles.quickMeta}>{item.detail}</Text>
+              </View>
+            </Pressable>
+          ))}
+        </ScrollView>
+
         {(upcomingMovies.length > 0 || upcomingMatches.length > 0) && <>
           <View style={styles.sectionHeading}>
             <View>
@@ -230,7 +261,7 @@ export default function HomeScreen() {
 
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.upcomingStrip}>
             {upcomingMatches.map((match) => (
-              <Pressable key={match.id} style={[styles.upcomingTile, styles.upcomingMatchTile]} onPress={() => navigation.navigate('Estadios')}>
+              <Pressable key={match.id} style={[styles.upcomingTile, styles.upcomingMatchTile]} onPress={() => navigation.navigate('EstadiosModulo')}>
                 <Ionicons name="football-outline" size={24} color={colors.warning} />
                 <Text style={styles.upcomingTileTag}>PARTIDO PRÓXIMO</Text>
                 <Text style={styles.upcomingTileTitle}>{match.homeTeam.name} vs {match.awayTeam.name}</Text>
@@ -396,7 +427,7 @@ const styles = StyleSheet.create({
   filters: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 18 },
   chip: {
     backgroundColor: colors.surface,
-    borderRadius: 999,
+    borderRadius: radii.pill,
     borderWidth: 1,
     borderColor: colors.border,
     paddingHorizontal: 12,
@@ -405,7 +436,7 @@ const styles = StyleSheet.create({
   chipSelected: { backgroundColor: colors.primary, borderColor: colors.primary },
   chipText: { color: colors.text, fontSize: 13, fontWeight: '600' },
   chipTextSelected: { color: colors.text },
-  heroCard: { height: 205, borderRadius: 20, overflow: 'hidden', marginBottom: 24, backgroundColor: colors.surface },
+  heroCard: { height: 205, borderRadius: radii.large, overflow: 'hidden', marginBottom: 24, backgroundColor: colors.surface, ...shadows.card },
   heroImage: { width: '100%', height: '100%' },
   heroOverlay: {
     position: 'absolute',
@@ -427,21 +458,23 @@ const styles = StyleSheet.create({
   countLabel: { color: colors.textSecondary, fontSize: 12, marginBottom: 2 },
   linkText: { color: colors.primary, fontSize: 12, fontWeight: '800', marginBottom: 2 },
   quickActions: { gap: 10, paddingBottom: 25 },
-  quickCard: { width: 145, height: 125, borderRadius: 16, padding: 15, justifyContent: 'space-between' },
-  quickCardBlue: { backgroundColor: '#1769AA' },
-  quickCardCoral: { backgroundColor: '#B9475C' },
-  quickCardGreen: { backgroundColor: '#137A70' },
-  quickCardGold: { backgroundColor: '#9A6A16' },
+  quickCard: { width: 156, height: 125, borderRadius: radii.card, padding: 15, justifyContent: 'space-between', ...shadows.card },
+  quickCardBlue: { backgroundColor: colors.primary },
+  quickCardCoral: { backgroundColor: colors.critical },
+  quickCardGreen: { backgroundColor: colors.success },
+  quickCardGold: { backgroundColor: '#8D6F19' },
+  quickCardNavy: { backgroundColor: colors.surfaceRaised },
+  quickCardPressed: { opacity: 0.8, transform: [{ scale: 0.98 }] },
   upcomingStrip: { gap: 10, paddingBottom: 20 },
-  upcomingTile: { width: 220, height: 126, borderRadius: 16, overflow: 'hidden', backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, position: 'relative' },
+  upcomingTile: { width: 220, height: 126, borderRadius: radii.card, overflow: 'hidden', backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, position: 'relative', ...shadows.card },
   upcomingMatchTile: { padding: 14, justifyContent: 'flex-end', backgroundColor: '#173B5E' },
   upcomingTileImage: { width: '100%', height: '100%' },
   upcomingTileOverlay: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, justifyContent: 'flex-end', padding: 12, backgroundColor: 'rgba(10, 37, 64, 0.58)' },
   upcomingTileTag: { color: colors.warning, fontSize: 9, fontWeight: '800', letterSpacing: 0.8 },
   upcomingTileTitle: { color: colors.text, fontSize: 15, fontWeight: '800', marginTop: 4 },
   upcomingTileMeta: { color: colors.textSecondary, fontSize: 10, marginTop: 4 },
-  quickTitle: { color: colors.text, fontSize: 17, fontWeight: '800' },
-  quickMeta: { color: 'rgba(248,250,252,0.75)', fontSize: 11 },
+  quickTitle: { color: colors.text, fontSize: 16, fontWeight: '800' },
+  quickMeta: { color: 'rgba(247,249,252,0.82)', fontSize: 11, marginTop: 2 },
   matchRow: { gap: 10, paddingBottom: 26 },
   matchCard: { width: 215, minHeight: 145, borderRadius: 16, backgroundColor: colors.surfaceRaised, borderWidth: 1, borderColor: colors.border, padding: 15 },
   matchLeague: { color: colors.success, fontSize: 9, fontWeight: '800', letterSpacing: 0.8, marginBottom: 12 },
@@ -456,17 +489,17 @@ const styles = StyleSheet.create({
   upcomingTag: { color: colors.warning, fontSize: 9, fontWeight: '800', letterSpacing: 0.8 },
   upcomingTitle: { color: colors.text, fontSize: 16, fontWeight: '800', marginTop: 4 },
   upcomingSynopsis: { color: 'rgba(248,250,252,0.78)', fontSize: 11, lineHeight: 15, marginTop: 5 },
-  card: { flexDirection: 'row', backgroundColor: colors.surface, borderRadius: 18, overflow: 'hidden', borderWidth: 1, borderColor: colors.border, marginBottom: 18 },
-  poster: { width: 112, height: 190 },
-  cardContent: { flex: 1, padding: 14 },
+  card: { flexDirection: 'row', backgroundColor: colors.surface, borderRadius: radii.card, overflow: 'hidden', borderWidth: 1, borderColor: colors.border, marginBottom: 16, ...shadows.card },
+  poster: { width: 118, height: 196 },
+  cardContent: { flex: 1, padding: 16 },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  movieTitle: { flex: 1, color: colors.text, fontSize: 18, fontWeight: '700', marginRight: 8, fontFamily: typography.display },
+  movieTitle: { flex: 1, color: colors.text, fontSize: 17, lineHeight: 21, fontWeight: '800', marginRight: 8, fontFamily: typography.display },
   rating: { color: colors.warning, fontSize: 13, fontWeight: '700' },
   meta: { color: colors.textSecondary, fontSize: 12, marginTop: 4 },
-  synopsis: { color: colors.textSecondary, fontSize: 12, lineHeight: 18, marginTop: 10, marginBottom: 12 },
+  synopsis: { color: colors.textSecondary, fontSize: 12, lineHeight: 17, marginTop: 9, marginBottom: 12 },
   footer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 'auto' },
   price: { color: colors.text, fontSize: 16, fontWeight: '800' },
-  buyButton: { backgroundColor: colors.primary, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12 },
+  buyButton: { backgroundColor: colors.primary, paddingHorizontal: 14, paddingVertical: 10, borderRadius: radii.control, ...shadows.button },
   buyText: { color: colors.text, fontWeight: '700' },
   stateContainer: { alignItems: 'center', paddingVertical: 36, paddingHorizontal: 20 },
   stateTitle: { color: colors.text, fontSize: 18, fontWeight: '700', textAlign: 'center', marginBottom: 8 },

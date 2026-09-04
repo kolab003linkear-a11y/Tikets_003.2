@@ -8,6 +8,7 @@ import { useAuth } from '../auth/AuthContext';
 import { colors } from '../theme';
 import AppButton from '../components/AppButton';
 import AppCard from '../components/AppCard';
+import AppScreenHeader from '../components/AppScreenHeader';
 import AppInput from '../components/AppInput';
 import AppState from '../components/AppState';
 
@@ -133,8 +134,8 @@ export default function AdminParkingScreen() {
   const maxDemand = Math.max(...demandCounts, 1);
 
   return <SafeAreaView style={styles.safe}><ScrollView contentContainerStyle={styles.content}>
-    <Pressable accessibilityRole="button" accessibilityLabel="Regresar a la pantalla anterior" style={styles.backButton} onPress={() => navigation.goBack()}><Ionicons name="arrow-back" size={18} color={colors.primary} /><Text style={styles.backText}>Regresar</Text></Pressable>
-    <Text style={styles.eyebrow}>PARKSWIFT ADMIN</Text><Text style={styles.title}>Parqueaderos</Text><View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}><View style={[styles.liveDot, !isLive && { backgroundColor: colors.critical }]} /><Text style={{ color: isLive ? colors.success : colors.critical, fontSize: 11, fontWeight: '700' }}>{isLive ? 'EN VIVO · Actualización automática cada 5 segundos' : 'Sin conexión · Mostrando último estado disponible'}</Text>{lastUpdated ? <Text style={{ color: colors.textSecondary, fontSize: 10 }}>{new Date(lastUpdated).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</Text> : null}</View><Text style={styles.subtitle}>Mismos parqueaderos y plazas disponibles para clientes y administradores.</Text>
+    <AppScreenHeader eyebrow="Parkswift admin" title="Parqueaderos" subtitle="Mismos parqueaderos y plazas disponibles para clientes y administradores." onBack={() => navigation.goBack()} />
+    <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6, marginBottom: 16 }}><View style={[styles.liveDot, !isLive && { backgroundColor: colors.critical }]} /><Text style={{ color: isLive ? colors.success : colors.critical, fontSize: 11, fontWeight: '700' }}>{isLive ? 'EN VIVO · Actualización automática cada 5 segundos' : 'Sin conexión · Mostrando último estado disponible'}</Text>{lastUpdated ? <Text style={{ color: colors.textSecondary, fontSize: 10 }}>{new Date(lastUpdated).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</Text> : null}</View>
     {error ? <Text style={styles.error}>{error}</Text> : null}
     <Text style={styles.dashboardHeading}>Dashboard operativo</Text>
     <Pressable accessibilityRole="button" accessibilityLabel="Abrir detalle de ocupación actual" onPress={() => setShowReports((visible) => !visible)}><AppCard style={styles.occupancyCard}><View style={styles.cardTop}><View><Text style={styles.cardLabel}>Ocupación actual</Text><Text style={styles.occupancyValue}>{occupancyPercent}%</Text><Text style={styles.cardMeta}>Capacidad usada</Text></View><View style={styles.liveBadge}><View style={[styles.liveDot, !isLive && { backgroundColor: colors.critical }]} /><Text style={[styles.liveText, !isLive && { color: colors.critical }]}>{isLive ? 'EN VIVO' : 'SIN CONEXIÓN'}</Text></View></View><View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${occupancyPercent}%` }]} /></View><View style={styles.metricRow}><Text style={styles.metricText}>{availableSpaces} disponibles</Text><Text style={styles.metricText}>{occupiedSpaces} ocupadas</Text></View><Text style={styles.tapHint}>{showReports ? 'Ocultar detalle' : 'Toca para ver Estado en Tiempo Real y Reportes Avanzados'}</Text></AppCard></Pressable>

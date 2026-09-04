@@ -10,6 +10,7 @@ import AppCard from '../components/AppCard';
 import AppInput from '../components/AppInput';
 import AppState from '../components/AppState';
 import ProfileAvatar from '../components/ProfileAvatar';
+import AppScreenHeader from '../components/AppScreenHeader';
 import { PaymentModal } from '../components/parking/PaymentModal';
 
 const defaultStadiumImage = 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&w=1200&q=80';
@@ -498,12 +499,10 @@ export default function StadiumScreen() {
           contentContainerStyle={styles.container}
           ListHeaderComponent={
             <>
-              <View style={styles.headerRow}>
-                <View>
-                  <Text style={styles.overline}>Experiencias en vivo</Text>
-                  <Text style={styles.title}>Estadios</Text>
-                </View>
-                <View style={styles.headerActions}>
+              <AppScreenHeader
+                eyebrow="Experiencias en vivo"
+                title="Estadios"
+                right={<View style={styles.headerActions}>
                   <Pressable
                     accessibilityRole="button"
                     accessibilityLabel="Elegir equipos favoritos"
@@ -521,8 +520,8 @@ export default function StadiumScreen() {
                     <Ionicons name="football" size={22} color={colors.text} />
                   </View>
                   <ProfileAvatar />
-                </View>
-              </View>
+                </View>}
+              />
               <View style={styles.heroCard}>
                 <Image
                   source={{ uri: 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&w=1200&q=80' }}

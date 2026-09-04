@@ -47,6 +47,13 @@ const loginSchema = z.object({
   password: z.string().min(8),
 });
 
+const adminUserSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(8),
+  fullName: z.string().trim().min(2).max(100),
+  phone: z.string().trim().min(7).max(30).optional(),
+});
+
 const guestSchema = z.object({
   email: z.string().email(),
   fullName: z.string().trim().min(2).max(100),
@@ -348,6 +355,31 @@ app.patch('/api/admin/modules/:moduleKey', authMiddleware, async (req, res, next
     const payload = moduleSchema.parse(req.body);
     await prisma.moduleSetting.upsert({ where: { key: req.params.moduleKey }, update: payload, create: { key: req.params.moduleKey, ...payload } });
     return res.json({ modules: await getModuleSettings() });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post('/api/admin/users', authMiddleware, async (req, res, next) => {
+  try {
+    const authenticatedUser = (req as Request & { user: { role: UserRole } }).user;
+    if (authenticatedUser.role !== UserRole.ADMIN) throw new AppError('Only administrators can create administrators.', 403);
+
+    const payload = adminUserSchema.parse(req.body);
+    const email = payload.email.trim().toLowerCase();
+    const passwordHash = await bcrypt.hash(payload.password, 12);
+    const user = await prisma.user.create({
+      data: {
+        email,
+        passwordHash,
+        fullName: payload.fullName.trim(),
+        phone: payload.phone?.trim() || null,
+        role: UserRole.ADMIN,
+      },
+      select: { id: true, email: true, fullName: true, phone: true, role: true, createdAt: true },
+    });
+
+    return res.status(201).json({ user });
   } catch (error) {
     next(error);
   }

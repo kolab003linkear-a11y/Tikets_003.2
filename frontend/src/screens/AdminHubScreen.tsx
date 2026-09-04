@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, SafeAreaView, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, SafeAreaView, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../auth/AuthContext';
 import { colors, typography } from '../theme';
@@ -12,7 +12,7 @@ import AdminMatchesScreen from './AdminMatchesScreen';
 import ProfileAvatar from '../components/ProfileAvatar';
 import AdminParkingScreen from './AdminParkingScreen';
 import AdminFoodScreen from './AdminFoodScreen';
-import { getAdminModules, getAdminParking, getAdminStadiums, getCatalog, getMatches, ModuleKey, updateAdminModule } from '../api/client';
+import { createAdminUser, getAdminModules, getAdminParking, getAdminStadiums, getCatalog, getMatches, ModuleKey, updateAdminModule } from '../api/client';
 import { useModules } from '../modules/ModuleContext';
 
 type AdminSection =
@@ -25,6 +25,7 @@ type AdminSection =
   | 'matches'
   | 'parking'
   | 'modules'
+  | 'admins'
   | 'food';
 
 export default function AdminHubScreen() {
@@ -42,6 +43,7 @@ export default function AdminHubScreen() {
         { key: 'matches', label: 'Partidos', icon: 'trophy-outline' },
         { key: 'parking', label: 'Parqueaderos', icon: 'car-outline' },
         { key: 'modules', label: 'Módulos', icon: 'options-outline' },
+        { key: 'admins', label: 'Admins', icon: 'people-outline' },
         { key: 'food', label: 'Comidas', icon: 'fast-food-outline' },
       ]
     : [{ key: 'scanner', label: 'Escáner', icon: 'scan-outline' }];
@@ -57,6 +59,8 @@ export default function AdminHubScreen() {
     parking: 0,
     modules: 0,
   });
+  const [adminDraft, setAdminDraft] = useState({ email: '', fullName: '', phone: '', password: '' });
+  const [adminSaving, setAdminSaving] = useState(false);
 
   useEffect(() => {
     if (!isAdmin || !token) return;
@@ -125,6 +129,24 @@ export default function AdminHubScreen() {
     try { setModules({ ...(await updateAdminModule(token, key, enabled)).modules, buses: false }); setModuleError(''); }
     catch (error) { setModuleError(error instanceof Error ? error.message : 'No se pudo actualizar el módulo.'); }
     finally { setModuleLoading(false); }
+  };
+
+  const createAdministrator = async () => {
+    if (!token) return;
+    if (!adminDraft.email.trim() || !adminDraft.fullName.trim() || adminDraft.password.length < 8) {
+      Alert.alert('Datos incompletos', 'Ingresa nombre, correo y una contraseña de al menos 8 caracteres.');
+      return;
+    }
+    setAdminSaving(true);
+    try {
+      await createAdminUser(token, { ...adminDraft, email: adminDraft.email.trim().toLowerCase(), fullName: adminDraft.fullName.trim(), phone: adminDraft.phone.trim() || undefined });
+      setAdminDraft({ email: '', fullName: '', phone: '', password: '' });
+      Alert.alert('Administrador creado', 'La nueva cuenta ya puede iniciar sesión.');
+    } catch (error) {
+      Alert.alert('No se pudo crear', error instanceof Error ? error.message : 'Revisa los datos e inténtalo nuevamente.');
+    } finally {
+      setAdminSaving(false);
+    }
   };
 
   if (!user || (user.role !== 'ADMIN' && user.role !== 'SCANNER')) {
@@ -226,6 +248,17 @@ export default function AdminHubScreen() {
           {!!moduleError && <Text style={styles.error}>{moduleError}</Text>}
           {moduleItems.map((item) => <View key={item.key} style={styles.moduleRow}><View style={styles.moduleCopy}><Text style={styles.moduleLabel}>{item.label}</Text><Text style={styles.moduleDescription}>{item.description}</Text></View><Switch accessibilityLabel={`Activar ${item.label}`} value={modules[item.key]} onValueChange={(enabled) => void toggleModule(item.key, enabled)} trackColor={{ false: colors.border, true: colors.primary + '88' }} thumbColor={modules[item.key] ? colors.primary : colors.textSecondary} /></View>)}
         </View>}
+        {section === 'admins' && isAdmin && <ScrollView contentContainerStyle={styles.adminsPanel}>
+          <Text style={styles.sectionTitle}>Agregar administrador</Text>
+          <Text style={styles.formHint}>Crea una cuenta con permisos completos del centro administrativo.</Text>
+          <TextInput placeholder="Nombre completo" placeholderTextColor={colors.textSecondary} value={adminDraft.fullName} onChangeText={(fullName) => setAdminDraft({ ...adminDraft, fullName })} style={styles.adminInput} />
+          <TextInput placeholder="Correo electrónico" placeholderTextColor={colors.textSecondary} autoCapitalize="none" keyboardType="email-address" value={adminDraft.email} onChangeText={(email) => setAdminDraft({ ...adminDraft, email })} style={styles.adminInput} />
+          <TextInput placeholder="Teléfono (opcional)" placeholderTextColor={colors.textSecondary} keyboardType="phone-pad" value={adminDraft.phone} onChangeText={(phone) => setAdminDraft({ ...adminDraft, phone })} style={styles.adminInput} />
+          <TextInput placeholder="Contraseña temporal" placeholderTextColor={colors.textSecondary} secureTextEntry value={adminDraft.password} onChangeText={(password) => setAdminDraft({ ...adminDraft, password })} style={styles.adminInput} />
+          <Pressable accessibilityRole="button" style={[styles.createAdminButton, adminSaving && styles.disabled]} onPress={() => void createAdministrator()} disabled={adminSaving}>
+            {adminSaving ? <ActivityIndicator color={colors.text} /> : <><Ionicons name="person-add-outline" size={18} color={colors.text} /><Text style={styles.createAdminText}>Crear administrador</Text></>}
+          </Pressable>
+        </ScrollView>}
       </View>
     </SafeAreaView>
   );
@@ -266,6 +299,11 @@ const styles = StyleSheet.create({
   todoRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 4 },
   todoText: { color: colors.text, fontSize: 13, flexShrink: 1 },
   modulesPanel: { padding: 18, gap: 14 },
+  adminsPanel: { padding: 18, gap: 12 },
+  adminInput: { minHeight: 48, backgroundColor: colors.input, borderColor: colors.borderStrong, borderWidth: 1, borderRadius: 12, color: colors.text, paddingHorizontal: 14 },
+  createAdminButton: { minHeight: 48, borderRadius: 12, backgroundColor: colors.primary, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 4 },
+  createAdminText: { color: colors.text, fontSize: 14, fontWeight: '800' },
+  disabled: { opacity: 0.6 },
   modulesHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   sectionTitle: { color: colors.text, fontSize: 18, fontWeight: '800' },
   formHint: { color: colors.textSecondary, fontSize: 12, marginTop: 4 },

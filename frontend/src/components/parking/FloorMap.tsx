@@ -1,12 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-
-const colors = {
-  primary: '#0EA5E9',
-  card: '#0F172A',
-  muted: '#94A3B8',
-};
+import { colors, radii, shadows } from '../../theme';
 
 type FloorFilter = 'ALL' | '1' | '2' | '3';
 const floorFilters: Array<{ key: FloorFilter; label: string }> = [
@@ -102,24 +97,24 @@ const styles = StyleSheet.create({
   container: { gap: 12 },
   backBtn: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
   backText: { color: colors.primary, fontWeight: 'bold', fontSize: 14 },
-  card: { backgroundColor: colors.card, padding: 16, borderRadius: 16, gap: 8 },
-  title: { color: '#FFF', fontSize: 16, fontWeight: 'bold' },
-  subTitle: { color: colors.muted, fontSize: 12 },
-  textWhite: { color: '#FFF' },
+  card: { backgroundColor: colors.surface, padding: 16, borderRadius: radii.card, gap: 8, ...shadows.card },
+  title: { color: colors.text, fontSize: 16, fontWeight: 'bold' },
+  subTitle: { color: colors.textSecondary, fontSize: 12 },
+  textWhite: { color: colors.text },
   floorFilters: { gap: 6, paddingVertical: 2 },
-  floorFilter: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 18, backgroundColor: '#1E293B', borderWidth: 1, borderColor: '#334155' },
+  floorFilter: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: radii.pill, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
   floorFilterActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  floorFilterText: { color: colors.muted, fontSize: 11, fontWeight: 'bold' },
-  floorFilterTextActive: { color: '#FFF' },
+  floorFilterText: { color: colors.textSecondary, fontSize: 11, fontWeight: 'bold' },
+  floorFilterTextActive: { color: colors.text },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'space-between' },
-  spot: { width: '22%', height: 60, backgroundColor: '#1E293B', borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
-  spotSelected: { backgroundColor: '#10B981' },
-  spotReserved: { backgroundColor: '#334155', opacity: 0.65 },
-  spotMaintenance: { backgroundColor: '#854D0E' },
-  spotClosed: { backgroundColor: '#7F1D1D' },
-  spotText: { color: '#FFF', fontWeight: 'bold' },
-  spotTextReserved: { color: '#94A3B8' },
-  confirmBtn: { backgroundColor: colors.primary, padding: 14, borderRadius: 14, alignItems: 'center', marginTop: 10 },
+  spot: { width: '22%', height: 60, backgroundColor: colors.surface, borderRadius: radii.control, justifyContent: 'center', alignItems: 'center' },
+  spotSelected: { backgroundColor: colors.success },
+  spotReserved: { backgroundColor: colors.surfaceRaised, opacity: 0.65 },
+  spotMaintenance: { backgroundColor: colors.warning + '55' },
+  spotClosed: { backgroundColor: colors.critical + '55' },
+  spotText: { color: colors.text, fontWeight: 'bold' },
+  spotTextReserved: { color: colors.textSecondary },
+  confirmBtn: { backgroundColor: colors.primary, padding: 14, borderRadius: radii.control, alignItems: 'center', marginTop: 10, ...shadows.button },
   btnDisabled: { opacity: 0.5 },
-  confirmText: { color: '#FFF', fontWeight: 'bold' },
+  confirmText: { color: colors.text, fontWeight: 'bold' },
 });

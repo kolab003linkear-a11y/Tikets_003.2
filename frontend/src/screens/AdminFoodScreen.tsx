@@ -3,6 +3,7 @@ import { ActivityIndicator, Alert, Pressable, SafeAreaView, ScrollView, StyleShe
 import { colors } from '../theme';
 import { useAuth } from '../auth/AuthContext';
 import { API_BASE_URL } from '../api/client';
+import AppScreenHeader from '../components/AppScreenHeader';
 
 type FoodCategory = 'COMBO' | 'BEBIDA' | 'COMIDA' | 'SNACK';
 
@@ -166,10 +167,7 @@ export default function AdminFoodScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
         <ScrollView contentContainerStyle={styles.container}>
-        <Text style={styles.title}>Comidas y Combos</Text>
-        <Text style={styles.subtitle}>
-          Administra comidas, bebidas, snacks y combos para eventos de cine.
-        </Text>
+        <AppScreenHeader eyebrow="Catálogo" title="Comidas y combos" subtitle="Administra comidas, bebidas, snacks y combos para eventos de cine." />
 
         <View style={styles.form}>
           <Text style={styles.label}>Nombre</Text>

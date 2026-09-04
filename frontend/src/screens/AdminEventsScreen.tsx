@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../auth/AuthContext';
 import { AdminEvent, AdminEventInput, createAdminEvent, getAdminEvents, updateAdminEvent } from '../api/client';
 import { colors, typography } from '../theme';
+import AppScreenHeader from '../components/AppScreenHeader';
 
 type EventDraft = AdminEventInput;
 
@@ -108,11 +109,7 @@ export default function AdminEventsScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.container}>
-        <View style={styles.headerRow}>
-          <View><Text style={styles.overline}>Catálogo</Text><Text style={styles.title}>Eventos</Text></View>
-          <View style={styles.headerIcon}><Ionicons name="film-outline" size={21} color={colors.text} /></View>
-        </View>
-        <Text style={styles.subtitle}>Administra lo que aparece en la cartelera y mantén tu programación al día.</Text>
+        <AppScreenHeader eyebrow="Catálogo" title="Eventos" subtitle="Administra lo que aparece en la cartelera y mantén tu programación al día." right={<View style={styles.headerIcon}><Ionicons name="film-outline" size={21} color={colors.text} /></View>} />
 
         <View style={styles.statsRow}>
           <View style={styles.statItem}><Text style={styles.statValue}>{events.length}</Text><Text style={styles.statLabel}>Eventos</Text></View>

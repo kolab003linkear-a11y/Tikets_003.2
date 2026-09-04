@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../auth/AuthContext';
 import { validateTicket } from '../api/client';
 import { colors, typography } from '../theme';
+import AppScreenHeader from '../components/AppScreenHeader';
 
 export default function AdminScannerScreen() {
   const { user, token } = useAuth();
@@ -96,9 +97,7 @@ export default function AdminScannerScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        <Text style={styles.overline}>Panel administrativo</Text>
-        <Text style={styles.title}>Escáner QR</Text>
-        <Text style={styles.subtitle}>Valida entradas de cine y estadio en segundos.</Text>
+        <AppScreenHeader eyebrow="Panel administrativo" title="Escáner QR" subtitle="Valida entradas de cine y estadio en segundos." />
         <View style={styles.statsRow}>
           <View style={styles.statItem}><Text style={styles.statValue}>{scanCount}</Text><Text style={styles.statLabel}>Lecturas</Text></View>
           <View style={styles.statDivider} />

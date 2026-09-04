@@ -2,8 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import QRCode from 'react-native-qrcode-svg';
-
-const colors = { primary: '#0EA5E9', success: '#14B8A6', card: '#102F4D', muted: '#94A3B8', text: '#F8FAFC', background: '#0A2540' };
+import { colors, radii, shadows } from '../../theme';
 
 interface ActiveTicketCardProps {
   ticketId: string;
@@ -66,19 +65,19 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
 };
 
 const styles = StyleSheet.create({
-  card: { backgroundColor: colors.card, padding: 16, borderRadius: 20, gap: 10, borderWidth: 1, borderColor: colors.primary },
+  card: { backgroundColor: colors.surface, padding: 16, borderRadius: radii.large, gap: 10, borderWidth: 1, borderColor: colors.primary, ...shadows.card },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   badge: { color: colors.primary, fontSize: 10, fontWeight: 'bold' },
-  spot: { color: '#10B981', fontSize: 12, fontWeight: 'bold' },
-  title: { color: '#FFF', fontSize: 18, fontWeight: 'bold' },
-  ticketId: { color: colors.muted, fontSize: 12 },
+  spot: { color: colors.success, fontSize: 12, fontWeight: 'bold' },
+  title: { color: colors.text, fontSize: 18, fontWeight: 'bold' },
+  ticketId: { color: colors.textSecondary, fontSize: 12 },
   qrBox: { backgroundColor: colors.text, alignSelf: 'center', width: 180, height: 180, borderRadius: 18, justifyContent: 'center', alignItems: 'center', marginVertical: 4 },
-  qrHint: { color: colors.muted, fontSize: 11, marginTop: 8 },
+  qrHint: { color: colors.textSecondary, fontSize: 11, marginTop: 8 },
   timerBox: { alignItems: 'center', paddingVertical: 8 },
-  timerLabel: { color: colors.muted, fontSize: 10, fontWeight: 'bold', letterSpacing: 1 },
+  timerLabel: { color: colors.textSecondary, fontSize: 10, fontWeight: 'bold', letterSpacing: 1 },
   timer: { color: colors.success, fontSize: 28, fontWeight: 'bold', marginTop: 4 },
-  rate: { color: colors.muted, fontSize: 12, marginTop: 4 },
-  rateValue: { color: '#FFF', fontWeight: 'bold' },
-  payBtn: { backgroundColor: colors.primary, padding: 14, borderRadius: 12, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8 },
-  payText: { color: '#FFF', fontWeight: 'bold' },
+  rate: { color: colors.textSecondary, fontSize: 12, marginTop: 4 },
+  rateValue: { color: colors.text, fontWeight: 'bold' },
+  payBtn: { backgroundColor: colors.primary, padding: 14, borderRadius: radii.control, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8, ...shadows.button },
+  payText: { color: colors.text, fontWeight: 'bold' },
 });

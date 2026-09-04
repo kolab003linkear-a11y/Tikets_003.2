@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../auth/AuthContext';
 import { AdminEvent, AdminRoom, AdminRoomInput, AdminShowtime, AdminShowtimeInput, createAdminRoom, createAdminShowtime, getAdminEvents, getAdminRooms, getAdminShowtimes, updateAdminRoom, updateAdminShowtime } from '../api/client';
 import { colors, typography } from '../theme';
+import AppScreenHeader from '../components/AppScreenHeader';
 
 const emptyRoom: AdminRoomInput = { name: '', capacity: 64, seatLayout: { rows: ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'], columns: 8 } };
 const emptyShowtime: AdminShowtimeInput = { movieId: '', roomId: '', startTime: '', price: 0, availableSeats: 0 };
@@ -116,11 +117,7 @@ export default function AdminScheduleScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.container}>
-        <View style={styles.headerRow}>
-          <View><Text style={styles.overline}>Programación</Text><Text style={styles.title}>Salas y funciones</Text></View>
-          <View style={styles.headerIcon}><Ionicons name="calendar-outline" size={21} color={colors.text} /></View>
-        </View>
-        <Text style={styles.subtitle}>Configura la distribución y publica horarios con precio y disponibilidad.</Text>
+        <AppScreenHeader eyebrow="Programación" title="Salas y funciones" subtitle="Configura la distribución y publica horarios con precio y disponibilidad." right={<View style={styles.headerIcon}><Ionicons name="calendar-outline" size={21} color={colors.text} /></View>} />
         {loading ? <ActivityIndicator color={colors.primary} size="large" /> : error ? <Text style={styles.error}>{error}</Text> : <>
           <View style={styles.statsRow}>
             <View style={styles.statItem}><Text style={styles.statValue}>{rooms.length}</Text><Text style={styles.statLabel}>Salas</Text></View>

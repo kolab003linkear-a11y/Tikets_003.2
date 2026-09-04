@@ -2,6 +2,7 @@ import React from 'react';
 import { ActivityIndicator, Image, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, typography } from '../theme';
+import AppScreenHeader from '../components/AppScreenHeader';
 import { useAdminTeamsController } from './AdminTeamsScreen.controller';
 
 // ---------------------------------------------------------------------------
@@ -42,16 +43,7 @@ export default function AdminTeamsScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.container}>
-        <View style={styles.headerRow}>
-          <View>
-            <Text style={styles.overline}>Infraestructura</Text>
-            <Text style={styles.title}>Equipos</Text>
-          </View>
-          <View style={styles.headerIcon}>
-            <Ionicons name="shield-outline" size={21} color={colors.text} />
-          </View>
-        </View>
-        <Text style={styles.subtitle}>Registra los equipos que participan en los partidos de cada estadio.</Text>
+        <AppScreenHeader eyebrow="Infraestructura" title="Equipos" subtitle="Registra los equipos que participan en los partidos de cada estadio." right={<View style={styles.headerIcon}><Ionicons name="shield-outline" size={21} color={colors.text} /></View>} />
 
         <View style={styles.statsRow}>
           <View style={styles.statItem}>

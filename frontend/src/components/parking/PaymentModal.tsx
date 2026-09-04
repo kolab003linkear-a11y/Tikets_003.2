@@ -1,12 +1,7 @@
 import React from 'react';
 import { Modal, View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-
-const colors = {
-  primary: '#0EA5E9',
-  card: '#0F172A',
-  muted: '#94A3B8',
-};
+import { colors, radii, shadows } from '../../theme';
 
 interface PaymentModalProps {
   isOpen: boolean;
@@ -48,7 +43,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
               <Text style={styles.title}>Método de pago</Text>
             </View>
             <TouchableOpacity onPress={onClose}>
-              <Ionicons name="close" size={24} color={colors.muted} />
+              <Ionicons name="close" size={24} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
 
@@ -61,7 +56,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
           <View style={styles.methods}>
             {paymentMethods.map((method) => (
               <TouchableOpacity disabled={processing} key={method.key} onPress={() => setSelectedMethod(method.key)} style={[styles.method, selectedMethod === method.key && styles.methodActive]}>
-                <Ionicons name={method.icon} size={17} color={selectedMethod === method.key ? colors.primary : colors.muted} />
+                <Ionicons name={method.icon} size={17} color={selectedMethod === method.key ? colors.primary : colors.textSecondary} />
                 <Text style={[styles.methodText, selectedMethod === method.key && styles.methodTextActive]}>{method.label}</Text>
               </TouchableOpacity>
             ))}
@@ -74,7 +69,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
           )}
 
           <TouchableOpacity disabled={processing} onPress={() => onConfirmPayment(selectedMethod)} style={[styles.payBtn, processing && styles.payBtnDisabled]}>
-            <Ionicons name="shield-checkmark-outline" size={18} color="#FFF" />
+            <Ionicons name="shield-checkmark-outline" size={18} color={colors.text} />
             <Text style={styles.payText}>{processing ? 'Procesando pago...' : parkingOnly ? 'Pagar y habilitar salida' : 'Pagar ahora'}</Text>
           </TouchableOpacity>
         </View>
@@ -85,22 +80,22 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
 
 const styles = StyleSheet.create({
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.75)', justifyContent: 'flex-end' },
-  modal: { backgroundColor: colors.card, padding: 20, borderTopLeftRadius: 24, borderTopRightRadius: 24, gap: 16 },
+  modal: { backgroundColor: colors.surface, padding: 20, borderTopLeftRadius: radii.large, borderTopRightRadius: radii.large, gap: 16, ...shadows.card },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  title: { color: '#FFF', fontSize: 16, fontWeight: 'bold' },
+  title: { color: colors.text, fontSize: 16, fontWeight: 'bold' },
   eyebrow: { color: colors.primary, fontSize: 11, fontWeight: 'bold', letterSpacing: 1 },
   row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginVertical: 10 },
-  methodLabel: { color: colors.muted, fontSize: 11, fontWeight: 'bold', letterSpacing: 1 },
+  methodLabel: { color: colors.textSecondary, fontSize: 11, fontWeight: 'bold', letterSpacing: 1 },
   methods: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  method: { width: '48%', minHeight: 46, borderWidth: 1, borderColor: '#334155', borderRadius: 10, paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center', gap: 7 },
-  methodActive: { borderColor: colors.primary, backgroundColor: '#123653' },
-  methodText: { color: colors.muted, fontSize: 12, flexShrink: 1 },
-  methodTextActive: { color: '#FFF', fontWeight: 'bold' },
-  label: { color: colors.muted, fontSize: 14 },
-  amount: { color: '#10B981', fontSize: 20, fontWeight: 'bold' },
-  payBtn: { backgroundColor: colors.primary, padding: 14, borderRadius: 12, alignItems: 'center' },
+  method: { width: '48%', minHeight: 46, borderWidth: 1, borderColor: colors.border, borderRadius: radii.small, paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center', gap: 7 },
+  methodActive: { borderColor: colors.primary, backgroundColor: colors.surfaceRaised },
+  methodText: { color: colors.textSecondary, fontSize: 12, flexShrink: 1 },
+  methodTextActive: { color: colors.text, fontWeight: 'bold' },
+  label: { color: colors.textSecondary, fontSize: 14 },
+  amount: { color: colors.success, fontSize: 20, fontWeight: 'bold' },
+  payBtn: { backgroundColor: colors.primary, padding: 14, borderRadius: radii.control, alignItems: 'center', ...shadows.button },
   payBtnDisabled: { opacity: 0.6 },
-  cancelBtn: { backgroundColor: '#123653', borderWidth: 1, borderColor: '#334155', padding: 14, borderRadius: 12, alignItems: 'center' },
-  cancelText: { color: '#FFF', fontWeight: 'bold' },
-  payText: { color: '#FFF', fontWeight: 'bold' },
+  cancelBtn: { backgroundColor: colors.surfaceRaised, borderWidth: 1, borderColor: colors.border, padding: 14, borderRadius: radii.control, alignItems: 'center' },
+  cancelText: { color: colors.text, fontWeight: 'bold' },
+  payText: { color: colors.text, fontWeight: 'bold' },
 });

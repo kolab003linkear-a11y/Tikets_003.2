@@ -2,6 +2,7 @@ import React from 'react';
 import { ActivityIndicator, Image, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, typography } from '../theme';
+import AppScreenHeader from '../components/AppScreenHeader';
 import { computeSeatCount, useAdminStadiumsController } from './AdminStadiumsScreen.controller';
 
 // ---------------------------------------------------------------------------
@@ -45,16 +46,7 @@ export default function AdminStadiumsScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.container}>
-        <View style={styles.headerRow}>
-          <View>
-            <Text style={styles.overline}>Infraestructura</Text>
-            <Text style={styles.title}>Estadios</Text>
-          </View>
-          <View style={styles.headerIcon}>
-            <Ionicons name="football-outline" size={21} color={colors.text} />
-          </View>
-        </View>
-        <Text style={styles.subtitle}>Registra sedes, imágenes y sectores para vender entradas de partidos.</Text>
+        <AppScreenHeader eyebrow="Infraestructura" title="Estadios" subtitle="Registra sedes, imágenes y sectores para vender entradas de partidos." right={<View style={styles.headerIcon}><Ionicons name="football-outline" size={21} color={colors.text} /></View>} />
 
         <View style={styles.statsRow}>
           <View style={styles.statItem}>

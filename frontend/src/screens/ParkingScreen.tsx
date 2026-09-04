@@ -16,6 +16,9 @@ import { PaymentModal } from '../components/parking/PaymentModal';
 import { ActiveTicketCard } from '../components/parking/ActiveTicketCard';
 import { SpotPickerMap } from '../components/parking/FloorMap';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { colors, radii, shadows } from '../theme';
+import AppCard from '../components/AppCard';
+import AppScreenHeader from '../components/AppScreenHeader';
 
 
 export default function ParkingScreen() {
@@ -107,30 +110,43 @@ export default function ParkingScreen() {
           />
         ) : (
           <>
+            <AppScreenHeader
+              eyebrow="Movilidad"
+              title="Parqueaderos"
+              subtitle="Encuentra una plaza, reserva tu espacio y gestiona tu acceso."
+              right={<Ionicons name="car-outline" size={28} color={colors.primary} />}
+            />
             <View style={styles.searchBox}>
-              <Ionicons name="search-outline" size={19} color="#94A3B8" />
+              <Ionicons name="search-outline" size={19} color={colors.textSecondary} />
               <TextInput
                 accessibilityLabel="Buscar parqueadero"
                 value={search}
                 onChangeText={setSearch}
                 placeholder="Buscar parqueadero, dirección o ciudad"
-                placeholderTextColor="#94A3B8"
+                placeholderTextColor={colors.textSecondary}
                 style={styles.searchInput}
               />
               {search.length > 0 && (
                 <Pressable accessibilityRole="button" accessibilityLabel="Limpiar búsqueda" onPress={() => setSearch('')}>
-                  <Ionicons name="close-circle" size={19} color="#94A3B8" />
+                  <Ionicons name="close-circle" size={19} color={colors.textSecondary} />
                 </Pressable>
               )}
             </View>
             {visibleParking.length > 0 ? visibleParking.map((item: ParkingLot) => (
-              <Pressable key={item.id} style={styles.card} onPress={() => setSelected(item)}>
-                <Text style={styles.cardTitle}>{cleanParkingName(item.name)}</Text>
-                <Text style={styles.cardMeta}>{item.address} · {item.city} · ${Number(item.price).toFixed(2)}</Text>
+              <Pressable key={item.id} accessibilityRole="button" accessibilityLabel={`Abrir ${cleanParkingName(item.name)}`} onPress={() => setSelected(item)}>
+                <AppCard style={styles.card}>
+                  <View style={styles.cardTopline}>
+                    <View style={styles.cardIcon}><Ionicons name="car-outline" size={19} color={colors.primary} /></View>
+                    <Ionicons name="chevron-forward" size={19} color={colors.textSecondary} />
+                  </View>
+                  <Text style={styles.cardTitle}>{cleanParkingName(item.name)}</Text>
+                  <Text style={styles.cardMeta}>{item.address} · {item.city}</Text>
+                  <View style={styles.cardFooter}><Text style={styles.cardMeta}>Desde</Text><Text style={styles.price}>${Number(item.price).toFixed(2)} / hora</Text></View>
+                </AppCard>
               </Pressable>
             )) : (
               <View style={styles.emptySearch}>
-                <Ionicons name="search-outline" size={28} color="#94A3B8" />
+                <Ionicons name="search-outline" size={28} color={colors.textSecondary} />
                 <Text style={styles.emptyTitle}>No encontramos parqueaderos</Text>
                 <Text style={styles.emptyText}>Prueba con otro nombre, dirección o ciudad.</Text>
               </View>
@@ -184,27 +200,27 @@ export default function ParkingScreen() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: '#0F172A',
+    backgroundColor: colors.background,
   },
   container: {
     flexGrow: 1,
     padding: 16,
   },
   card: {
-    backgroundColor: '#1E293B',
     padding: 16,
-    borderRadius: 8,
     marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#334155',
+    borderRadius: radii.card,
+    ...shadows.card,
   },
+  cardTopline: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
+  cardIcon: { width: 36, height: 36, borderRadius: radii.small, backgroundColor: colors.primary + '18', alignItems: 'center', justifyContent: 'center' },
   cardTitle: {
-    color: '#FFFFFF',
+    color: colors.text,
     fontSize: 16,
     fontWeight: 'bold',
   },
   cardMeta: {
-    color: '#94A3B8',
+    color: colors.textSecondary,
     marginTop: 6,
   },
   searchBox: {
@@ -212,16 +228,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    backgroundColor: '#081D33',
-    borderColor: '#0EA5E9',
+    backgroundColor: colors.input,
+    borderColor: colors.borderStrong,
     borderWidth: 1,
-    borderRadius: 14,
+    borderRadius: radii.control,
     paddingHorizontal: 14,
     marginBottom: 14,
   },
   searchInput: {
     flex: 1,
-    color: '#F8FAFC',
+    color: colors.text,
     fontSize: 14,
     outlineStyle: 'none',
   } as object,
@@ -231,27 +247,29 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   emptyTitle: {
-    color: '#F8FAFC',
+    color: colors.text,
     fontSize: 17,
     fontWeight: 'bold',
     marginTop: 10,
   },
   emptyText: {
-    color: '#94A3B8',
+    color: colors.textSecondary,
     fontSize: 13,
     textAlign: 'center',
     marginTop: 6,
   },
   activeHeading: {
-    color: '#0EA5E9',
+    color: colors.primary,
     fontSize: 12,
     fontWeight: 'bold',
     letterSpacing: 1,
     marginTop: 12,
   },
   activeSubheading: {
-    color: '#94A3B8',
+    color: colors.textSecondary,
     fontSize: 13,
     marginBottom: 2,
   },
+  cardFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: colors.border, marginTop: 14, paddingTop: 12 },
+  price: { color: colors.text, fontSize: 15, fontWeight: '800' },
 });

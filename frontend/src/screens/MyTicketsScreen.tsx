@@ -6,6 +6,7 @@ import { getMyTickets, TicketDetails } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { colors, typography } from '../theme';
 import ProfileAvatar from '../components/ProfileAvatar';
+import AppScreenHeader from '../components/AppScreenHeader';
 
 export default function MyTicketsScreen() {
   const navigation = useNavigation<any>();
@@ -71,11 +72,12 @@ export default function MyTicketsScreen() {
         onRefresh={() => void loadTickets()}
         refreshing={loading}
         ListHeaderComponent={<>
-          <View style={styles.headerRow}>
-            <View><Text style={styles.overline}>Tu cuenta</Text><Text style={styles.title}>Mis Tickets</Text></View>
-            <View style={styles.headerActions}><View style={styles.headerIcon}><Ionicons name="ticket" size={21} color={colors.text} /></View><ProfileAvatar /></View>
-          </View>
-          <Text style={styles.subtitle}>Todo lo que necesitas para entrar, en un solo lugar.</Text>
+          <AppScreenHeader
+            eyebrow="Tu cuenta"
+            title="Mis Tickets"
+            subtitle="Todo lo que necesitas para entrar, en un solo lugar."
+            right={<><View style={styles.headerIcon}><Ionicons name="ticket" size={21} color={colors.text} /></View><ProfileAvatar /></>}
+          />
           <View style={styles.summaryRow}>
             <View style={styles.summaryItem}><Text style={styles.summaryValue}>{tickets.filter((ticket) => ticket.status === 'VALID').length}</Text><Text style={styles.summaryLabel}>Activos</Text></View>
             <View style={styles.summaryDivider} />

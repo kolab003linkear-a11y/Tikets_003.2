@@ -1,18 +1,18 @@
 export const colors = {
-  background: '#0A2540',
-  surface: '#102F4D',
-  surfaceRaised: '#123653',
-  input: '#081D33',
-  primary: '#0EA5E9',
-  success: '#14B8A6',
-  critical: '#F43F5E',
-  warning: '#FBBF24',
-  text: '#F8FAFC',
-  textSecondary: '#94A3B8',
-  overlay: 'rgba(15, 23, 42, 0.45)',
-  overlayStrong: 'rgba(10, 37, 64, 0.75)',
-  border: 'rgba(248, 250, 252, 0.12)',
-  borderStrong: 'rgba(14, 165, 233, 0.45)',
+  background: '#0B1220',
+  surface: '#111C2E',
+  surfaceRaised: '#18263A',
+  input: '#070D18',
+  primary: '#4F8CFF',
+  success: '#2DD4BF',
+  critical: '#F97068',
+  warning: '#F4C95D',
+  text: '#F7F9FC',
+  textSecondary: '#A8B3C4',
+  overlay: 'rgba(11, 18, 32, 0.62)',
+  overlayStrong: 'rgba(7, 13, 24, 0.88)',
+  border: 'rgba(247, 249, 252, 0.12)',
+  borderStrong: 'rgba(79, 140, 255, 0.5)',
 };
 
 export const typography = {
@@ -28,4 +28,29 @@ export const spacing = {
   screen: 16,
   card: 18,
   control: 12,
+};
+
+export const radii = {
+  small: 10,
+  control: 12,
+  card: 16,
+  large: 20,
+  pill: 999,
+};
+
+export const shadows = {
+  card: {
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.16,
+    shadowRadius: 18,
+    elevation: 5,
+  },
+  button: {
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.22,
+    shadowRadius: 10,
+    elevation: 4,
+  },
 };

@@ -372,6 +372,10 @@ export function updateAdminModule(token: string, moduleKey: ModuleKey, enabled: 
   return request<{ modules: ModuleSettings }>(`/api/admin/modules/${moduleKey}`, { method: 'PATCH', headers: { Authorization: `Bearer ${token}` }, body: JSON.stringify({ enabled }) });
 }
 
+export function createAdminUser(token: string, payload: { email: string; password: string; fullName: string; phone?: string }) {
+  return request<{ user: AuthUser }>('/api/admin/users', { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: JSON.stringify(payload) });
+}
+
 export function getMatches() {
   return request<{ matches: StadiumMatch[] }>('/api/matches');
 }

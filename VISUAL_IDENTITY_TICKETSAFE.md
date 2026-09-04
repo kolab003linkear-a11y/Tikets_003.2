@@ -10,14 +10,14 @@ La interfaz está diseñada para entornos de baja luminosidad, como vestíbulos 
 
 | Elemento | Nombre | Hexadecimal | Uso |
 | --- | --- | --- | --- |
-| Fondo principal | Azul Profundo | `#0A2540` | Base de la aplicación y superficies principales. |
-| Acción principal | Azul Cielo | `#0EA5E9` | Botones, foco, enlaces e interacciones críticas. |
-| Éxito y validación | Verde Azulado | `#14B8A6` | Confirmaciones, acceso aprobado y sincronización. |
-| Alertas críticas | Rosa Vibrante | `#F43F5E` | Errores, advertencias y estados de atención. |
-| Texto primario | Blanco Hueso | `#F8FAFC` | Títulos y contenido principal. |
-| Texto secundario | Gris Azulado | `#94A3B8` | Etiquetas, metadatos y texto de soporte. |
+| Fondo principal | Azul marino profundo | `#0B1220` | Base de la aplicación y superficies principales. |
+| Acción principal | Azul eléctrico | `#4F8CFF` | Botones, foco, enlaces e interacciones críticas. |
+| Éxito y validación | Turquesa confianza | `#2DD4BF` | Confirmaciones, acceso aprobado y sincronización. |
+| Alertas críticas | Coral de atención | `#F97068` | Errores, advertencias y estados de atención. |
+| Texto primario | Blanco limpio | `#F7F9FC` | Títulos y contenido principal. |
+| Texto secundario | Gris acero | `#A8B3C4` | Etiquetas, metadatos y texto de soporte. |
 
-Superficies auxiliares pueden usar `#102F4D` y `#123653`, siempre conservando contraste suficiente con el texto.
+Superficies auxiliares pueden usar `#111C2E` y `#18263A`, siempre conservando contraste suficiente con el texto.
 
 ## 3. Tipografía
 

@@ -2024,7 +2024,7 @@ const styles = StyleSheet.create({
   },
 
   payFoodButtonDisabled: {
-    backgroundColor: '#334155',
+    backgroundColor: colors.surfaceRaised,
   },
 
   payFoodButtonText: {

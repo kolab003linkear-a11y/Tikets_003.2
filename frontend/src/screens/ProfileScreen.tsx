@@ -6,6 +6,7 @@ import { useAuth } from '../auth/AuthContext';
 import { colors, typography } from '../theme';
 import AppCard from '../components/AppCard';
 import AppInput from '../components/AppInput';
+import AppScreenHeader from '../components/AppScreenHeader';
 import ProfileAvatar from '../components/ProfileAvatar';
 
 export default function ProfileScreen() {
@@ -89,15 +90,13 @@ export default function ProfileScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
-        <View style={styles.headerRow}>
-          <View>
-            <Pressable accessibilityRole="button" accessibilityLabel="Volver al inicio" style={styles.backButton} onPress={() => navigation.navigate('HomeTabs', { screen: 'Inicio' })}><Ionicons name="arrow-back" size={17} color={colors.primary} /><Text style={styles.backText}>Inicio</Text></Pressable>
-            <Text style={styles.overline}>Tu cuenta</Text>
-            <Text style={styles.title}>Perfil</Text>
-            <Text style={styles.subtitle}>Tu espacio para gestionar entradas y preferencias.</Text>
-          </View>
-          <View style={styles.headerActions}><ProfileAvatar /><Pressable accessibilityRole="button" accessibilityLabel={settingsOpen ? 'Cerrar configuración' : 'Abrir configuración'} accessibilityState={{ expanded: settingsOpen }} style={[styles.headerIcon, settingsOpen && styles.headerIconActive]} onPress={() => setSettingsOpen((open) => !open)}><Ionicons name={settingsOpen ? 'close-outline' : 'settings-outline'} size={21} color={colors.text} /></Pressable></View>
-        </View>
+        <AppScreenHeader
+          eyebrow="Tu cuenta"
+          title="Perfil"
+          subtitle="Tu espacio para gestionar entradas y preferencias."
+          onBack={() => navigation.navigate('HomeTabs', { screen: 'Inicio' })}
+          right={<><ProfileAvatar /><Pressable accessibilityRole="button" accessibilityLabel={settingsOpen ? 'Cerrar configuración' : 'Abrir configuración'} accessibilityState={{ expanded: settingsOpen }} style={[styles.headerIcon, settingsOpen && styles.headerIconActive]} onPress={() => setSettingsOpen((open) => !open)}><Ionicons name={settingsOpen ? 'close-outline' : 'settings-outline'} size={21} color={colors.text} /></Pressable></>}
+        />
         {settingsOpen && <View style={styles.settingsPanel}>
           <View style={styles.settingsHeading}><Ionicons name="options-outline" size={18} color={colors.primary} /><Text style={styles.settingsTitle}>Configuración rápida</Text></View>
           <Pressable style={styles.settingsRow} onPress={() => setSettingsOpen(false)}><Ionicons name="create-outline" size={18} color={colors.textSecondary} /><View style={styles.settingsCopy}><Text style={styles.settingsRowTitle}>Datos personales</Text><Text style={styles.settingsRowText}>Edita tu correo más abajo</Text></View><Ionicons name="chevron-down" size={17} color={colors.textSecondary} /></Pressable>

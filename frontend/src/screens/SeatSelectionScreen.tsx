@@ -49,7 +49,7 @@ const defaultRows = [
 
 const defaultColumns = 8;
 
-const TEXT_MUTED = '#94A3B8';
+const TEXT_MUTED = colors.textSecondary;
 
 // =========================================================
 // PANTALLA
@@ -2852,7 +2852,7 @@ const styles = StyleSheet.create({
 
   concertMap: {
     backgroundColor:
-      '#071C31',
+      colors.input,
     borderRadius: 22,
     padding: 15,
   },
@@ -2861,7 +2861,7 @@ const styles = StyleSheet.create({
     height: 48,
     borderRadius: 12,
     backgroundColor:
-      '#0EA5E9',
+      colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
     marginHorizontal: 28,
@@ -2869,7 +2869,7 @@ const styles = StyleSheet.create({
   },
 
   concertStageText: {
-    color: '#FFFFFF',
+    color: colors.text,
     fontSize: 13,
     fontWeight: '900',
     letterSpacing: 1.4,
@@ -2890,21 +2890,21 @@ const styles = StyleSheet.create({
     backgroundColor:
       'rgba(14,165,233,0.14)',
     borderColor:
-      '#0EA5E9',
+      colors.primary,
   },
 
   vipZone: {
     backgroundColor:
       'rgba(14,165,233,0.12)',
     borderColor:
-      '#38BDF8',
+      colors.primary,
   },
 
   preferentialZone: {
     backgroundColor:
       'rgba(56,189,248,0.10)',
     borderColor:
-      '#38BDF8',
+      colors.primary,
   },
 
   generalZone: {
@@ -3097,22 +3097,18 @@ const styles = StyleSheet.create({
   theaterCurtain: {
     height: 48,
     width: 20,
-    backgroundColor:
-      '#1E293B',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor:
-      '#334155',
+    borderColor: colors.border,
   },
 
   theaterStage: {
     height: 48,
     flex: 1,
     maxWidth: 260,
-    backgroundColor:
-      '#1E293B',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor:
-      '#475569',
+    borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
@@ -3346,11 +3342,9 @@ const styles = StyleSheet.create({
   cinemaStage: {
     height: 46,
     borderRadius: 12,
-    backgroundColor:
-      '#1E293B',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor:
-      '#475569',
+    borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
     marginHorizontal: 25,
