@@ -1,21 +1,45 @@
 import React from 'react';
-import { NavigationContainer } from '@react-navigation/native';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+
+import {
+  View,
+  Text,
+  StyleSheet,
+  Pressable,
+} from 'react-native';
+
+import {
+  NavigationContainer,
+  useNavigation,
+} from '@react-navigation/native';
+
+import {
+  createNativeStackNavigator,
+} from '@react-navigation/native-stack';
+
+import {
+  createBottomTabNavigator,
+} from '@react-navigation/bottom-tabs';
+
 import { Ionicons } from '@expo/vector-icons';
-import { Pressable, View, Text, StyleSheet } from 'react-native';
-import HomeScreen from './src/screens/HomeScreen';
-import SeatSelectionScreen from './src/screens/SeatSelectionScreen';
-import CheckoutScreen from './src/screens/CheckoutScreen';
-import TicketScreen from './src/screens/TicketScreen';
-import MyTicketsScreen from './src/screens/MyTicketsScreen';
-import ProfileScreen from './src/screens/ProfileScreen';
+
 import AuthScreen from './src/screens/AuthScreen';
 import AdminHubScreen from './src/screens/AdminHubScreen';
 import StadiumScreen from './src/screens/StadiumScreen';
 import AssistantScreen from './src/screens/AssistantScreen';
 import ParkingScreen from './src/screens/ParkingScreen';
 import BusScreen from './src/screens/BusScreen';
+
+import CinemaScreen from './src/screens/CinemaScreen';
+import TheaterScreen from './src/screens/TheaterScreen';
+import ConcertScreen from './src/screens/ConcertScreen';
+
+import HomeScreen from './src/screens/HomeScreen';
+import MyTicketsScreen from './src/screens/MyTicketsScreen';
+import SeatSelectionScreen from './src/screens/SeatSelectionScreen';
+import CheckoutScreen from './src/screens/CheckoutScreen';
+import TicketScreen from './src/screens/TicketScreen';
+import ProfileScreen from './src/screens/ProfileScreen';
+
 import { AuthProvider, useAuth } from './src/auth/AuthContext';
 import { colors, typography } from './src/theme';
 import { ModuleProvider, useModules } from './src/modules/ModuleContext';
@@ -23,7 +47,89 @@ import { ModuleProvider, useModules } from './src/modules/ModuleContext';
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
-class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean }> {
+function EventsScreen() {
+  const navigation = useNavigation<any>();
+
+  return (
+    <View style={styles.eventsContainer}>
+      <View style={styles.eventsHeader}>
+        <Ionicons name="calendar-outline" size={42} color={colors.primary} />
+        <Text style={styles.eventsTitle}>Eventos</Text>
+        <Text style={styles.eventsSubtitle}>
+          Elige el tipo de evento que deseas disfrutar
+        </Text>
+      </View>
+
+      <Pressable
+        style={({ pressed }) => [
+          styles.eventButton,
+          pressed && styles.eventButtonPressed,
+        ]}
+        onPress={() => navigation.navigate('Conciertos')}
+        accessibilityRole="button"
+        accessibilityLabel="Abrir Conciertos"
+      >
+        <View style={styles.eventIconContainer}>
+          <Ionicons name="musical-notes-outline" size={32} color={colors.primary} />
+        </View>
+        <View style={styles.eventTextContainer}>
+          <Text style={styles.eventButtonTitle}>Conciertos</Text>
+          <Text style={styles.eventButtonSubtitle}>
+            Música, artistas y espectáculos en vivo
+          </Text>
+        </View>
+        <Ionicons name="chevron-forward" size={24} color={colors.textSecondary} />
+      </Pressable>
+
+      <Pressable
+        style={({ pressed }) => [
+          styles.eventButton,
+          pressed && styles.eventButtonPressed,
+        ]}
+        onPress={() => navigation.navigate('Teatro')}
+        accessibilityRole="button"
+        accessibilityLabel="Abrir Teatro"
+      >
+        <View style={styles.eventIconContainer}>
+          <Ionicons name="easel-outline" size={32} color={colors.primary} />
+        </View>
+        <View style={styles.eventTextContainer}>
+          <Text style={styles.eventButtonTitle}>Teatro</Text>
+          <Text style={styles.eventButtonSubtitle}>
+            Obras, presentaciones y espectáculos
+          </Text>
+        </View>
+        <Ionicons name="chevron-forward" size={24} color={colors.textSecondary} />
+      </Pressable>
+
+      <Pressable
+        style={({ pressed }) => [
+          styles.eventButton,
+          pressed && styles.eventButtonPressed,
+        ]}
+        onPress={() => navigation.navigate('Cine')}
+        accessibilityRole="button"
+        accessibilityLabel="Abrir Cine"
+      >
+        <View style={styles.eventIconContainer}>
+          <Ionicons name="film-outline" size={32} color={colors.primary} />
+        </View>
+        <View style={styles.eventTextContainer}>
+          <Text style={styles.eventButtonTitle}>Cine</Text>
+          <Text style={styles.eventButtonSubtitle}>
+            Películas, horarios y funciones
+          </Text>
+        </View>
+        <Ionicons name="chevron-forward" size={24} color={colors.textSecondary} />
+      </Pressable>
+    </View>
+  );
+}
+
+class ErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { hasError: boolean }
+> {
   state = { hasError: false };
 
   static getDerivedStateFromError() {
@@ -38,6 +144,7 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
         </View>
       );
     }
+
     return this.props.children;
   }
 }
@@ -61,17 +168,28 @@ function HomeTabs() {
           paddingBottom: 8,
           paddingTop: 8,
         },
+        tabBarLabelStyle: {
+          fontSize: 10,
+          fontWeight: '700',
+        },
         tabBarIcon: ({ color, size }: { color: string; size: number }) => {
           const iconMap = {
             Cartelera: 'film-outline',
-            'Mis Tickets': 'ticket-outline',
-            Admin: 'grid-outline',
             Estadios: 'football-outline',
             Parqueaderos: 'car-outline',
             Buses: 'bus-outline',
+            Eventos: 'calendar-outline',
+            'Mis Tickets': 'ticket-outline',
+            Admin: 'grid-outline',
           } as const;
 
-          return <Ionicons name={iconMap[route.name as keyof typeof iconMap] ?? 'film-outline'} size={size} color={color} />;
+          return (
+            <Ionicons
+              name={iconMap[route.name as keyof typeof iconMap] ?? 'apps-outline'}
+              size={size}
+              color={color}
+            />
+          );
         },
       })}
     >
@@ -79,6 +197,7 @@ function HomeTabs() {
       {isEnabled('stadiums') && <Tab.Screen name="Estadios" component={StadiumScreen} />}
       {isEnabled('parking') && <Tab.Screen name="Parqueaderos" component={ParkingScreen} />}
       {isEnabled('buses') && <Tab.Screen name="Buses" component={BusScreen} />}
+      <Tab.Screen name="Eventos" component={EventsScreen} />
       <Tab.Screen name="Mis Tickets" component={MyTicketsScreen} />
       {canUseAdmin && <Tab.Screen name="Admin" component={AdminHubScreen} />}
     </Tab.Navigator>
@@ -86,7 +205,7 @@ function HomeTabs() {
 }
 
 function AppContent() {
-  const { user, restoring } = useAuth();
+  const { restoring } = useAuth();
 
   if (restoring) {
     return (
@@ -99,8 +218,16 @@ function AppContent() {
   return (
     <ErrorBoundary>
       <NavigationContainer>
-        <Stack.Navigator initialRouteName="HomeTabs" screenOptions={{ headerShown: false }}>
+        <Stack.Navigator
+          initialRouteName="HomeTabs"
+          screenOptions={{
+            headerShown: false,
+          }}
+        >
           <Stack.Screen name="HomeTabs" component={HomeTabs} />
+          <Stack.Screen name="Cine" component={CinemaScreen} />
+          <Stack.Screen name="Teatro" component={TheaterScreen} />
+          <Stack.Screen name="Conciertos" component={ConcertScreen} />
           <Stack.Screen name="SeatSelection" component={SeatSelectionScreen} />
           <Stack.Screen name="Checkout" component={CheckoutScreen} />
           <Stack.Screen name="Ticket" component={TicketScreen} />
@@ -115,12 +242,77 @@ function AppContent() {
 export default function App() {
   return (
     <AuthProvider>
-      <ModuleProvider><AppContent /></ModuleProvider>
+      <ModuleProvider>
+        <AppContent />
+      </ModuleProvider>
     </AuthProvider>
   );
 }
 
 const styles = StyleSheet.create({
+  eventsContainer: {
+    flex: 1,
+    backgroundColor: colors.background,
+    paddingHorizontal: 20,
+    paddingTop: 55,
+  },
+  eventsHeader: {
+    alignItems: 'center',
+    marginBottom: 32,
+  },
+  eventsTitle: {
+    color: colors.text,
+    fontSize: 30,
+    fontWeight: '800',
+    marginTop: 12,
+  },
+  eventsSubtitle: {
+    color: colors.textSecondary,
+    fontSize: 14,
+    textAlign: 'center',
+    marginTop: 8,
+    lineHeight: 20,
+  },
+  eventButton: {
+    width: '100%',
+    minHeight: 88,
+    backgroundColor: colors.surface,
+    borderRadius: 18,
+    marginBottom: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  eventButtonPressed: {
+    opacity: 0.75,
+    transform: [{ scale: 0.98 }],
+  },
+  eventIconContainer: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    backgroundColor: 'rgba(14,165,233,0.12)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 14,
+  },
+  eventTextContainer: {
+    flex: 1,
+  },
+  eventButtonTitle: {
+    color: colors.text,
+    fontSize: 18,
+    fontWeight: '800',
+    marginBottom: 4,
+  },
+  eventButtonSubtitle: {
+    color: colors.textSecondary,
+    fontSize: 12,
+    lineHeight: 17,
+  },
   errorContainer: {
     flex: 1,
     justifyContent: 'center',
