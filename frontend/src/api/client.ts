@@ -310,9 +310,10 @@ export type AdminParkingSpaceInput = { spaceNumber: number; floor?: number; code
 export type BusRoute = {
   id: string;
   origin: string;
+  originCity?: string;
   destination: string;
   operator: string;
-  originTerminal: 'QUITUMBE' | 'CARCELEN';
+  originTerminal: 'QUITUMBE' | 'CARCELEN' | 'CALDERON' | 'GYE' | 'ABA' | 'MTA';
   status: 'ACTIVE' | 'INACTIVE';
   _count?: { trips: number };
   trips?: BusTrip[];
@@ -492,12 +493,13 @@ export function payParkingTicket(token: string, ticketId: string, paymentMethod:
   return request<{ success: boolean; ticket: ParkingTicketResponse['ticket']; paymentMethod: string }>(`/api/parking/tickets/${ticketId}/pay`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: JSON.stringify({ paymentMethod }) });
 }
 
-export function getBuses(terminal?: string, destination?: string, operator?: string) {
-  const params = new URLSearchParams();
-  if (terminal?.trim()) params.set('terminal', terminal.trim().toUpperCase());
-  if (destination?.trim()) params.set('destination', destination.trim());
-  if (operator?.trim()) params.set('operator', operator.trim());
-  const query = params.toString();
+export function getBuses(params?: { originCity?: string; terminal?: string; destination?: string; operator?: string }) {
+  const searchParams = new URLSearchParams();
+  if (params?.originCity?.trim()) searchParams.set('originCity', params.originCity.trim());
+  if (params?.terminal?.trim()) searchParams.set('terminal', params.terminal.trim().toUpperCase());
+  if (params?.destination?.trim()) searchParams.set('destination', params.destination.trim());
+  if (params?.operator?.trim()) searchParams.set('operator', params.operator.trim());
+  const query = searchParams.toString();
   return request<{ routes: BusRoute[] }>(`/api/buses${query ? `?${query}` : ''}`);
 }
 

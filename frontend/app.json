@@ -25,7 +25,13 @@
     },
     "plugins": [
       "expo-secure-store",
-      "expo-camera"
+      "expo-camera",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Permitir acceso a tu ubicación para compartirla con tu conductor o acompañantes."
+        }
+      ]
     ]
   }
 }

@@ -1,7 +1,8 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, Linking, Platform, Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import * as Location from 'expo-location';
 import { getMyTickets, TicketDetails } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { colors, typography } from '../theme';
@@ -40,6 +41,7 @@ export default function MyTicketsScreen() {
   );
 
   const stadiumTicket = (ticket: TicketDetails) => ticket.qrPayload.startsWith('stadiumsafe:');
+  const busTicket = (ticket: TicketDetails) => ticket.qrPayload.startsWith('bussafe:');
   const parkingTicket = (ticket: TicketDetails) => ticket.qrPayload.startsWith('parkingsafe:');
   const parkingSpotLabel = (ticket: TicketDetails) => {
     const spaceNumber = Number(ticket.seatNumber);
@@ -50,6 +52,75 @@ export default function MyTicketsScreen() {
   };
   const displayTitle = (ticket: TicketDetails) => parkingTicket(ticket) ? ticket.event.title.replace(/\s*\((?:demo|demostración)\)/gi, '') : ticket.event.title;
   const statusLabel = (status: TicketDetails['status']) => status === 'VALID' ? 'Activo' : status === 'USED' ? 'Usado' : 'Expirado';
+
+  const openMapsAt = (latitude: number, longitude: number) => {
+    const base = `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`;
+    const uri = Platform.OS === 'ios'
+      ? `comgooglemaps://?q=${latitude},${longitude}`
+      : `geo:${latitude},${longitude}?q=${latitude},${longitude}`;
+    Linking.openURL(uri).catch(() => Linking.openURL(base));
+  };
+
+  const shareLocation = async () => {
+    try {
+      if (Platform.OS === 'web') {
+        if (!navigator.geolocation) {
+          Alert.alert('No disponible', 'Tu navegador no soporta geolocalización.');
+          return;
+        }
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            const { latitude, longitude } = position.coords;
+            window.open(`https://www.google.com/maps?q=${latitude},${longitude}`, '_blank');
+          },
+          () => {
+            Alert.alert('No se pudo obtener la ubicación', 'Verifica que hayas dado permiso en tu navegador.');
+          },
+          { enableHighAccuracy: true, timeout: 10000 },
+        );
+        return;
+      }
+
+      Alert.alert(
+        'Compartir ubicación en tiempo real',
+        'Para que te sigan en vivo durante el viaje, abriremos Google Maps.\n\n1. En Maps, toca el botón azul de tu ubicación actual.\n2. Toca "Compartir ubicación" (o el ícono de ubicación).\n3. Elige por cuánto tiempo (ej. 1 hora) y a quién enviársela.\n\nTu ubicación se actualizará en tiempo real hasta por 24 horas.',
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          { text: 'Abrir Google Maps', onPress: () => void openMaps() },
+        ],
+      );
+    } catch {
+      Alert.alert('Error', 'No se pudo obtener tu ubicación.');
+    }
+  };
+
+  const openMaps = async () => {
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permiso requerido', 'Activa el acceso a la ubicación desde la configuración de tu dispositivo para compartirla con Google Maps.');
+        return;
+      }
+      const location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+      openMapsAt(location.coords.latitude, location.coords.longitude);
+    } catch {
+      Alert.alert('Error', 'No se pudo obtener tu ubicación.');
+    }
+  };
+
+  const ticketIcon = (ticket: TicketDetails) => {
+    if (busTicket(ticket)) return 'bus-outline';
+    if (stadiumTicket(ticket)) return 'football-outline';
+    if (parkingTicket(ticket)) return 'car-outline';
+    return 'film-outline';
+  };
+
+  const ticketTypeLabel = (ticket: TicketDetails) => {
+    if (busTicket(ticket)) return 'BUS';
+    if (stadiumTicket(ticket)) return 'ESTADIO';
+    if (parkingTicket(ticket)) return 'PARQUEADERO';
+    return 'EVENTO';
+  };
 
   const openTicket = (ticket: TicketDetails) => {
     navigation.navigate('Ticket', {
@@ -98,7 +169,7 @@ export default function MyTicketsScreen() {
         renderItem={({ item }) => (
           <Pressable accessibilityRole="button" accessibilityLabel={`Abrir ticket de ${item.event.title}, localidad ${item.seatNumber}`} style={[styles.card, item.status === 'VALID' && styles.activeCard, item.status === 'USED' && styles.usedCard]} onPress={() => openTicket(item)}>
             <View style={styles.cardTopline}>
-              <View style={styles.typeRow}><Ionicons name={stadiumTicket(item) ? 'football-outline' : parkingTicket(item) ? 'car-outline' : 'film-outline'} size={15} color={colors.primary} /><Text style={styles.typeText}>{stadiumTicket(item) ? 'ESTADIO' : parkingTicket(item) ? 'PARQUEADERO' : 'EVENTO'}</Text></View>
+              <View style={styles.typeRow}><Ionicons name={ticketIcon(item)} size={15} color={colors.primary} /><Text style={styles.typeText}>{ticketTypeLabel(item)}</Text></View>
               <View style={[styles.statusBadge, item.status !== 'VALID' && styles.statusBadgeMuted]}><Text style={[styles.status, item.status !== 'VALID' && styles.statusMuted]}>{statusLabel(item.status)}</Text></View>
             </View>
             <Text style={styles.movieTitle}>{displayTitle(item)}</Text>
@@ -110,7 +181,15 @@ export default function MyTicketsScreen() {
             </View>
             <View style={styles.cardFooter}>
               <Text style={styles.ticketId}>ID {item.id.slice(-8).toUpperCase()}</Text>
-              <View style={styles.qrAction}><Ionicons name="qr-code-outline" size={18} color={colors.primary} /><Text style={styles.open}>Abrir QR</Text><Ionicons name="arrow-forward" size={14} color={colors.primary} /></View>
+              <View style={styles.footerActions}>
+                {busTicket(item) && item.status === 'VALID' && (
+                  <Pressable accessibilityRole="button" accessibilityLabel="Compartir ubicación en tiempo real" style={styles.shareAction} onPress={(e) => { e.stopPropagation?.(); void shareLocation(); }}>
+                    <Ionicons name="location-outline" size={18} color={colors.primary} />
+                    <Text style={styles.share}>Ubicación en vivo</Text>
+                  </Pressable>
+                )}
+                <View style={styles.qrAction}><Ionicons name="qr-code-outline" size={18} color={colors.primary} /><Text style={styles.open}>Abrir QR</Text><Ionicons name="arrow-forward" size={14} color={colors.primary} /></View>
+              </View>
             </View>
           </Pressable>
         )}
@@ -156,6 +235,9 @@ const styles = StyleSheet.create({
   detailRow: { flexDirection: 'row', alignItems: 'center', gap: 9 },
   meta: { color: colors.textSecondary, fontSize: 12, flex: 1 },
   cardFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: colors.border, marginTop: 14, paddingTop: 12 },
+  footerActions: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  shareAction: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  share: { color: colors.primary, fontSize: 12, fontWeight: '800' },
   ticketId: { color: colors.textSecondary, fontSize: 10, letterSpacing: 0.5 },
   qrAction: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   open: { color: colors.primary, fontSize: 12, fontWeight: '800' },

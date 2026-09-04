@@ -234,9 +234,10 @@ const parkingPaymentSchema = z.object({
 
 const busRouteSchema = z.object({
   origin: z.string().trim().min(1).max(100),
+  originCity: z.string().trim().min(1).max(100).optional(),
   destination: z.string().trim().min(1).max(100),
   operator: z.string().trim().min(1).max(120),
-  originTerminal: z.enum(['QUITUMBE', 'CARCELEN']).default('QUITUMBE'),
+  originTerminal: z.enum(['QUITUMBE', 'CARCELEN', 'CALDERON', 'GYE', 'ABA', 'MTA']).default('QUITUMBE'),
   status: z.enum(['ACTIVE', 'INACTIVE']).optional(),
 });
 
@@ -1111,7 +1112,8 @@ app.get('/api/buses', async (_req, res, next) => {
     const terminal = _req.query.terminal ? String(_req.query.terminal) : undefined;
     const destination = _req.query.destination ? String(_req.query.destination) : undefined;
     const operator = _req.query.operator ? String(_req.query.operator) : undefined;
-    const routes = await prisma.busRoute.findMany({ where: { status: 'ACTIVE', originTerminal: terminal as BusOriginTerminal | undefined, destination: destination ? { contains: destination, mode: 'insensitive' } : undefined, operator: operator ? { contains: operator, mode: 'insensitive' } : undefined }, include: { trips: { where: { status: { not: 'CANCELLED' } }, include: { tickets: { where: { status: { in: ['VALID', 'USED'] } }, select: { seatNumber: true } } }, orderBy: { departureTime: 'asc' } } }, orderBy: { origin: 'asc' } });
+    const originCity = _req.query.originCity ? String(_req.query.originCity) : undefined;
+    const routes = await prisma.busRoute.findMany({ where: { status: 'ACTIVE', originTerminal: terminal as BusOriginTerminal | undefined, originCity, destination: destination ? { contains: destination, mode: 'insensitive' } : undefined, operator: operator ? { contains: operator, mode: 'insensitive' } : undefined }, include: { trips: { where: { status: { not: 'CANCELLED' } }, include: { tickets: { where: { status: { in: ['VALID', 'USED'] } }, select: { seatNumber: true } } }, orderBy: { departureTime: 'asc' } } }, orderBy: { origin: 'asc' } });
     return res.json({ routes: routes.map(({ trips, ...route }) => ({ ...route, trips: trips.map(({ tickets, ...trip }) => ({ ...trip, occupiedSeats: tickets.map((ticket) => ticket.seatNumber), availableSeats: Math.max(trip.totalSeats - tickets.length, 0) })) })) });
   } catch (error) { next(error); }
 });
@@ -1266,7 +1268,7 @@ app.post('/api/admin/bus-routes', authMiddleware, async (req, res, next) => {
     const user = (req as Request & { user: { role: UserRole } }).user;
     if (user.role !== UserRole.ADMIN) throw new AppError('Only administrators can manage bus routes.', 403);
     const payload = busRouteSchema.parse(req.body);
-    return res.status(201).json({ route: await prisma.busRoute.create({ data: { ...payload, status: payload.status ?? 'ACTIVE' } }) });
+    return res.status(201).json({ route: await prisma.busRoute.create({ data: { ...payload, originCity: payload.originCity ?? payload.origin, status: payload.status ?? 'ACTIVE' } }) });
   } catch (error) { next(error); }
 });
 
@@ -1275,7 +1277,7 @@ app.patch('/api/admin/bus-routes/:routeId', authMiddleware, async (req, res, nex
     const user = (req as Request & { user: { role: UserRole } }).user;
     if (user.role !== UserRole.ADMIN) throw new AppError('Only administrators can manage bus routes.', 403);
     const payload = busRouteSchema.parse(req.body);
-    return res.json({ route: await prisma.busRoute.update({ where: { id: req.params.routeId }, data: { ...payload, status: payload.status ?? 'ACTIVE' } }) });
+    return res.json({ route: await prisma.busRoute.update({ where: { id: req.params.routeId }, data: { ...payload, originCity: payload.originCity ?? payload.origin, status: payload.status ?? 'ACTIVE' } }) });
   } catch (error) { next(error); }
 });
 

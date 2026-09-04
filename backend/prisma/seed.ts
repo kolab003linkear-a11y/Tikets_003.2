@@ -396,21 +396,81 @@ async function main() {
     });
   }
 
-  const busRoutes = [
-    { id: 'route-quito-guayaquil', origin: 'Quito', destination: 'Guayaquil', operator: 'Operador Sierra Costa', originTerminal: BusOriginTerminal.QUITUMBE },
-    { id: 'route-quito-cuenca', origin: 'Quito', destination: 'Cuenca', operator: 'Operador Andino', originTerminal: BusOriginTerminal.CARCELEN },
-  ];
-  for (const route of busRoutes) {
-    await prisma.busRoute.upsert({ where: { id: route.id }, update: { ...route, status: BusRouteStatus.ACTIVE }, create: { ...route, status: BusRouteStatus.ACTIVE } });
+  const BUS_CITIES = ['Quito', 'Guayaquil', 'Cuenca', 'Ambato', 'Manta'];
+  const ROUTE_PRICE_MINUTES: Record<string, { price: number; minutes: number }> = {
+    'Quito|Guayaquil': { price: 10.5, minutes: 480 },
+    'Quito|Cuenca': { price: 9.0, minutes: 480 },
+    'Quito|Ambato': { price: 4.5, minutes: 150 },
+    'Quito|Manta': { price: 11.0, minutes: 480 },
+    'Guayaquil|Cuenca': { price: 6.5, minutes: 240 },
+    'Guayaquil|Ambato': { price: 8.0, minutes: 360 },
+    'Guayaquil|Manta': { price: 5.0, minutes: 180 },
+    'Cuenca|Ambato': { price: 7.5, minutes: 300 },
+    'Cuenca|Manta': { price: 8.5, minutes: 330 },
+    'Ambato|Manta': { price: 7.5, minutes: 350 },
+  };
+  const BUS_OPERATORS = ['TransEsmeraldas', 'Cooperativa San Cristóbal', 'Vivero-Campos', 'CIFA Internacional', 'Cooperativa Los Andes'];
+  const TERMINAL_BY_CITY: Record<string, BusOriginTerminal[]> = {
+    Quito: [BusOriginTerminal.QUITUMBE, BusOriginTerminal.CALDERON],
+    Guayaquil: [BusOriginTerminal.GYE],
+    Cuenca: [BusOriginTerminal.CARCELEN],
+    Ambato: [BusOriginTerminal.ABA],
+    Manta: [BusOriginTerminal.MTA],
+  };
+  const DEPARTURES = ['06:00', '10:00', '14:00', '18:00'];
+
+  const createdRows: Array<{ routeId: string; tripId: string; origin: string; destination: string; operator: string; originTerminal: BusOriginTerminal; departureTime: Date; arrivalTime: Date; price: number; totalSeats: number; boardingPlatform: string; baggageInfo: string }> = [];
+  let routeCounter = 0;
+  let tripCounter = 0;
+
+  for (const origin of BUS_CITIES) {
+    for (const destination of BUS_CITIES) {
+      if (origin === destination) continue;
+      const info = ROUTE_PRICE_MINUTES[`${origin}|${destination}`] ?? ROUTE_PRICE_MINUTES[`${destination}|${origin}`];
+      if (!info) continue;
+      for (const originTerminal of TERMINAL_BY_CITY[origin]) {
+        routeCounter += 1;
+        const routeId = `route-${routeCounter}`;
+        const operator = BUS_OPERATORS[routeCounter % BUS_OPERATORS.length];
+        await prisma.busRoute.upsert({
+          where: { id: routeId },
+          update: { origin, originCity: origin, destination, operator, originTerminal, status: BusRouteStatus.ACTIVE },
+          create: { id: routeId, origin, originCity: origin, destination, operator, originTerminal, status: BusRouteStatus.ACTIVE },
+        });
+        DEPARTURES.forEach((departureTime, index) => {
+          tripCounter += 1;
+          const [h, m] = departureTime.split(':').map(Number);
+          const totalMinutes = h * 60 + m + info.minutes;
+          const dayOffset = Math.floor(totalMinutes / (24 * 60));
+          const nightHour = Math.floor((totalMinutes % (24 * 60)) / 60) % 24;
+          const nightMinute = totalMinutes % 60;
+          const departure = new Date(2026, 8, 1 + index, h, m);
+          const arrival = new Date(2026, 8, 1 + index + dayOffset, nightHour, nightMinute);
+          createdRows.push({
+            routeId,
+            tripId: `trip-${String(tripCounter).padStart(4, '0')}`,
+            origin,
+            destination,
+            operator,
+            originTerminal,
+            departureTime: departure,
+            arrivalTime: arrival,
+            price: info.price,
+            totalSeats: 40,
+            boardingPlatform: `Andén ${7 + (tripCounter % 20)}`,
+            baggageInfo: '1 pieza incluida',
+          });
+        });
+      }
+    }
   }
 
-  const busTrips = [
-    { id: 'trip-quito-guayaquil-001', routeId: 'route-quito-guayaquil', departureTime: '2026-09-01T07:00:00-05:00', arrivalTime: '2026-09-01T15:00:00-05:00', boardingPlatform: 'Andén 12', baggageInfo: '1 pieza incluida', price: 18, totalSeats: 40 },
-    { id: 'trip-quito-guayaquil-002', routeId: 'route-quito-guayaquil', departureTime: '2026-09-01T21:00:00-05:00', arrivalTime: '2026-09-02T05:00:00-05:00', boardingPlatform: 'Andén 8', baggageInfo: 'Equipaje sujeto a validación del operador', price: 20, totalSeats: 40 },
-    { id: 'trip-quito-cuenca-001', routeId: 'route-quito-cuenca', departureTime: '2026-09-02T08:30:00-05:00', arrivalTime: '2026-09-02T17:00:00-05:00', boardingPlatform: 'Andén 4', baggageInfo: '1 pieza incluida', price: 16, totalSeats: 36 },
-  ];
-  for (const trip of busTrips) {
-    await prisma.busTrip.upsert({ where: { id: trip.id }, update: { ...trip, departureTime: new Date(trip.departureTime), arrivalTime: new Date(trip.arrivalTime), status: BusTripStatus.SCHEDULED }, create: { ...trip, departureTime: new Date(trip.departureTime), arrivalTime: new Date(trip.arrivalTime), status: BusTripStatus.SCHEDULED } });
+  for (const row of createdRows) {
+    await prisma.busTrip.upsert({
+      where: { id: row.tripId },
+      update: { routeId: row.routeId, departureTime: row.departureTime, arrivalTime: row.arrivalTime, boardingPlatform: row.boardingPlatform, baggageInfo: row.baggageInfo, price: row.price, totalSeats: row.totalSeats, status: BusTripStatus.SCHEDULED },
+      create: { id: row.tripId, routeId: row.routeId, departureTime: row.departureTime, arrivalTime: row.arrivalTime, boardingPlatform: row.boardingPlatform, baggageInfo: row.baggageInfo, price: row.price, totalSeats: row.totalSeats, status: BusTripStatus.SCHEDULED },
+    });
   }
 
   console.log('Seed ok:', {
@@ -422,7 +482,8 @@ async function main() {
     matches: 12,
     favoriteTeams: favoriteTeamIds.length,
     parkingLots: parkingLots.length,
-    busTrips: busTrips.length,
+    busRoutes: routeCounter,
+    busTrips: tripCounter,
   });
 }
 

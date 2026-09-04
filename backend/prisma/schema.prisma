@@ -88,6 +88,10 @@ enum ParkingSpaceStatus {
 enum BusOriginTerminal {
   QUITUMBE
   CARCELEN
+  CALDERON
+  GYE
+  ABA
+  MTA
 }
 
 enum BusRouteStatus {
@@ -423,6 +427,7 @@ model ParkingTicket {
 model BusRoute {
   id            String          @id @default(cuid())
   origin        String
+  originCity    String          @map("origin_city")
   destination   String
   operator      String
   originTerminal BusOriginTerminal @default(QUITUMBE) @map("origin_terminal")
