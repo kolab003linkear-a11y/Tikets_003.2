@@ -30,8 +30,8 @@ export default function ProfileScreen() {
   }, [user?.email, user?.fullName, user?.phone]);
 
   const initials = (fullName || user?.email?.split('@')[0] || 'OM').split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase();
-  const roleLabel = user?.role === 'ADMIN' ? 'Administrador' : user?.role === 'SCANNER' ? 'Control de acceso' : 'Cliente';
-  const showAdminAccess = !!user && user.role !== 'ADMIN' && user.role !== 'SCANNER';
+  const roleLabel = !user ? 'Invitado' : user.role === 'ADMIN' ? 'Administrador' : user.role === 'SCANNER' ? 'Control de acceso' : 'Cliente';
+  const showAdminAccess = !user || (user.role !== 'ADMIN' && user.role !== 'SCANNER');
   
   // Debug logging
   console.log('[ProfileScreen] user:', user);
@@ -95,7 +95,7 @@ export default function ProfileScreen() {
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
         <View style={styles.headerRow}>
           <View>
-            <Pressable accessibilityRole="button" accessibilityLabel="Volver a la cartelera" style={styles.backButton} onPress={() => navigation.navigate('HomeTabs', { screen: 'Cartelera' })}><Ionicons name="arrow-back" size={17} color={colors.primary} /><Text style={styles.backText}>Cartelera</Text></Pressable>
+            <Pressable accessibilityRole="button" accessibilityLabel="Volver al inicio" style={styles.backButton} onPress={() => navigation.navigate('HomeTabs', { screen: 'Inicio' })}><Ionicons name="arrow-back" size={17} color={colors.primary} /><Text style={styles.backText}>Inicio</Text></Pressable>
             <Text style={styles.overline}>Tu cuenta</Text>
             <Text style={styles.title}>Perfil</Text>
             <Text style={styles.subtitle}>Tu espacio para gestionar entradas y preferencias.</Text>
@@ -148,7 +148,7 @@ export default function ProfileScreen() {
             <View style={styles.avatar}><Text style={styles.avatarText}>{initials}</Text></View>
             <View style={styles.identityCopy}>
               <Text style={styles.greeting}>Hola, qué gusto verte</Text>
-              <Text style={styles.email} numberOfLines={1}>{user?.email}</Text>
+              <Text style={styles.email} numberOfLines={1}>{user?.email ?? 'Sin sesión iniciada'}</Text>
               <View style={styles.roleBadge}>
                 <Ionicons name="shield-checkmark-outline" size={13} color={colors.success} />
                 <Text style={styles.roleText}>{roleLabel}</Text>
@@ -157,91 +157,95 @@ export default function ProfileScreen() {
           </View>
           <View style={styles.memberLine}>
             <Ionicons name="calendar-clear-outline" size={15} color={colors.textSecondary} />
-            <Text style={styles.memberText}>Miembro desde {memberSince}</Text>
-            <View style={styles.sessionStatus}><View style={styles.sessionDot} /><Text style={styles.sessionText}>Sesión activa</Text></View>
+            <Text style={styles.memberText}>{user ? `Miembro desde ${memberSince}` : 'Acceso libre'}</Text>
+            <View style={styles.sessionStatus}><View style={styles.sessionDot} /><Text style={styles.sessionText}>{user ? 'Sesión activa' : 'Modo invitado'}</Text></View>
           </View>
         </View>
 
-        <Text style={styles.sectionTitle}>Accesos rápidos</Text>
-        <View style={styles.quickGrid}>
-          <Pressable style={styles.quickItem} onPress={() => navigation.navigate('HomeTabs', { screen: 'Mis Tickets' })}>
-            <View style={[styles.quickIcon, styles.quickIconBlue]}><Ionicons name="ticket-outline" size={20} color={colors.primary} /></View>
-            <Text style={styles.quickTitle}>Mis tickets</Text>
-            <Text style={styles.quickHint}>Ver tus entradas</Text>
-          </Pressable>
-          <Pressable style={styles.quickItem} onPress={() => navigation.navigate('HomeTabs', { screen: 'Estadios' })}>
-            <View style={[styles.quickIcon, styles.quickIconGold]}><Ionicons name="football-outline" size={20} color={colors.warning} /></View>
-            <Text style={styles.quickTitle}>Estadios</Text>
-            <Text style={styles.quickHint}>Explorar partidos</Text>
-          </Pressable>
-          {user?.role === 'ADMIN' && <Pressable accessibilityRole="button" accessibilityLabel="Abrir gestión de parqueaderos" style={styles.quickItem} onPress={() => navigation.navigate('AdminParking')}>
-  <View style={[styles.quickIcon, styles.quickIconBlue]}><Ionicons name="car-outline" size={20} color="#fff" /></View>
-  <Text style={styles.quickTitle}>Parqueaderos</Text>
-  <Text style={styles.quickHint}>Gestión ParkSwift</Text>
-          </Pressable>}
-          <Pressable style={styles.quickItem} onPress={() => setSettingsOpen(true)}>
-            <View style={[styles.quickIcon, styles.quickIconGreen]}><Ionicons name="lock-closed-outline" size={20} color={colors.success} /></View>
-            <Text style={styles.quickTitle}>Cuenta segura</Text>
-            <Text style={styles.quickHint}>Sesión protegida</Text>
-          </Pressable>
-        </View>
+        {user && <>
+          <Text style={styles.sectionTitle}>Accesos rápidos</Text>
+          <View style={styles.quickGrid}>
+            <Pressable style={styles.quickItem} onPress={() => navigation.navigate('HomeTabs', { screen: 'Mis Tickets' })}>
+              <View style={[styles.quickIcon, styles.quickIconBlue]}><Ionicons name="ticket-outline" size={20} color={colors.primary} /></View>
+              <Text style={styles.quickTitle}>Mis tickets</Text>
+              <Text style={styles.quickHint}>Ver tus entradas</Text>
+            </Pressable>
+            <Pressable style={styles.quickItem} onPress={() => navigation.navigate('HomeTabs', { screen: 'Estadios' })}>
+              <View style={[styles.quickIcon, styles.quickIconGold]}><Ionicons name="football-outline" size={20} color={colors.warning} /></View>
+              <Text style={styles.quickTitle}>Estadios</Text>
+              <Text style={styles.quickHint}>Explorar partidos</Text>
+            </Pressable>
+            {user.role === 'ADMIN' && <Pressable accessibilityRole="button" accessibilityLabel="Abrir gestión de parqueaderos" style={styles.quickItem} onPress={() => navigation.navigate('AdminParking')}>
+              <View style={[styles.quickIcon, styles.quickIconBlue]}><Ionicons name="car-outline" size={20} color="#fff" /></View>
+              <Text style={styles.quickTitle}>Parqueaderos</Text>
+              <Text style={styles.quickHint}>Gestión ParkSwift</Text>
+            </Pressable>}
+            <Pressable style={styles.quickItem} onPress={() => setSettingsOpen(true)}>
+              <View style={[styles.quickIcon, styles.quickIconGreen]}><Ionicons name="lock-closed-outline" size={20} color={colors.success} /></View>
+              <Text style={styles.quickTitle}>Cuenta segura</Text>
+              <Text style={styles.quickHint}>Sesión protegida</Text>
+            </Pressable>
+          </View>
+        </>}
 
         <Text style={styles.sectionTitle}>Acceso de cuenta</Text>
         <View style={styles.accessCard}>
           <View style={styles.accessIcon}><Ionicons name={user?.role === 'CLIENT' ? 'person-outline' : 'shield-outline'} size={21} color={colors.warning} /></View>
           <View style={styles.accessCopy}>
             <Text style={styles.accessTitle}>{roleLabel}</Text>
-            <Text style={styles.accessText}>{user?.role === 'ADMIN' ? 'Puedes gestionar eventos, salas y validaciones.' : user?.role === 'SCANNER' ? 'Puedes validar accesos desde el escáner.' : 'Puedes comprar entradas y consultar tus tickets.'}</Text>
+            <Text style={styles.accessText}>{user?.role === 'ADMIN' ? 'Puedes gestionar eventos, salas y validaciones.' : user?.role === 'SCANNER' ? 'Puedes validar accesos desde el escáner.' : user ? 'Puedes comprar entradas y consultar tus tickets.' : 'Puedes explorar la aplicación y comprar como invitado.'}</Text>
           </View>
           <Ionicons name="checkmark-circle" size={20} color={colors.success} />
         </View>
 
-        <Text style={styles.sectionTitle}>Datos personales</Text>
-        <AppCard style={styles.card}>
-          <AppInput
-            label="Nombre completo"
-            autoCapitalize="words"
-            value={fullName}
-            onChangeText={setFullName}
-            placeholder="Tu nombre completo"
-            placeholderTextColor={colors.textSecondary}
-            style={styles.input}
-          />
-          <AppInput
-            label="Correo electrónico"
-            autoCapitalize="none"
-            keyboardType="email-address"
-            style={styles.input}
-            value={email}
-            onChangeText={setEmail}
-            placeholder="tu@correo.com"
-            placeholderTextColor={colors.textSecondary}
-          />
-          <AppInput
-            label="Teléfono"
-            keyboardType="phone-pad"
-            value={phone}
-            onChangeText={setPhone}
-            placeholder="+593 99 999 9999"
-            placeholderTextColor={colors.textSecondary}
-            style={styles.input}
-          />
-          <Pressable style={[styles.primaryButton, saving && styles.disabled]} onPress={() => void save()} disabled={saving}>
-            {saving ? <ActivityIndicator color={colors.text} /> : <><Ionicons name="checkmark-circle-outline" size={18} color={colors.text} /><Text style={styles.buttonText}>Guardar cambios</Text></>}
-          </Pressable>
-          {saved && <View style={styles.savedLine}><Ionicons name="checkmark-circle" size={15} color={colors.success} /><Text style={styles.savedText}>Cambios guardados correctamente</Text></View>}
-        </AppCard>
+        {user && <>
+          <Text style={styles.sectionTitle}>Datos personales</Text>
+          <AppCard style={styles.card}>
+            <AppInput
+              label="Nombre completo"
+              autoCapitalize="words"
+              value={fullName}
+              onChangeText={setFullName}
+              placeholder="Tu nombre completo"
+              placeholderTextColor={colors.textSecondary}
+              style={styles.input}
+            />
+            <AppInput
+              label="Correo electrónico"
+              autoCapitalize="none"
+              keyboardType="email-address"
+              style={styles.input}
+              value={email}
+              onChangeText={setEmail}
+              placeholder="tu@correo.com"
+              placeholderTextColor={colors.textSecondary}
+            />
+            <AppInput
+              label="Teléfono"
+              keyboardType="phone-pad"
+              value={phone}
+              onChangeText={setPhone}
+              placeholder="+593 99 999 9999"
+              placeholderTextColor={colors.textSecondary}
+              style={styles.input}
+            />
+            <Pressable style={[styles.primaryButton, saving && styles.disabled]} onPress={() => void save()} disabled={saving}>
+              {saving ? <ActivityIndicator color={colors.text} /> : <><Ionicons name="checkmark-circle-outline" size={18} color={colors.text} /><Text style={styles.buttonText}>Guardar cambios</Text></>}
+            </Pressable>
+            {saved && <View style={styles.savedLine}><Ionicons name="checkmark-circle" size={15} color={colors.success} /><Text style={styles.savedText}>Cambios guardados correctamente</Text></View>}
+          </AppCard>
+        </>}
 
-        <Pressable accessibilityRole="button" accessibilityLabel="Cerrar sesión" style={styles.logoutButton} onPress={() => {
+        {user && <Pressable accessibilityRole="button" accessibilityLabel="Cerrar sesión" style={styles.logoutButton} onPress={() => {
           if (Platform.OS === 'web') {
-            void signOut();
+            void signOut().then(() => navigation.navigate('HomeTabs', { screen: 'Inicio' }));
             return;
           }
-          Alert.alert('Cerrar sesión', '¿Quieres salir de tu cuenta?', [{ text: 'Cancelar', style: 'cancel' }, { text: 'Cerrar sesión', style: 'destructive', onPress: () => void signOut() }]);
+          Alert.alert('Cerrar sesión', '¿Quieres salir de tu cuenta?', [{ text: 'Cancelar', style: 'cancel' }, { text: 'Cerrar sesión', style: 'destructive', onPress: () => void signOut().then(() => navigation.navigate('HomeTabs', { screen: 'Inicio' })) }]);
         }}>
           <Ionicons name="log-out-outline" size={19} color={colors.critical} />
           <Text style={styles.logoutText}>Cerrar sesión</Text>
-        </Pressable>
+        </Pressable>}
       </ScrollView>
     </SafeAreaView>
   );

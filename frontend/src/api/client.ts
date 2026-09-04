@@ -48,7 +48,7 @@ export type AuthResponse = {
   token: string;
 };
 
-export type ModuleKey = 'catalog' | 'stadiums' | 'parking' | 'buses' | 'assistant';
+export type ModuleKey = 'catalog' | 'events' | 'stadiums' | 'parking' | 'buses' | 'assistant';
 export type ModuleSettings = Record<ModuleKey, boolean>;
 
 export type ReservationResponse = {
@@ -478,7 +478,7 @@ export function createParkingTicket(token: string, parkingId: string, spaceNumbe
   return request<ParkingTicketResponse>(`/api/parking/${parkingId}/tickets`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: JSON.stringify({ spaceNumber, date }) });
 }
 
-export function payParkingTicket(token: string, ticketId: string, paymentMethod: 'CARD' | 'APPLE_PAY' | 'PAYPAL' | 'CASH') {
+export function payParkingTicket(token: string, ticketId: string, paymentMethod: 'CARD' | 'GOOGLE_PAY' | 'APPLE_PAY' | 'PAYPAL' | 'CASH') {
   return request<{ success: boolean; ticket: ParkingTicketResponse['ticket']; paymentMethod: string }>(`/api/parking/tickets/${ticketId}/pay`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: JSON.stringify({ paymentMethod }) });
 }
 
@@ -523,10 +523,10 @@ export function createGuestSession(email: string, fullName: string, phone: strin
   });
 }
 
-export function register(email: string, password: string) {
+export function register(email: string, password: string, fullName?: string, phone?: string) {
   return request<AuthResponse>('/api/auth/register', {
     method: 'POST',
-    body: JSON.stringify({ email, password, role: 'CLIENT' }),
+    body: JSON.stringify({ email, password, fullName, phone, role: 'CLIENT' }),
   });
 }
 
@@ -538,7 +538,7 @@ export function createReservation(token: string, userId: string, showtimeId: str
   });
 }
 
-export function confirmDemoPayment(token: string, reservationId: string, paymentMethod: 'CARD' | 'APPLE_PAY' | 'PAYPAL' | 'CASH' = 'CARD') {
+export function confirmDemoPayment(token: string, reservationId: string, paymentMethod: 'CARD' | 'GOOGLE_PAY' | 'APPLE_PAY' | 'PAYPAL' | 'CASH' = 'CARD') {
   return request<PaymentResponse>('/api/payments/demo-confirm', {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}` },

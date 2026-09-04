@@ -31,6 +31,7 @@ export default function HomeScreen() {
   const [matches, setMatches] = useState<StadiumMatch[]>([]);
   const [parking, setParking] = useState<ParkingLot[]>([]);
   const [busRoutes, setBusRoutes] = useState<BusRoute[]>([]);
+  const [recommendedIndex, setRecommendedIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -62,12 +63,37 @@ export default function HomeScreen() {
       const matchesSearch =
         movie.title.toLowerCase().includes(search.toLowerCase()) ||
         movie.synopsis.toLowerCase().includes(search.toLowerCase());
-      const isInEmission = movie.status === 'NOW_SHOWING' || movie.showtimes.length > 0;
-      return matchesCategory && matchesSearch && isInEmission;
+      const isAvailable = movie.status !== 'COMING_SOON' || movie.showtimes.length > 0;
+      return matchesCategory && matchesSearch && isAvailable;
     });
   }, [movies, search, category]);
 
-  const upcomingMovies = useMemo(() => movies.filter((movie) => movie.status === 'COMING_SOON' && movie.showtimes.length === 0), [movies]);
+  const recommendedMovies = useMemo(
+    () => movies.filter((movie) => movie.status !== 'COMING_SOON' || movie.showtimes.length > 0).concat(
+      movies.filter((movie) => movie.status === 'COMING_SOON' && movie.showtimes.length === 0),
+    ),
+    [movies],
+  );
+
+  const recommendedMovie = recommendedMovies[recommendedIndex % Math.max(recommendedMovies.length, 1)];
+
+  const upcomingMovies = useMemo(
+    () => movies.filter((movie) => movie.status === 'COMING_SOON' || movie.category === 'CONCIERTO' || movie.category === 'TEATRO').slice(0, 8),
+    [movies],
+  );
+
+  const upcomingMatches = useMemo(
+    () => matches.filter((match) => match.status === 'SCHEDULED').slice(0, 4),
+    [matches],
+  );
+
+  useEffect(() => {
+    if (recommendedMovies.length < 2) return;
+    const rotation = setInterval(() => {
+      setRecommendedIndex((current) => (current + 1) % recommendedMovies.length);
+    }, 5000);
+    return () => clearInterval(rotation);
+  }, [recommendedMovies.length]);
 
   const formatShowtime = (startTime: string) => {
     const date = new Date(startTime);
@@ -141,100 +167,77 @@ export default function HomeScreen() {
           ))}
         </View>
 
-        <View style={styles.heroCard}>
+        {(upcomingMovies.length > 0 || upcomingMatches.length > 0) && <>
+          <View style={styles.sectionHeading}>
+            <View>
+              <Text style={styles.kicker}>AGENDA</Text>
+              <Text style={styles.sectionTitle}>Próximamente</Text>
+            </View>
+            <Text style={styles.countLabel}>{upcomingMovies.length + upcomingMatches.length} opciones</Text>
+          </View>
+
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.upcomingStrip}>
+            {upcomingMatches.map((match) => (
+              <Pressable key={match.id} style={[styles.upcomingTile, styles.upcomingMatchTile]} onPress={() => navigation.navigate('Estadios')}>
+                <Ionicons name="football-outline" size={24} color={colors.warning} />
+                <Text style={styles.upcomingTileTag}>PARTIDO PRÓXIMO</Text>
+                <Text style={styles.upcomingTileTitle}>{match.homeTeam.name} vs {match.awayTeam.name}</Text>
+                <Text style={styles.upcomingTileMeta}>{match.stadium.name}</Text>
+              </Pressable>
+            ))}
+            {upcomingMovies.map((movie) => (
+              <Pressable key={movie.id} style={styles.upcomingTile} onPress={() => setCategory(movie.category)}>
+                <Image source={{ uri: movie.posterUrl }} style={styles.upcomingTileImage} />
+                <View style={styles.upcomingTileOverlay}>
+                  <Text style={styles.upcomingTileTag}>{movie.category === 'CONCIERTO' ? 'CONCIERTO' : movie.category === 'TEATRO' ? 'OBRA DE TEATRO' : 'PELÍCULA'}</Text>
+                  <Text style={styles.upcomingTileTitle}>{movie.title}</Text>
+                  <Text style={styles.upcomingTileMeta}>Ver más experiencias</Text>
+                </View>
+              </Pressable>
+            ))}
+          </ScrollView>
+        </>}
+
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={recommendedMovie ? `Abrir recomendado: ${recommendedMovie.title}` : 'Recomendación'}
+          style={styles.heroCard}
+          disabled={!recommendedMovie}
+          onPress={() => {
+            if (!recommendedMovie) return;
+            const showtime = recommendedMovie.showtimes[0];
+            if (showtime) {
+              navigation.navigate('SeatSelection', {
+                movieTitle: recommendedMovie.title,
+                showtimeId: showtime.id,
+                startTime: showtime.startTime,
+                roomName: showtime.room.name,
+                price: Number(showtime.price),
+                seatLayout: showtime.room.seatLayout,
+                occupiedSeats: showtime.occupiedSeats,
+              });
+            } else {
+              setCategory(recommendedMovie.category);
+            }
+          }}
+        >
           <Image
             source={{ uri: 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&w=1200&q=80' }}
             style={styles.heroImage}
           />
           <View style={styles.heroOverlay}>
             <View style={styles.heroBadge}><Text style={styles.heroTag}>RECOMENDADO</Text></View>
-            <Text style={styles.heroTitle}>Una noche para recordar</Text>
-            <Text style={styles.heroDescription}>Descubre cine, música y fútbol en un solo lugar.</Text>
+            <Text style={styles.heroTitle}>{recommendedMovie?.title ?? 'Una noche para recordar'}</Text>
+            <Text style={styles.heroDescription}>
+              {recommendedMovie ? 'Reserva tu experiencia recomendada.' : 'Descubre cine, música y fútbol en un solo lugar.'}
+            </Text>
           </View>
-        </View>
+        </Pressable>
 
         <View style={styles.sectionHeading}>
           <View>
-            <Text style={styles.kicker}>PARA TI</Text>
-            <Text style={styles.sectionTitle}>Explora por experiencia</Text>
-          </View>
-          <Text style={styles.countLabel}>{movies.length} eventos</Text>
-        </View>
-
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.quickActions}>
-          <Pressable style={[styles.quickCard, styles.quickCardBlue]} onPress={() => setCategory('CINE')}>
-            <Ionicons name="film-outline" size={24} color={colors.text} />
-            <Text style={styles.quickTitle}>Cine</Text>
-            <Text style={styles.quickMeta}>Historias en pantalla</Text>
-          </Pressable>
-          <Pressable style={[styles.quickCard, styles.quickCardCoral]} onPress={() => setCategory('TEATRO')}>
-            <Ionicons name="sparkles-outline" size={24} color={colors.text} />
-            <Text style={styles.quickTitle}>Teatro</Text>
-            <Text style={styles.quickMeta}>Vive la escena</Text>
-          </Pressable>
-          {isEnabled('stadiums') && <Pressable style={[styles.quickCard, styles.quickCardGreen]} onPress={() => navigation.navigate('Estadios')}>
-            <Ionicons name="football-outline" size={24} color={colors.text} />
-            <Text style={styles.quickTitle}>Estadios</Text>
-            <Text style={styles.quickMeta}>Siente el partido</Text>
-          </Pressable>}
-          {isEnabled('parking') && <Pressable style={[styles.quickCard, styles.quickCardCoral]} onPress={() => navigation.navigate('Parqueaderos')}>
-            <Ionicons name="car-outline" size={24} color={colors.text} /><Text style={styles.quickTitle}>Parqueaderos</Text><Text style={styles.quickMeta}>{parking.length} disponibles</Text>
-          </Pressable>}
-          {isEnabled('buses') && <Pressable style={[styles.quickCard, styles.quickCardBlue]} onPress={() => navigation.navigate('Buses')}>
-            <Ionicons name="bus-outline" size={24} color={colors.text} /><Text style={styles.quickTitle}>Buses</Text><Text style={styles.quickMeta}>{busRoutes.length} rutas activas</Text>
-          </Pressable>}
-        </ScrollView>
-
-        {isEnabled('stadiums') && matches.length > 0 && (
-          <>
-            <View style={styles.sectionHeading}>
-              <View>
-                <Text style={styles.kicker}>EN VIVO PRÓXIMAMENTE</Text>
-                <Text style={styles.sectionTitle}>Partidos destacados</Text>
-              </View>
-              <Pressable onPress={() => navigation.navigate('Estadios')}><Text style={styles.linkText}>Ver todos</Text></Pressable>
-            </View>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.matchRow}>
-              {matches.slice(0, 4).map((match) => (
-                <Pressable key={match.id} style={styles.matchCard} onPress={() => navigation.navigate('Estadios')}>
-                  <Text style={styles.matchLeague}>{match.stadium.city.toUpperCase()} · {match.status === 'LIVE' ? 'EN VIVO' : 'PRÓXIMO'}</Text>
-                  <Text style={styles.matchTeams}>{match.homeTeam.name}</Text>
-                  <Text style={styles.matchVs}>VS</Text>
-                  <Text style={styles.matchTeams}>{match.awayTeam.name}</Text>
-                  <View style={styles.matchFooter}>
-                    <Ionicons name="location-outline" size={14} color={colors.textSecondary} />
-                    <Text style={styles.matchVenue}>{match.stadium.name}</Text>
-                  </View>
-                </Pressable>
-              ))}
-            </ScrollView>
-          </>
-        )}
-
-        {upcomingMovies.length > 0 && (
-          <>
-            <View style={styles.sectionHeading}>
-              <View>
-                <Text style={styles.kicker}>PROGRAMACIÓN OCHOYMEDIO</Text>
-                <Text style={styles.sectionTitle}>Toda la programación</Text>
-              </View>
-              <Text style={styles.countLabel}>{upcomingMovies.length} títulos</Text>
-            </View>
-            <View style={styles.upcomingGrid}>
-              {upcomingMovies.map((movie) => (
-                <View key={movie.id} style={styles.upcomingCard}>
-                  <Image source={{ uri: movie.posterUrl }} style={styles.upcomingImage} resizeMode="cover" />
-                  <View style={styles.upcomingOverlay}><Text style={styles.upcomingTag}>PRÓXIMAMENTE</Text><Text style={styles.upcomingTitle}>{movie.title}</Text><Text style={styles.upcomingSynopsis} numberOfLines={3}>{movie.synopsis}</Text></View>
-                </View>
-              ))}
-            </View>
-          </>
-        )}
-
-        <View style={styles.sectionHeading}>
-          <View>
-            <Text style={styles.kicker}>SELECCIÓN DE HOY</Text>
-            <Text style={styles.sectionTitle}>Cartelera disponible</Text>
+            <Text style={styles.kicker}>CATÁLOGO COMPLETO</Text>
+            <Text style={styles.sectionTitle}>Películas y experiencias</Text>
           </View>
           <Text style={styles.countLabel}>{filteredMovies.length} resultados</Text>
         </View>
@@ -269,7 +272,7 @@ export default function HomeScreen() {
                 <Text style={styles.rating}>★ {movie.rating ?? '-'}</Text>
               </View>
               <Text style={styles.meta}>{movie.category} • {movie.duration} min</Text>
-              <Text style={styles.meta}>{showtime ? `${formatShowtime(showtime.startTime)} • ${showtime.room.name}` : 'Sin funciones disponibles'}</Text>
+              <Text style={styles.meta}>{showtime ? `${formatShowtime(showtime.startTime)} • ${showtime.room.name}` : 'Próximamente'}</Text>
               <Text style={styles.synopsis}>{movie.synopsis}</Text>
               <View style={styles.footer}>
                 <Text style={styles.price}>Desde ${price.toFixed(2)}</Text>
@@ -290,7 +293,7 @@ export default function HomeScreen() {
                     })
                   }
                 >
-                  <Text style={styles.buyText}>Reservar</Text>
+                  <Text style={styles.buyText}>{showtime ? 'Reservar' : 'Próximamente'}</Text>
                 </Pressable>
               </View>
             </View>
@@ -346,7 +349,7 @@ const styles = StyleSheet.create({
   heroCard: { height: 205, borderRadius: 20, overflow: 'hidden', marginBottom: 24, backgroundColor: colors.surface },
   heroImage: { width: '100%', height: '100%' },
   heroOverlay: {
-    ...StyleSheet.absoluteFill,
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: colors.overlay,
     justifyContent: 'flex-end',
     padding: 16,
@@ -365,6 +368,15 @@ const styles = StyleSheet.create({
   quickCardBlue: { backgroundColor: '#1769AA' },
   quickCardCoral: { backgroundColor: '#B9475C' },
   quickCardGreen: { backgroundColor: '#137A70' },
+  quickCardGold: { backgroundColor: '#9A6A16' },
+  upcomingStrip: { gap: 10, paddingBottom: 20 },
+  upcomingTile: { width: 220, height: 126, borderRadius: 16, overflow: 'hidden', backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, position: 'relative' },
+  upcomingMatchTile: { padding: 14, justifyContent: 'flex-end', backgroundColor: '#173B5E' },
+  upcomingTileImage: { width: '100%', height: '100%' },
+  upcomingTileOverlay: { ...StyleSheet.absoluteFillObject, justifyContent: 'flex-end', padding: 12, backgroundColor: 'rgba(10, 37, 64, 0.58)' },
+  upcomingTileTag: { color: colors.warning, fontSize: 9, fontWeight: '800', letterSpacing: 0.8 },
+  upcomingTileTitle: { color: colors.text, fontSize: 15, fontWeight: '800', marginTop: 4 },
+  upcomingTileMeta: { color: colors.textSecondary, fontSize: 10, marginTop: 4 },
   quickTitle: { color: colors.text, fontSize: 17, fontWeight: '800' },
   quickMeta: { color: 'rgba(248,250,252,0.75)', fontSize: 11 },
   matchRow: { gap: 10, paddingBottom: 26 },
@@ -377,7 +389,7 @@ const styles = StyleSheet.create({
   upcomingGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 10, paddingBottom: 26 },
   upcomingCard: { width: '48.5%', height: 190, borderRadius: 16, overflow: 'hidden', backgroundColor: colors.surface },
   upcomingImage: { width: '100%', height: '100%' },
-  upcomingOverlay: { ...StyleSheet.absoluteFill, justifyContent: 'flex-end', padding: 12, backgroundColor: 'rgba(10, 37, 64, 0.5)' },
+  upcomingOverlay: { ...StyleSheet.absoluteFillObject, justifyContent: 'flex-end', padding: 12, backgroundColor: 'rgba(10, 37, 64, 0.5)' },
   upcomingTag: { color: colors.warning, fontSize: 9, fontWeight: '800', letterSpacing: 0.8 },
   upcomingTitle: { color: colors.text, fontSize: 16, fontWeight: '800', marginTop: 4 },
   upcomingSynopsis: { color: 'rgba(248,250,252,0.78)', fontSize: 11, lineHeight: 15, marginTop: 5 },

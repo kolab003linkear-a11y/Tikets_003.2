@@ -50,7 +50,8 @@ export default function AdminHubScreen() {
   const [moduleLoading, setModuleLoading] = useState(false);
 
   const moduleItems: Array<{ key: ModuleKey; label: string; description: string }> = [
-    { key: 'catalog', label: 'Cartelera', description: 'Cine, teatro y conciertos' },
+    { key: 'catalog', label: 'Inicio', description: 'Dashboard con cine, teatro y accesos a todos los módulos' },
+    { key: 'events', label: 'Eventos', description: 'Acceso a conciertos, teatro y experiencias' },
     { key: 'stadiums', label: 'Estadios', description: 'Partidos y venta de localidades' },
     { key: 'parking', label: 'Parqueaderos', description: 'Reservas de estacionamiento' },
     { key: 'buses', label: 'Buses', description: 'Rutas y tickets de transporte' },

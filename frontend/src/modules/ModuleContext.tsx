@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { getModules, ModuleKey, ModuleSettings } from '../api/client';
 
-const defaults: ModuleSettings = { catalog: true, stadiums: true, parking: true, buses: true, assistant: true };
+const defaults: ModuleSettings = { catalog: true, events: true, stadiums: true, parking: true, buses: true, assistant: true };
 
 type ModuleContextValue = {
   modules: ModuleSettings;

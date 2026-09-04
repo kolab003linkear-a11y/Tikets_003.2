@@ -66,7 +66,7 @@ const webhookSchema = z.object({
 
 const paymentConfirmationSchema = z.object({
   reservationId: z.string().min(1),
-  paymentMethod: z.enum(['CARD', 'APPLE_PAY', 'PAYPAL', 'CASH']).optional(),
+  paymentMethod: z.enum(['CARD', 'GOOGLE_PAY', 'APPLE_PAY', 'PAYPAL', 'CASH']).optional(),
 });
 
 const profileSchema = z.object({
@@ -222,7 +222,7 @@ const parkingTicketSchema = z.object({
 });
 
 const parkingPaymentSchema = z.object({
-  paymentMethod: z.enum(['CARD', 'APPLE_PAY', 'PAYPAL', 'CASH']),
+  paymentMethod: z.enum(['CARD', 'GOOGLE_PAY', 'APPLE_PAY', 'PAYPAL', 'CASH']),
 });
 
 const busRouteSchema = z.object({
@@ -246,7 +246,7 @@ const busTripSchema = z.object({
 
 const busTicketSchema = z.object({ seatNumber: z.coerce.number().int().min(1) });
 
-const moduleKeys = ['catalog', 'stadiums', 'parking', 'buses', 'assistant'] as const;
+const moduleKeys = ['catalog', 'events', 'stadiums', 'parking', 'buses', 'assistant'] as const;
 const moduleSchema = z.object({ enabled: z.boolean() });
 
 async function getModuleSettings() {
@@ -754,7 +754,7 @@ app.get('/api/admin/showtimes', authMiddleware, async (req, res, next) => {
     const authenticatedUser = (req as Request & { user: { role: UserRole } }).user;
     if (authenticatedUser.role !== UserRole.ADMIN) throw new AppError('Only administrators can manage showtimes.', 403);
     const showtimes = await prisma.showtime.findMany({
-      include: { movieEvent: { select: { id: true, title: true } }, room: { select: { id: true, name: true, capacity: true } } },
+      include: { movie: { select: { id: true, title: true } }, room: { select: { id: true, name: true, capacity: true } } },
       orderBy: { startTime: 'asc' },
     });
     return res.json({ showtimes });
@@ -776,9 +776,9 @@ app.post('/api/admin/showtimes', authMiddleware, async (req, res, next) => {
     if (availableSeats > room.capacity) throw new AppError('Availability cannot exceed room capacity.', 400);
     const { movieId, ...restPayload } = payload;
     const showtime = await prisma.showtime.create({
-  data: { ...restPayload, movieEventId: movieId, availableSeats },
+  data: { ...restPayload, movieId, availableSeats },
   include: {
-    movieEvent: { select: { id: true, title: true } },
+    movie: { select: { id: true, title: true } },
     room: { select: { id: true, name: true, capacity: true } },
   },
 });
@@ -800,8 +800,8 @@ app.patch('/api/admin/showtimes/:showtimeId', authMiddleware, async (req, res, n
     const { movieId, ...restPayload } = payload;
     const showtime = await prisma.showtime.update({
       where: { id: req.params.showtimeId },
-      data: { ...restPayload, movieEventId: movieId, availableSeats },
-      include: { movieEvent: { select: { id: true, title: true } }, room: { select: { id: true, name: true, capacity: true } } },
+      data: { ...restPayload, movieId, availableSeats },
+      include: { movie: { select: { id: true, title: true } }, room: { select: { id: true, name: true, capacity: true } } },
     });
     return res.json({ showtime });
   } catch (error) {
@@ -1574,7 +1574,7 @@ app.post('/api/payments/demo-confirm', authMiddleware, async (req, res, next) =>
         data: { status: ReservationStatus.PAID },
         include: {
           tickets: true,
-          showtime: { include: { movieEvent: true, room: true } },
+          showtime: { include: { movie: true, room: true } },
         },
       });
 
@@ -1600,7 +1600,7 @@ app.get('/api/tickets', authMiddleware, async (req, res, next) => {
         where: { reservation: { userId: authenticatedUser.sub } },
         include: {
           reservation: {
-            include: { showtime: { include: { movieEvent: true, room: true } } },
+            include: { showtime: { include: { movie: true, room: true } } },
           },
         },
         orderBy: { createdAt: 'desc' },
@@ -1632,7 +1632,7 @@ app.get('/api/tickets', authMiddleware, async (req, res, next) => {
       reservationId: ticket.reservationId,
       reservationStatus: ticket.reservation.status,
       event: {
-        title: ticket.reservation.showtime.movieEvent.title,
+        title: ticket.reservation.showtime.movie.title,
         startTime: ticket.reservation.showtime.startTime,
         room: ticket.reservation.showtime.room.name,
       },
@@ -1798,7 +1798,7 @@ app.post('/api/admin/tickets/validate', authMiddleware, async (req, res, next) =
       include: {
         reservation: {
           include: {
-            showtime: { include: { movieEvent: true, room: true } },
+            showtime: { include: { movie: true, room: true } },
           },
         },
       },
@@ -1857,7 +1857,7 @@ app.post('/api/admin/tickets/validate', authMiddleware, async (req, res, next) =
 
     const claimed = await prisma.ticket.updateMany({ where: { id: ticket.id, status: TicketStatus.VALID }, data: { status: TicketStatus.USED, usedAt: new Date() } });
     if (claimed.count === 0) return res.json({ valid: false, status: 'USED', message: 'This ticket has already been used.' });
-    const updated = await prisma.ticket.findUniqueOrThrow({ where: { id: ticket.id }, include: { reservation: { include: { showtime: { include: { movieEvent: true, room: true } } } } } });
+    const updated = await prisma.ticket.findUniqueOrThrow({ where: { id: ticket.id }, include: { reservation: { include: { showtime: { include: { movie: true, room: true } } } } } });
 
     return res.json({
       valid: true,
@@ -1870,7 +1870,7 @@ app.post('/api/admin/tickets/validate', authMiddleware, async (req, res, next) =
         usedAt: updated.usedAt,
         reservationId: updated.reservationId,
         event: {
-          title: updated.reservation.showtime.movieEvent.title,
+          title: updated.reservation.showtime.movie.title,
           startTime: updated.reservation.showtime.startTime,
           room: updated.reservation.showtime.room.name,
         },

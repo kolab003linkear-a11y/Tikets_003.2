@@ -55,14 +55,14 @@ export default function BusScreen() {
       Alert.alert('Asiento ocupado', `El asiento ${number} ya está reservado. Elige otro asiento disponible.`);
       return;
     }
-    if ((!user || !token) && (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim()) || fullName.trim().length < 2 || phone.trim().length < 7)) {
-      Alert.alert('Completa tus datos', 'Necesitamos correo, nombre y teléfono para continuar.');
+    if (!user || !token) {
+      navigation.navigate('Auth', { fromPurchase: true });
       return;
     }
 
     setBuying(true);
     try {
-      const session = user && token ? { user, token } : await startGuestSession(email.trim().toLowerCase(), fullName.trim(), phone.trim());
+      const session = { user, token };
       const response = await createBusTicket(session.token, selected.id, number);
       const route = response.ticket.trip.route;
       navigation.navigate('Ticket', {
@@ -107,14 +107,6 @@ export default function BusScreen() {
               Disponibles: {availableSeatNumbers.join(', ')}
             </Text>
             <AppInput label={`Asiento (1-${selected.totalSeats})`} value={seat} onChangeText={setSeat} keyboardType="numeric" placeholder="Ej. 12" />
-            {!user?.fullName || !user?.phone ? (
-              <View style={styles.guest}>
-                <Text style={styles.section}>Datos para tu compra</Text>
-                <AppInput label="Correo electrónico" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" />
-                <AppInput label="Nombre completo" value={fullName} onChangeText={setFullName} />
-                <AppInput label="Teléfono" value={phone} onChangeText={setPhone} keyboardType="phone-pad" />
-              </View>
-            ) : null}
             <AppButton label="Comprar ticket QR" onPress={() => setPaymentOpen(true)} loading={buying} disabled={buying || selected.availableSeats === 0} />
             <AppButton label="Cancelar" variant="secondary" onPress={() => setSelected(null)} />
           </AppCard>

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { useAuth } from '../auth/AuthContext';
 import { colors, typography } from '../theme';
 import AppButton from '../components/AppButton';
@@ -8,9 +9,14 @@ import AppCard from '../components/AppCard';
 import AppInput from '../components/AppInput';
 
 export default function AuthScreen() {
+  const navigation = useNavigation<any>();
+  const route = useRoute<any>();
   const { signIn, signUp } = useAuth();
+  const fromPurchase = route.params?.fromPurchase === true;
   const [registerMode, setRegisterMode] = useState(false);
   const [email, setEmail] = useState('');
+  const [fullName, setFullName] = useState('');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
     const [acceptedTerms, setAcceptedTerms] = useState(false);
@@ -28,6 +34,14 @@ export default function AuthScreen() {
       setError('La contraseña debe tener al menos 8 caracteres.');
       return;
     }
+    if (registerMode && fullName.trim().length < 2) {
+      setError('Ingresa tu nombre completo.');
+      return;
+    }
+    if (registerMode && !/^[+\d\s()-]{7,30}$/.test(phone.trim())) {
+      setError('Ingresa un teléfono válido.');
+      return;
+    }
     if (registerMode && password !== confirmPassword) {
       setError('Las contraseñas no coinciden.');
       return;
@@ -40,8 +54,9 @@ export default function AuthScreen() {
     setBusy(true);
     setError(null);
     try {
-      if (registerMode) await signUp(normalizedEmail, password);
+      if (registerMode) await signUp(normalizedEmail, password, fullName.trim(), phone.trim());
       else await signIn(normalizedEmail, password);
+      if (fromPurchase) navigation.goBack();
     } catch (authError) {
       setError(authError instanceof Error ? authError.message : 'No se pudo completar la operación.');
     } finally {
@@ -56,7 +71,7 @@ export default function AuthScreen() {
         <View style={styles.brandRow}><View style={styles.brandMark}><Ionicons name="ticket" size={23} color={colors.text} /></View><View style={styles.brandLine} /></View>
         <Text style={styles.overline}>Tu experiencia, a un toque</Text>
         <Text style={styles.title}>Bienvenido a <Text style={styles.titleAccent}>TiKetSafe</Text></Text>
-        <Text style={styles.subtitle}>{registerMode ? 'Crea tu cuenta en pocos segundos. Te pediremos tus datos al reservar.' : 'Inicia sesión para descubrir tus próximas experiencias.'}</Text>
+        <Text style={styles.subtitle}>{fromPurchase ? 'Para continuar con tu compra, ¿eres nuevo? Regístrate o inicia sesión con tu cuenta.' : registerMode ? 'Crea tu cuenta en pocos segundos. Te pediremos tus datos al reservar.' : 'Inicia sesión para descubrir tus próximas experiencias.'}</Text>
 
         <View style={styles.modeSwitch}>
           <Pressable accessibilityRole="button" accessibilityState={{ selected: !registerMode }} style={[styles.modeOption, !registerMode && styles.modeOptionActive]} onPress={() => { setRegisterMode(false); setError(null); }}><Text style={[styles.modeText, !registerMode && styles.modeTextActive]}>Iniciar sesión</Text></Pressable>
@@ -64,6 +79,10 @@ export default function AuthScreen() {
         </View>
 
         <AppCard style={styles.form}>
+          {registerMode && <>
+            <AppInput label="Nombre completo" autoCapitalize="words" value={fullName} onChangeText={setFullName} placeholder="Tu nombre completo" placeholderTextColor={colors.textSecondary} style={styles.input} />
+            <AppInput label="Teléfono" keyboardType="phone-pad" value={phone} onChangeText={setPhone} placeholder="+593 99 999 9999" placeholderTextColor={colors.textSecondary} style={styles.input} />
+          </>}
           <AppInput
             label="Correo electrónico"
             autoCapitalize="none"

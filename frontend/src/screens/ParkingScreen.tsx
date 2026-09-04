@@ -15,10 +15,11 @@ import { createParkingTicket, getMyTickets, getParking, ParkingLot, ParkingTicke
 import { PaymentModal } from '../components/parking/PaymentModal';
 import { ActiveTicketCard } from '../components/parking/ActiveTicketCard';
 import { SpotPickerMap } from '../components/parking/FloorMap';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 
 
 export default function ParkingScreen() {
+  const navigation = useNavigation<any>();
   const { token } = useAuth();
   const [parking, setParking] = useState<ParkingLot[]>([]);
   const [selected, setSelected] = useState<ParkingLot | null>(null);
@@ -69,8 +70,12 @@ export default function ParkingScreen() {
   }, [loadParking]);
 
   const reserve = async () => {
-    if (!selected || !space || !token) {
-      Alert.alert('Sesión requerida', 'Inicia sesión para reservar una plaza.');
+    if (!selected || !space) {
+      Alert.alert('Datos incompletos', 'Selecciona un parqueadero y una plaza.');
+      return;
+    }
+    if (!token) {
+      navigation.navigate('Auth', { fromPurchase: true });
       return;
     }
 

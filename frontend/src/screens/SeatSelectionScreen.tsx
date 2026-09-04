@@ -704,45 +704,14 @@ export default function SeatSelectionScreen() {
         return;
       }
 
-      // ---------------------------------------------------
-      // DATOS CLIENTE
-      // ---------------------------------------------------
-
-      const cleanEmail =
-        email.trim();
-
-      const cleanName =
-        fullName.trim();
-
-      const cleanPhone =
-        phone.trim();
-
-      if (!cleanEmail) {
-        Alert.alert(
-          'Correo requerido',
-          'Ingresa tu correo electrónico para continuar.',
-        );
-
+      if (!token || !user?.id) {
+        navigation.navigate('Auth', { fromPurchase: true });
         return;
       }
 
-      if (!cleanName) {
-        Alert.alert(
-          'Nombre requerido',
-          'Ingresa tu nombre completo para continuar.',
-        );
-
-        return;
-      }
-
-      if (!cleanPhone) {
-        Alert.alert(
-          'Teléfono requerido',
-          'Ingresa tu número de teléfono para continuar.',
-        );
-
-        return;
-      }
+      const cleanEmail = email.trim();
+      const cleanName = fullName.trim();
+      const cleanPhone = phone.trim();
 
       reservingRef.current =
         true;
@@ -773,11 +742,11 @@ export default function SeatSelectionScreen() {
           const guestSession: any =
             await (
               startGuestSession as any
-            )(
-              cleanName,
-              cleanEmail,
-              cleanPhone,
-            );
+              )(
+                cleanEmail,
+                cleanName,
+                cleanPhone,
+              );
 
           if (
             guestSession?.token
@@ -2642,67 +2611,6 @@ export default function SeatSelectionScreen() {
               </View>
             </View>
           </>
-        )}
-
-        {/* =================================================
-            DATOS CLIENTE
-        ================================================= */}
-
-        {(!user?.fullName ||
-          !user?.phone ||
-          !user?.email) && (
-          <View
-            style={
-              styles.profileCard
-            }
-          >
-            <Text
-              style={
-                styles.profileTitle
-              }
-            >
-              Datos para tu compra
-            </Text>
-
-            <Text
-              style={
-                styles.profileSubtitle
-              }
-            >
-              Completa tus datos para
-              continuar al pago.
-            </Text>
-
-            <AppInput
-              label="Nombre completo"
-              value={fullName}
-              onChangeText={
-                setFullName
-              }
-              placeholder="Ej. Melanie Quimbita"
-            />
-
-            <AppInput
-              label="Teléfono"
-              value={phone}
-              onChangeText={
-                setPhone
-              }
-              placeholder="Ej. 0999999999"
-              keyboardType="phone-pad"
-            />
-
-            <AppInput
-              label="Correo electrónico"
-              value={email}
-              onChangeText={
-                setEmail
-              }
-              placeholder="correo@ejemplo.com"
-              keyboardType="email-address"
-              autoCapitalize="none"
-            />
-          </View>
         )}
 
         {/* =================================================

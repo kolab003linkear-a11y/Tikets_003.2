@@ -180,7 +180,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
-  scanGuide: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center' },
+  scanGuide: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center' },
   corner: { position: 'absolute', width: 34, height: 34, borderColor: colors.primary },
   cornerTopLeft: { top: '24%', left: '14%', borderTopWidth: 3, borderLeftWidth: 3 },
   cornerTopRight: { top: '24%', right: '14%', borderTopWidth: 3, borderRightWidth: 3 },

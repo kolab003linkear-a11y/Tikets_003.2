@@ -175,7 +175,7 @@ function HomeTabs() {
         },
         tabBarIcon: ({ color, size }: { color: string; size: number }) => {
           const iconMap = {
-            Cartelera: 'film-outline',
+            Inicio: 'home-outline',
             Estadios: 'football-outline',
             Parqueaderos: 'car-outline',
             Buses: 'bus-outline',
@@ -194,11 +194,11 @@ function HomeTabs() {
         },
       })}
     >
-      {isEnabled('catalog') && <Tab.Screen name="Cartelera" component={HomeScreen} />}
+      {isEnabled('catalog') && <Tab.Screen name="Inicio" component={HomeScreen} />}
       {isEnabled('stadiums') && <Tab.Screen name="Estadios" component={StadiumScreen} />}
       {isEnabled('parking') && <Tab.Screen name="Parqueaderos" component={ParkingScreen} />}
       {isEnabled('buses') && <Tab.Screen name="Buses" component={BusScreen} />}
-      <Tab.Screen name="Eventos" component={EventsScreen} />
+      {isEnabled('events') && <Tab.Screen name="Eventos" component={EventsScreen} />}
       <Tab.Screen name="Mis Tickets" component={MyTicketsScreen} />
       {canUseAdmin && <Tab.Screen name="Admin" component={AdminHubScreen} />}
     </Tab.Navigator>
@@ -226,6 +226,7 @@ function AppContent() {
           }}
         >
           <Stack.Screen name="HomeTabs" component={HomeTabs} />
+          <Stack.Screen name="Auth" component={AuthScreen} />
           <Stack.Screen name="Cine" component={CinemaScreen} />
           <Stack.Screen name="Teatro" component={TheaterScreen} />
           <Stack.Screen name="Conciertos" component={ConcertScreen} />

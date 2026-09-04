@@ -245,13 +245,13 @@ export default function StadiumScreen() {
       Alert.alert('Datos incompletos', 'Selecciona un sector y al menos una localidad.');
       return;
     }
-    if (!/^\S+@\S+\.\S+$/.test(email.trim()) || fullName.trim().length < 2 || !/^[+\d\s()-]{7,30}$/.test(phone.trim())) {
-      Alert.alert('Completa tus datos', 'Necesitamos tu nombre completo y teléfono para continuar con la compra.');
+    if (!user || !token) {
+      navigation.navigate('Auth', { fromPurchase: true });
       return;
     }
     setBuying(true);
     try {
-      const session = user && token ? { user, token } : await startGuestSession(email.trim().toLowerCase(), fullName.trim(), phone.trim());
+      const session = { user, token };
       const matchId = selectedMatch.id;
       const sectorId = selectedSectorId;
       const successes: Array<{ ticketId: string; qrPayload: string; status: string; seatNumber: string; sector: string }> = [];
@@ -481,13 +481,6 @@ export default function StadiumScreen() {
               </View>
             )}
 
-            {(!user?.fullName || !user?.phone) && <View style={styles.profileCard}>
-              <Text style={styles.profileTitle}>Datos para tu compra</Text>
-              <Text style={styles.profileHint}>Solo te los pedimos una vez para emitir tu entrada.</Text>
-              <AppInput label="Correo electrónico" keyboardType="email-address" autoCapitalize="none" value={email} onChangeText={setEmail} placeholder="tu@correo.com" />
-              <AppInput label="Nombre completo" autoCapitalize="words" value={fullName} onChangeText={setFullName} placeholder="Ej. Ana García" />
-              <AppInput label="Teléfono" keyboardType="phone-pad" value={phone} onChangeText={setPhone} placeholder="099 123 4567" />
-            </View>}
             <AppButton
               label={selectedSeats.length > 1 ? `Generar ${selectedSeats.length} tickets QR` : 'Generar ticket QR'}
               onPress={() => void buyTicket()}
@@ -751,7 +744,7 @@ const styles = StyleSheet.create({
   favoritesBadgeText: { color: '#fff', fontSize: 10, fontWeight: '800' },
   heroCard: { height: 190, borderRadius: 18, overflow: 'hidden', marginBottom: 14, backgroundColor: colors.surface },
   heroImage: { width: '100%', height: '100%' },
-  heroOverlay: { ...StyleSheet.absoluteFill, backgroundColor: colors.overlayStrong, justifyContent: 'flex-end', padding: 16 },
+  heroOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: colors.overlayStrong, justifyContent: 'flex-end', padding: 16 },
   heroTag: { color: colors.warning, fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 1 },
   heroTitle: { color: colors.text, fontSize: 27, fontWeight: '800', marginTop: 4, fontFamily: typography.display },
   heroText: { color: colors.text, fontSize: 13, lineHeight: 19, marginTop: 5, maxWidth: '82%' },
