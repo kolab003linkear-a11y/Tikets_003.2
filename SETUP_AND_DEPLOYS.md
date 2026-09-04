@@ -1,257 +1,156 @@
-# TiKetSafe: guía de configuración
+# TiKetSafe: guía de configuración y despliegue
 
-Sigue los pasos en orden. Esta guía es para Windows y PowerShell.
+Esta guía presenta el flujo recomendado para instalar, ejecutar y verificar el proyecto en Windows con PowerShell.
 
-## Antes de empezar
+## 1. Requisitos previos
 
-Instala:
+- Node.js 20+
+- npm 10+
+- Docker Desktop
+- Git
+- Visual Studio Code
 
-- Node.js 20 o superior: https://nodejs.org/
-- Docker Desktop: https://www.docker.com/products/docker-desktop/
-- Git: https://git-scm.com/downloads
-
-Abre Docker Desktop y espera a que termine de iniciar.
-
-## Paso 1: abrir VSC y clonar el repositorio
-
-1. Abre **Visual Studio Code (VSC)**
-2. Abre la terminal integrada: `Ctrl + `` (backtick) o menú **Terminal → New Terminal**
-3. Asegúrate de que sea **PowerShell** (si no, haz clic en el dropdown de la terminal y selecciona PowerShell)
-
-Ve al Escritorio:
+## 2. Clonar el repositorio
 
 ```powershell
 cd "$HOME\Desktop"
-```
-
-Clona el repositorio:
-
-```powershell
-git clone https://github.com/kolab003linkear-a11y/Tikets_003.2.git
-```
-
-Entra a la carpeta descargada:
-
-```powershell
+git clone <url-del-repositorio>
 cd Tikets_003.2
-```
-
-Abre esta carpeta en VSC: `File → Open Folder` o ejecuta en la terminal:
-
-```powershell
 code .
 ```
 
-Comprueba que estás en la carpeta correcta:
-
-```powershell
-Get-ChildItem
-```
-
-Debes ver las carpetas `backend` y `frontend`, además de archivos como `README.md` y `package.json`.
-
-> Si ya clonaste el repositorio antes, no repitas `git clone`. Usa `cd "$HOME\Desktop\Tikets_003.2"`.
-
-## Paso 2: instalar dependencias
-
-Ejecuta una sola vez:
+## 3. Instalar dependencias
 
 ```powershell
 npm install
-npm --workspace backend run prisma:generate
 ```
 
-## Paso 3: configurar el backend
+## 4. Configurar el backend
 
-Crea el archivo de configuración:
+Crea el archivo de entorno:
 
 ```powershell
 Copy-Item backend\.env.example backend\.env
 ```
 
-El archivo debe usar estos valores:
+El contenido recomendado es:
 
 ```env
 DATABASE_URL="postgresql://postgres:postgres@localhost:55432/tiKets?schema=public"
 PORT=4001
 NODE_ENV="development"
 JWT_SECRET="tiKets-dev-secret"
-CORS_ORIGINS="http://localhost:8082"
+CORS_ORIGINS="http://localhost:8082,http://127.0.0.1:8082"
+STRIPE_SECRET_KEY=""
+PAYPHONE_API_KEY=""
+PAYPHONE_WEBHOOK_SECRET=""
+PAYMENT_WEBHOOK_SECRET="change-me-for-local-dev"
 ```
 
-No compartas el archivo `backend/.env`.
-
-## Paso 4: preparar la base de datos
-
-Ejecuta:
+## 5. Preparar la base de datos
 
 ```powershell
 npm --workspace backend run db:up
-npm --workspace backend exec prisma migrate deploy -- --schema=prisma/schema.prisma
+npm --workspace backend run prisma:generate
+npm --workspace backend run prisma:migrate
 npm --workspace backend run prisma:seed
 ```
 
-El último comando crea datos de prueba para Cartelera, Estadios, Parqueaderos y Buses.
-
-## Paso 5: levantar la API
-
-En la terminal de VSC, ejecuta:
+## 6. Levantar la API
 
 ```powershell
 npm run dev:backend
 ```
 
-No cierres esta terminal. La API se levantará en segundo plano.
-
-La API debe funcionar en:
+La API responderá en:
 
 ```text
 http://localhost:4001
 ```
 
-Para comprobarla, abre una nueva terminal en VSC: `Ctrl + Shift + `` (backtick) y ejecuta:
+Comprobación:
 
 ```powershell
 Invoke-RestMethod http://localhost:4001/api/health
 ```
 
-La respuesta correcta debe mostrar:
-
-```text
-ok: True
-database: connected
-```
-
-## Paso 6: levantar la aplicación
-
-En una nueva terminal de VSC (o usa la terminal de verificación), entra a la carpeta `frontend` y ejecuta:
+## 7. Levantar la aplicación frontend
 
 ```powershell
-cd frontend
-npx expo start --web --port 8082 --offline
+npm run dev:frontend
 ```
 
-Es importante que estés en la carpeta `frontend` para ejecutar este comando.
-
-Abre en el navegador:
+La app web se abre en:
 
 ```text
 http://localhost:8082
 ```
 
-## Paso 7: probar el acceso admin
+## 8. Probar el acceso de administrador
 
-En la aplicación:
-
-1. Abre **Perfil**.
-2. Pulsa la rueda de configuración.
-3. Pulsa **Entrar como admin**.
-4. Escribe estos datos:
+En la pantalla de Perfil, usa la opción de administración:
 
 ```text
 Correo: admin@tikets.com
 Contraseña: demo1234
 ```
 
-Estas credenciales solo sirven para pruebas locales.
-
-## Paso 8: probar los módulos
-
-En la barra inferior revisa:
-
-- **Cartelera**: eventos y películas.
-- **Estadios**: partidos y localidades.
-- **Parqueaderos**: parqueaderos y espacios disponibles.
-- **Buses**: rutas, viajes y asientos.
-- **Mis Tickets**: tickets comprados.
-- **Admin**: administración de eventos, estadios, parqueaderos y buses.
-
-Los datos de parqueaderos, terminales, operadores y viajes son demostrativos. No son información oficial ni disponibilidad real.
-
-## Paso 9: detener el proyecto
-
-En la terminal de VSC donde corre la API y en la terminal donde corre Expo, presiona:
-
-```text
-Ctrl + C
-```
-
-Para detener PostgreSQL, en cualquier terminal ejecuta:
+## 9. Deteener el entorno
 
 ```powershell
 npm --workspace backend run db:down
 ```
 
-## Problemas comunes
+Y en cada terminal que esté ejecutando la API o Expo, usa `Ctrl + C`.
 
-### `ERR_CONNECTION_REFUSED`
-
-Expo no está levantado. Ejecuta nuevamente el Paso 6.
-
-### Pantalla blanca
-
-Detén Expo con `Ctrl + C` en su terminal y ejecuta:
-
-```powershell
-cd frontend
-Remove-Item -Recurse -Force .expo -ErrorAction SilentlyContinue
-npx expo start --web --port 8082 --offline
-```
-
-Después recarga el navegador con `Ctrl + Shift + R`.
-
-### `Failed to fetch`
-
-La API no está funcionando. Comprueba:
-
-```powershell
-Invoke-RestMethod http://localhost:4001/api/health
-```
-
-Si falla, vuelve al Paso 5.
-
-### Docker no inicia
-
-Abre Docker Desktop y espera a que esté listo. Después ejecuta:
-
-```powershell
-npm --workspace backend run db:up
-```
-
-### El puerto está ocupado
-
-Comprueba qué proceso usa los puertos:
-
-```powershell
-Get-NetTCPConnection -LocalPort 4001,8082,55432 -ErrorAction SilentlyContinue
-```
-
-Cierra la aplicación que esté usando el puerto y repite los pasos.
-
-## Comandos opcionales para estudiantes
-
-Compilar el backend:
+## 10. Validaciones útiles
 
 ```powershell
 npm --workspace backend run build
-```
-
-Ejecutar las pruebas:
-
-```powershell
 npm --workspace backend test
+npm run ops:check
 ```
 
-Comprobar tipos del frontend:
+## 11. Configuración para móvil
+
+En `frontend/.env.local`:
+
+```env
+EXPO_PUBLIC_API_URL=http://TU_IP_LOCAL:4001
+```
+
+Luego arrancas la app con:
 
 ```powershell
 cd frontend
-npx tsc --noEmit -p tsconfig.json
+npx expo start
 ```
 
-Comprobar todos los servicios:
+## 12. Problemas frecuentes
+
+### Backend no responde
+
+- Revisa que Docker esté arrancado.
+- Comprueba `backend/.env`.
+- Verifica `http://localhost:4001/api/health`.
+
+### Frontend no carga
+
+- Asegúrate de que la API esté levantada.
+- Revisa que `CORS_ORIGINS` permita `http://localhost:8082`.
+- Si hace falta, limpia la caché de Expo.
+
+### Puerto ocupado
 
 ```powershell
-cd ..
-npm run ops:check
+Get-NetTCPConnection -LocalPort 4001,8082 -ErrorAction SilentlyContinue
 ```
+
+## 13. Notas de despliegue
+
+Este proyecto está pensado para desarrollo local y pruebas. Para un despliegue real, se recomienda:
+
+- usar un secreto JWT fuerte en producción,
+- configurar PostgreSQL con credenciales reales,
+- proteger webhooks con firma HMAC real,
+- validar el origen de CORS y la red interna/externa del entorno.

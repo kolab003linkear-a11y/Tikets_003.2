@@ -1,18 +1,17 @@
-# TiKetSafe: guía rápida para estudiantes
+# TiKetSafe: guía de arranque rápido
 
-Esta guía explica cómo levantar el proyecto en Windows usando PowerShell.
+Esta guía explica cómo levantar el proyecto en Windows con PowerShell.
 
-## 1. Qué necesitas
+## 1. Requisitos
 
-Instala estos programas:
+Instala lo siguiente:
 
-- Node.js 20 o superior: https://nodejs.org/
-- Docker Desktop: https://www.docker.com/products/docker-desktop/
-- Git: https://git-scm.com/downloads
+- Node.js 20 o superior
+- npm 10 o superior
+- Docker Desktop
+- Git
 
-Después de instalar Docker Desktop, ábrelo y espera a que indique que está funcionando.
-
-Comprueba las instalaciones:
+Verifica que estén disponibles:
 
 ```powershell
 node --version
@@ -21,232 +20,158 @@ docker --version
 git --version
 ```
 
-## 2. Descargar e instalar el proyecto
+## 2. Clonar y preparar el proyecto
 
-Abre PowerShell y entra a la carpeta del proyecto:
-
-```powershell
-cd "C:\Users\TU_USUARIO\Desktop\Tikets_003.2"
-```
-
-Cambia `TU_USUARIO` por tu usuario de Windows.
-
-Instala todas las dependencias:
+Desde PowerShell:
 
 ```powershell
+cd "$HOME\Desktop"
+git clone <url-del-repositorio>
+cd Tikets_003.2
 npm install
 ```
 
-El proyecto tiene dos partes:
-
-- `backend`: API, base de datos y reglas del sistema.
-- `frontend`: aplicación que ve el usuario en web o celular.
-
-## 3. Preparar el backend una sola vez
-
-Copia la configuración de ejemplo:
+Crea el archivo de configuración del backend:
 
 ```powershell
 Copy-Item backend\.env.example backend\.env
 ```
 
-Genera el cliente de Prisma, que permite al backend hablar con PostgreSQL:
+Si ya existe el proyecto, solo usa:
 
 ```powershell
-npm --workspace backend run prisma:generate
+cd "$HOME\Desktop\Tikets_003.2"
 ```
 
-Levanta PostgreSQL y aplica las tablas:
+## 3. Preparar PostgreSQL y Prisma
+
+Ejecuta estas instrucciones una sola vez:
 
 ```powershell
 npm --workspace backend run db:up
-npm --workspace backend exec prisma migrate deploy -- --schema=prisma/schema.prisma
+npm --workspace backend run prisma:generate
+npm --workspace backend run prisma:migrate
 npm --workspace backend run prisma:seed
 ```
 
-El seed agrega datos de prueba para cartelera, estadios, parqueaderos y buses.
+Esto levanta PostgreSQL, genera el cliente Prisma y crea datos demo.
 
-## 4. Levantar el sistema
+## 4. Ejecutar la API
 
-Necesitas tres terminales de PowerShell. No cierres ninguna mientras estés probando.
-
-### Terminal 1: base de datos
-
-Si ya hiciste la preparación anterior, solo verifica que Docker esté activo:
+Abre una terminal en la raíz del proyecto:
 
 ```powershell
-cd "C:\Users\TU_USUARIO\Desktop\Tikets_003.2"
-npm --workspace backend run db:up
-```
-
-### Terminal 2: API
-
-```powershell
-cd "C:\Users\TU_USUARIO\Desktop\Tikets_003.2"
 npm run dev:backend
 ```
 
-Debes ver que la API queda disponible en:
+La API queda en:
 
 ```text
 http://localhost:4001
 ```
 
-Compruébala desde una cuarta terminal, si quieres:
+Puedes comprobarla con:
 
 ```powershell
 Invoke-RestMethod http://localhost:4001/api/health
 ```
 
-La respuesta debe indicar `ok: true` y `database: connected`.
+## 5. Ejecutar la app web
 
-### Terminal 3: aplicación web
-
-Es importante entrar a `frontend` antes de arrancar Expo. Así se evita cargar una versión antigua:
+En otra terminal:
 
 ```powershell
-cd "C:\Users\TU_USUARIO\Desktop\Tikets_003.2\frontend"
-npx expo start --web --port 8082 --offline
+npm run dev:frontend
 ```
 
-Abre esta dirección:
+La aplicación web queda en:
 
 ```text
 http://localhost:8082
 ```
 
-La aplicación actual incluye Cartelera, Estadios, Parqueaderos, Buses, Mis Tickets, Perfil y Admin.
+## 6. Administrador de pruebas
 
-## 5. Administrador de prueba
-
-En Perfil abre el ícono de configuración y selecciona **Entrar como admin**.
+En la app, entra a Perfil y usa la opción de acceso administrativo.
 
 ```text
 Correo: admin@tikets.com
 Contraseña: demo1234
 ```
 
-Son credenciales únicamente para desarrollo. No las uses en producción.
+## 7. Ejecutar en móvil
 
-## 6. Probar en un celular
-
-El celular y la computadora deben estar conectados a la misma red Wi-Fi.
-
-En `frontend/.env.local`, configura la IP local de tu computadora:
+Para probar en un celular, configura la URL del backend en `frontend/.env.local`:
 
 ```env
 EXPO_PUBLIC_API_URL=http://TU_IP_LOCAL:4001
 ```
 
-Para conocer tu IP:
+Busca tu IP local con:
 
 ```powershell
 ipconfig
 ```
 
-Busca la dirección `IPv4` de tu adaptador Wi-Fi. Luego inicia Expo:
+Luego inicia la app con:
 
 ```powershell
-cd "C:\Users\TU_USUARIO\Desktop\Tikets_003.2\frontend"
+cd frontend
 npx expo start
 ```
 
-Escanea el código QR con Expo Go.
+## 8. Deteener servicios
 
-## 7. Detener el sistema
-
-En la terminal de la API y en la de Expo presiona:
+Para cerrar la API y Expo:
 
 ```text
 Ctrl + C
 ```
 
-Para detener PostgreSQL:
+Para apagar PostgreSQL:
 
 ```powershell
-cd "C:\Users\TU_USUARIO\Desktop\Tikets_003.2\backend"
-docker compose down
+npm --workspace backend run db:down
 ```
 
-## 8. Problemas frecuentes
+## 9. Solución de problemas
 
-### El navegador muestra `ERR_CONNECTION_REFUSED`
+### `ERR_CONNECTION_REFUSED`
 
-El servidor de Expo no está activo. Abre una terminal, entra a `frontend` y ejecuta:
-
-```powershell
-cd "C:\Users\TU_USUARIO\Desktop\Tikets_003.2\frontend"
-npx expo start --web --port 8082 --offline
-```
-
-### La pantalla aparece en blanco
-
-Cierra Expo con `Ctrl + C`, borra la caché local y vuelve a iniciar:
-
-```powershell
-cd "C:\Users\TU_USUARIO\Desktop\Tikets_003.2\frontend"
-Remove-Item -Recurse -Force .expo -ErrorAction SilentlyContinue
-npx expo start --web --port 8082 --offline
-```
-
-Después recarga el navegador con `Ctrl + Shift + R`.
-
-### La aplicación dice `Failed to fetch`
-
-La API no está activa o el frontend apunta al puerto incorrecto. Comprueba:
+Revisa si la API está corriendo:
 
 ```powershell
 Invoke-RestMethod http://localhost:4001/api/health
 ```
 
-En web, el backend debe usar el puerto `4001`.
+### `Failed to fetch`
+
+Verifica que `CORS_ORIGINS` del backend incluya la URL del frontend y que la API esté levantada.
 
 ### Docker no inicia
 
-Abre Docker Desktop, espera unos segundos y ejecuta:
+Abre Docker Desktop y espera a que esté activo antes de volver a ejecutar:
 
 ```powershell
-cd "C:\Users\TU_USUARIO\Desktop\Tikets_003.2"
 npm --workspace backend run db:up
 ```
 
-### Prisma indica que no puede conectarse
-
-Comprueba que el contenedor esté activo:
+### Puerto ocupado
 
 ```powershell
-docker ps
+Get-NetTCPConnection -LocalPort 4001,8082 -ErrorAction SilentlyContinue
 ```
 
-Si no aparece `tiKets-postgres-0032`, ejecuta nuevamente `npm --workspace backend run db:up`.
-
-### Un puerto está ocupado
-
-Busca el proceso que usa el puerto:
-
-```powershell
-Get-NetTCPConnection -LocalPort 8082,4001 -ErrorAction SilentlyContinue
-```
-
-Cierra la terminal que inició ese proceso o reinicia el equipo antes de repetir los pasos.
-
-## 9. Comprobación automática
-
-Desde la raíz del proyecto:
-
-```powershell
-npm run ops:check
-```
-
-Este comando ayuda a revisar Docker, puertos, migraciones, API y frontend.
-
-## 10. Comandos para estudiar el código
+## 10. Comandos útiles
 
 ```powershell
 npm --workspace backend run build
 npm --workspace backend test
-cd frontend
-npx tsc --noEmit -p tsconfig.json
+npm run ops:check
 ```
 
-El backend contiene la lógica del servidor. El frontend contiene las pantallas. Puedes cambiar datos demo en `backend/prisma/seed.ts` y volver a ejecutar `npm --workspace backend run prisma:seed`.
+Puedes actualizar los datos demo desde `backend/prisma/seed.ts` y volver a ejecutar:
+
+```powershell
+npm --workspace backend run prisma:seed
+```
