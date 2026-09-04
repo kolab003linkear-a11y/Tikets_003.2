@@ -127,7 +127,7 @@ export default function CheckoutScreen() {
         ticketId: ticket.id,
         qrPayload,
         status: 'VALID',
-        movieTitle: response.reservation.showtime?.movie?.title ?? movieTitle,
+        movieTitle: response.reservation.showtime?.movieEvent?.title ?? movieTitle,
         selectedSeats: selectedSeats.length > 0 ? selectedSeats : [ticket.seatNumber],
         startTime: response.reservation.showtime?.startTime,
         roomName: response.reservation.showtime?.room?.name,
