@@ -1791,14 +1791,22 @@ const styles = StyleSheet.create({
   },
 
   posterImage: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
     width: undefined,
     height: undefined,
     borderRadius: 14,
   },
 
   posterOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
     borderRadius: 14,
     backgroundColor: 'rgba(7, 13, 24, 0.28)',
   },
