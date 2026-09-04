@@ -9,6 +9,7 @@ config.watchFolders = [workspaceRoot];
 config.resolver.disableHierarchicalLookup = true;
 config.resolver.nodeModulesPaths = [
   path.resolve(workspaceRoot, 'node_modules'),
+  path.resolve(projectRoot, 'node_modules'),
 ];
 
 module.exports = config;

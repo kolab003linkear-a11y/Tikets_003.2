@@ -18,7 +18,12 @@ export default function MyTicketsScreen() {
   const [filter, setFilter] = useState<'TODOS' | 'VALID' | 'USED' | 'EXPIRED'>('TODOS');
 
   const loadTickets = useCallback(async () => {
-    if (!token) return;
+    if (!token) {
+      setTickets([]);
+      setLoading(false);
+      setError(null);
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
@@ -165,7 +170,7 @@ export default function MyTicketsScreen() {
           </View>
           <Text style={styles.listTitle}>{filter === 'TODOS' ? 'Tus próximas experiencias' : `${statusLabel(filter)}s`}</Text>
         </>}
-        ListEmptyComponent={!loading ? <View style={styles.state}><Ionicons name={error ? 'cloud-offline-outline' : 'ticket-outline'} size={34} color={colors.textSecondary} /><Text style={styles.stateTitle}>{error ? 'No pudimos cargar tus entradas' : filter === 'TODOS' ? 'Todavía no tienes tickets' : 'No hay tickets en este estado'}</Text><Text style={styles.stateText}>{error ?? 'Tus entradas confirmadas aparecerán aquí.'}</Text>{error && <Pressable style={styles.retry} onPress={() => void loadTickets()}><Text style={styles.retryText}>Reintentar</Text></Pressable>}</View> : <View style={styles.state}><ActivityIndicator color={colors.primary} /></View>}
+        ListEmptyComponent={!loading && !token ? <View style={styles.state}><Ionicons name="log-in-outline" size={34} color={colors.textSecondary} /><Text style={styles.stateTitle}>Inicia sesión</Text><Text style={styles.stateText}>Para ver tus tickets confirmados, inicia sesión en tu cuenta.</Text><Pressable style={styles.retry} onPress={() => navigation.navigate('Auth')}><Text style={styles.retryText}>Iniciar sesión</Text></Pressable></View> : !loading ? <View style={styles.state}><Ionicons name={error ? 'cloud-offline-outline' : 'ticket-outline'} size={34} color={colors.textSecondary} /><Text style={styles.stateTitle}>{error ? 'No pudimos cargar tus entradas' : filter === 'TODOS' ? 'Todavía no tienes tickets' : 'No hay tickets en este estado'}</Text><Text style={styles.stateText}>{error ?? 'Tus entradas confirmadas aparecerán aquí.'}</Text>{error && <Pressable style={styles.retry} onPress={() => void loadTickets()}><Text style={styles.retryText}>Reintentar</Text></Pressable>}</View> : <View style={styles.state}><ActivityIndicator color={colors.primary} /></View>}
         renderItem={({ item }) => (
           <Pressable accessibilityRole="button" accessibilityLabel={`Abrir ticket de ${item.event.title}, localidad ${item.seatNumber}`} style={[styles.card, item.status === 'VALID' && styles.activeCard, item.status === 'USED' && styles.usedCard]} onPress={() => openTicket(item)}>
             <View style={styles.cardTopline}>

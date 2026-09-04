@@ -27,6 +27,7 @@ import AdminHubScreen from './src/screens/AdminHubScreen';
 import StadiumScreen from './src/screens/StadiumScreen';
 import AssistantScreen from './src/screens/AssistantScreen';
 import ParkingScreen from './src/screens/ParkingScreen';
+import BusScreen from './src/screens/BusScreen';
 import AdminParkingScreen from './src/screens/AdminParkingScreen';
 
 import CinemaScreen from './src/screens/CinemaScreen';
@@ -43,6 +44,9 @@ import ProfileScreen from './src/screens/ProfileScreen';
 import { AuthProvider, useAuth } from './src/auth/AuthContext';
 import { colors, typography } from './src/theme';
 import { ModuleProvider, useModules } from './src/modules/ModuleContext';
+import { installWebAlertShim } from './src/utils/alertShim';
+
+installWebAlertShim();
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -230,6 +234,7 @@ function AppContent() {
             <Stack.Screen name="Conciertos" component={ConcertScreen} />
             <Stack.Screen name="EstadiosModulo" component={StadiumScreen} />
             <Stack.Screen name="ParqueaderosModulo" component={ParkingScreen} />
+            <Stack.Screen name="Bus" component={BusScreen} />
             <Stack.Screen name="SeatSelection" component={SeatSelectionScreen} />
             <Stack.Screen name="Checkout" component={CheckoutScreen} />
             <Stack.Screen name="Ticket" component={TicketScreen} />

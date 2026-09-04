@@ -18,10 +18,10 @@ ALTER TYPE "BusOriginTerminal" ADD VALUE 'ABA';
 ALTER TYPE "BusOriginTerminal" ADD VALUE 'MTA';
 
 -- DropIndex
-DROP INDEX "bus_routes_origin_terminal_status_idx";
+DROP INDEX IF EXISTS "bus_routes_origin_terminal_status_idx";
 
 -- DropIndex
-DROP INDEX "parking_lots_operator_status_idx";
+DROP INDEX IF EXISTS "parking_lots_operator_status_idx";
 
 -- AlterTable: add origin_city with a temporary default to backfill existing rows
 ALTER TABLE "bus_routes" ADD COLUMN "origin_city" TEXT NOT NULL DEFAULT 'Quito';

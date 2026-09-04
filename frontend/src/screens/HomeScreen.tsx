@@ -233,6 +233,7 @@ export default function HomeScreen() {
             { key: 'theater', label: 'Teatro', detail: 'Obras y espectáculos', icon: 'easel-outline' as const, tone: styles.quickCardGreen, action: () => navigation.navigate('Teatro') },
             { key: 'matches', label: 'Partidos', detail: 'Estadios y localidades', icon: 'football-outline' as const, tone: styles.quickCardGold, action: () => navigation.navigate('EstadiosModulo') },
             { key: 'parking', label: 'Parqueaderos', detail: 'Reserva tu plaza', icon: 'car-outline' as const, tone: styles.quickCardNavy, action: () => navigation.navigate('ParqueaderosModulo') },
+            { key: 'bus', label: 'Buses', detail: 'Viajes y horarios', icon: 'bus-outline' as const, tone: styles.quickCardBus, action: () => navigation.navigate('Bus') },
           ].map((item) => (
             <Pressable
               key={item.key}
@@ -464,6 +465,7 @@ const styles = StyleSheet.create({
   quickCardGreen: { backgroundColor: colors.success },
   quickCardGold: { backgroundColor: '#8D6F19' },
   quickCardNavy: { backgroundColor: colors.surfaceRaised },
+  quickCardBus: { backgroundColor: '#1B6A5B' },
   quickCardPressed: { opacity: 0.8, transform: [{ scale: 0.98 }] },
   upcomingStrip: { gap: 10, paddingBottom: 20 },
   upcomingTile: { width: 220, height: 126, borderRadius: radii.card, overflow: 'hidden', backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, position: 'relative', ...shadows.card },
