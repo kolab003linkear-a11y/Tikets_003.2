@@ -13,20 +13,6 @@ DROP INDEX "bus_routes_origin_terminal_status_idx";
 -- DropIndex
 DROP INDEX "parking_lots_operator_status_idx";
 
--- AlterTable
-ALTER TABLE "matches" DROP COLUMN "away_team",
-DROP COLUMN "home_team",
-ADD COLUMN     "away_team_id" TEXT NOT NULL,
-ADD COLUMN     "home_team_id" TEXT NOT NULL;
-
--- AlterTable
-ALTER TABLE "parking_lots" ALTER COLUMN "operator" DROP DEFAULT,
-ALTER COLUMN "opening_hours" DROP DEFAULT,
-ALTER COLUMN "vehicle_types" DROP DEFAULT;
-
--- AlterTable
-ALTER TABLE "parking_tickets" ALTER COLUMN "entry_metadata" DROP DEFAULT;
-
 -- CreateTable
 CREATE TABLE "teams" (
     "id" TEXT NOT NULL,
@@ -38,6 +24,39 @@ CREATE TABLE "teams" (
 
     CONSTRAINT "teams_pkey" PRIMARY KEY ("id")
 );
+
+-- Preserve legacy team names before replacing them with relations.
+INSERT INTO "teams" ("id", "name", "updated_at")
+SELECT 'team-' || md5("name"), "name", CURRENT_TIMESTAMP
+FROM (
+  SELECT "home_team" AS "name" FROM "matches"
+  UNION
+  SELECT "away_team" AS "name" FROM "matches"
+) AS legacy_teams
+WHERE "name" IS NOT NULL;
+
+-- AlterTable
+ALTER TABLE "matches"
+ADD COLUMN "away_team_id" TEXT,
+ADD COLUMN "home_team_id" TEXT;
+
+UPDATE "matches" AS matches
+SET "home_team_id" = 'team-' || md5(matches."home_team"),
+    "away_team_id" = 'team-' || md5(matches."away_team");
+
+ALTER TABLE "matches"
+DROP COLUMN "away_team",
+DROP COLUMN "home_team",
+ALTER COLUMN "away_team_id" SET NOT NULL,
+ALTER COLUMN "home_team_id" SET NOT NULL;
+
+-- AlterTable
+ALTER TABLE "parking_lots" ALTER COLUMN "operator" DROP DEFAULT,
+ALTER COLUMN "opening_hours" DROP DEFAULT,
+ALTER COLUMN "vehicle_types" DROP DEFAULT;
+
+-- AlterTable
+ALTER TABLE "parking_tickets" ALTER COLUMN "entry_metadata" DROP DEFAULT;
 
 -- CreateTable
 CREATE TABLE "user_favorite_teams" (

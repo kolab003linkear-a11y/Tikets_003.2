@@ -1,6 +1,6 @@
 import { Platform } from 'react-native';
 
-const defaultApiUrl = Platform.OS === 'web' ? 'http://localhost:4000' : 'http://192.168.100.8:4000';
+const defaultApiUrl = Platform.OS === 'web' ? 'http://localhost:4001' : 'http://192.168.100.93:4001';
 export const API_BASE_URL = (process.env.EXPO_PUBLIC_API_URL ?? defaultApiUrl).replace(/\/$/, '');
 
 export type CatalogShowtime = {
@@ -271,13 +271,35 @@ export type ParkingLot = {
   availabilityDate?: string;
   status: 'ACTIVE' | 'INACTIVE';
   _count?: { tickets: number };
+  spaces?: ParkingSpace[];
+};
+
+export type ParkingSpace = {
+  id: string;
+  parkingId: string;
+  spaceNumber: number;
+  floor: number;
+  code: string;
+  status: 'AVAILABLE' | 'MAINTENANCE' | 'CLOSED';
+  occupied?: boolean;
+};
+
+export type AdminParkingDashboard = {
+  parking: ParkingLot[];
+  projectedRevenue: number;
+  finalizedRevenue: number;
+  demandByHour: Array<{ hour: number; count: number }>;
+  revenueDate: string;
+  updatedAt: string;
 };
 
 export type ParkingTicketResponse = {
-  ticket: { id: string; spaceNumber: number; date: string; status: 'VALID' | 'USED' | 'EXPIRED'; qrPayload: string; parking: ParkingLot };
+  ticket: { id: string; spaceNumber: number; date: string; createdAt?: string; status: 'VALID' | 'USED' | 'EXPIRED'; qrPayload: string; parking: ParkingLot };
 };
 
 export type AdminParkingInput = Omit<ParkingLot, 'id' | '_count' | 'operator' | 'openingHours' | 'terminalName' | 'accessMode' | 'vehicleTypes'> & { operator?: string; openingHours?: string; terminalName?: string | null; accessMode?: ParkingLot['accessMode']; vehicleTypes?: string[] };
+
+export type AdminParkingSpaceInput = { spaceNumber: number; floor?: number; code?: string; status?: ParkingSpace['status'] };
 
 export type BusRoute = {
   id: string;
@@ -456,6 +478,10 @@ export function createParkingTicket(token: string, parkingId: string, spaceNumbe
   return request<ParkingTicketResponse>(`/api/parking/${parkingId}/tickets`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: JSON.stringify({ spaceNumber, date }) });
 }
 
+export function payParkingTicket(token: string, ticketId: string, paymentMethod: 'CARD' | 'APPLE_PAY' | 'PAYPAL' | 'CASH') {
+  return request<{ success: boolean; ticket: ParkingTicketResponse['ticket']; paymentMethod: string }>(`/api/parking/tickets/${ticketId}/pay`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: JSON.stringify({ paymentMethod }) });
+}
+
 export function getBuses(terminal?: string, destination?: string, operator?: string) {
   const params = new URLSearchParams();
   if (terminal?.trim()) params.set('terminal', terminal.trim().toUpperCase());
@@ -469,9 +495,12 @@ export function createBusTicket(token: string, tripId: string, seatNumber: numbe
   return request<BusTicketResponse>(`/api/bus-trips/${tripId}/tickets`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: JSON.stringify({ seatNumber }) });
 }
 
-export function getAdminParking(token: string) { return request<{ parking: ParkingLot[] }>('/api/admin/parking', { headers: { Authorization: `Bearer ${token}` } }); }
+export function getAdminParking(token: string) { return request<AdminParkingDashboard>('/api/admin/parking', { headers: { Authorization: `Bearer ${token}` } }); }
 export function createAdminParking(token: string, parking: AdminParkingInput) { return request<{ parking: ParkingLot }>('/api/admin/parking', { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: JSON.stringify(parking) }); }
 export function updateAdminParking(token: string, parkingId: string, parking: AdminParkingInput) { return request<{ parking: ParkingLot }>(`/api/admin/parking/${parkingId}`, { method: 'PATCH', headers: { Authorization: `Bearer ${token}` }, body: JSON.stringify(parking) }); }
+export function deleteAdminParking(token: string, parkingId: string) { return request<{ success: boolean }>(`/api/admin/parking/${parkingId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } }); }
+export function createAdminParkingSpace(token: string, parkingId: string, space: AdminParkingSpaceInput) { return request<{ space: ParkingSpace }>(`/api/admin/parking/${parkingId}/spaces`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: JSON.stringify(space) }); }
+export function updateAdminParkingSpace(token: string, parkingId: string, spaceId: string, status: ParkingSpace['status']) { return request<{ space: ParkingSpace }>(`/api/admin/parking/${parkingId}/spaces/${spaceId}`, { method: 'PATCH', headers: { Authorization: `Bearer ${token}` }, body: JSON.stringify({ status }) }); }
 
 export function getAdminRoutes(token: string) { return request<{ routes: BusRoute[] }>('/api/admin/bus-routes', { headers: { Authorization: `Bearer ${token}` } }); }
 export function createAdminRoute(token: string, route: AdminBusRouteInput) { return request<{ route: BusRoute }>('/api/admin/bus-routes', { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: JSON.stringify(route) }); }
@@ -509,11 +538,11 @@ export function createReservation(token: string, userId: string, showtimeId: str
   });
 }
 
-export function confirmDemoPayment(token: string, reservationId: string) {
+export function confirmDemoPayment(token: string, reservationId: string, paymentMethod: 'CARD' | 'APPLE_PAY' | 'PAYPAL' | 'CASH' = 'CARD') {
   return request<PaymentResponse>('/api/payments/demo-confirm', {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ reservationId }),
+    body: JSON.stringify({ reservationId, paymentMethod }),
   });
 }
 

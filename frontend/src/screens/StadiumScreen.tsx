@@ -10,6 +10,7 @@ import AppCard from '../components/AppCard';
 import AppInput from '../components/AppInput';
 import AppState from '../components/AppState';
 import ProfileAvatar from '../components/ProfileAvatar';
+import { PaymentModal } from '../components/parking/PaymentModal';
 
 const defaultStadiumImage = 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&w=1200&q=80';
 const stadiumImages: Record<string, string> = {
@@ -80,6 +81,7 @@ export default function StadiumScreen() {
   const [manualSeatDraft, setManualSeatDraft] = useState('');
   const [loading, setLoading] = useState(true);
   const [buying, setBuying] = useState(false);
+  const [paymentOpen, setPaymentOpen] = useState(false);
   const [error, setError] = useState('');
   const [filter, setFilter] = useState<'TODOS' | 'LIVE' | 'SCHEDULED' | 'FAVORITOS'>('TODOS');
   const [cityFilter, setCityFilter] = useState('Todas');
@@ -494,6 +496,7 @@ export default function StadiumScreen() {
             />
             <AppButton label="Cancelar" variant="secondary" onPress={() => setSelectedMatchId(null)} disabled={buying} />
           </AppCard>
+          <PaymentModal isOpen={paymentOpen} onClose={() => setPaymentOpen(false)} totalAmount={Number(selectedSector?.price ?? 0)} onConfirmPayment={() => { setPaymentOpen(false); void buyTicket(); }} processing={buying} />
         </ScrollView>
       ) : (
         <FlatList
@@ -748,7 +751,7 @@ const styles = StyleSheet.create({
   favoritesBadgeText: { color: '#fff', fontSize: 10, fontWeight: '800' },
   heroCard: { height: 190, borderRadius: 18, overflow: 'hidden', marginBottom: 14, backgroundColor: colors.surface },
   heroImage: { width: '100%', height: '100%' },
-  heroOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: colors.overlayStrong, justifyContent: 'flex-end', padding: 16 },
+  heroOverlay: { ...StyleSheet.absoluteFill, backgroundColor: colors.overlayStrong, justifyContent: 'flex-end', padding: 16 },
   heroTag: { color: colors.warning, fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 1 },
   heroTitle: { color: colors.text, fontSize: 27, fontWeight: '800', marginTop: 4, fontFamily: typography.display },
   heroText: { color: colors.text, fontSize: 13, lineHeight: 19, marginTop: 5, maxWidth: '82%' },

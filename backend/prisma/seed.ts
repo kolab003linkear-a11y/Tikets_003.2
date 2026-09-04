@@ -38,12 +38,12 @@ async function main() {
 
   const client = await prisma.user.upsert({
     where: { email: clientEmail },
-    update: { passwordHash: clientPasswordHash, role: UserRole.CLIENT, fullName: 'Juan Pérez (Cliente demo)' },
+    update: { passwordHash: clientPasswordHash, role: UserRole.CLIENT, fullName: 'Juan Pérez' },
     create: {
       email: clientEmail,
       passwordHash: clientPasswordHash,
       role: UserRole.CLIENT,
-      fullName: 'Juan Pérez (Cliente demo)',
+      fullName: 'Juan Pérez',
     },
     select: { id: true, email: true },
   });
@@ -385,8 +385,8 @@ async function main() {
   }
 
   const parkingLots = [
-    { id: 'parking-quito-centro', name: 'Parking Centro Histórico (demo)', address: 'García Moreno y Chile', city: 'Quito', totalSpaces: 120, price: 2.5, operator: 'Operador demo TiKetSafe', openingHours: '06:00-22:00', terminalName: null, accessMode: ParkingAccessMode.QR, vehicleTypes: ['AUTO', 'MOTO'] },
-    { id: 'parking-terminal', name: 'Parking Terminal (demo)', address: 'Av. Mariscal Sucre', city: 'Quito', totalSpaces: 80, price: 1.75, operator: 'Operador demo TiKetSafe', openingHours: '24/7 (demo)', terminalName: 'Quitumbe', accessMode: ParkingAccessMode.TARJETA, vehicleTypes: ['AUTO', 'MOTO', 'SUV'] },
+    { id: 'parking-quito-centro', name: 'Parking Centro Histórico', address: 'García Moreno y Chile', city: 'Quito', totalSpaces: 120, price: 2.5, operator: 'Operador TiKetSafe', openingHours: '06:00-22:00', terminalName: null, accessMode: ParkingAccessMode.QR, vehicleTypes: ['AUTO', 'MOTO'] },
+    { id: 'parking-terminal', name: 'Parking Terminal', address: 'Av. Mariscal Sucre', city: 'Quito', totalSpaces: 80, price: 1.75, operator: 'Operador TiKetSafe', openingHours: '24/7', terminalName: 'Quitumbe', accessMode: ParkingAccessMode.TARJETA, vehicleTypes: ['AUTO', 'MOTO', 'SUV'] },
   ];
   for (const parking of parkingLots) {
     await prisma.parkingLot.upsert({
@@ -397,17 +397,17 @@ async function main() {
   }
 
   const busRoutes = [
-    { id: 'route-quito-guayaquil', origin: 'Quito', destination: 'Guayaquil', operator: 'Operador demo Sierra Costa', originTerminal: BusOriginTerminal.QUITUMBE },
-    { id: 'route-quito-cuenca', origin: 'Quito', destination: 'Cuenca', operator: 'Operador demo Andino', originTerminal: BusOriginTerminal.CARCELEN },
+    { id: 'route-quito-guayaquil', origin: 'Quito', destination: 'Guayaquil', operator: 'Operador Sierra Costa', originTerminal: BusOriginTerminal.QUITUMBE },
+    { id: 'route-quito-cuenca', origin: 'Quito', destination: 'Cuenca', operator: 'Operador Andino', originTerminal: BusOriginTerminal.CARCELEN },
   ];
   for (const route of busRoutes) {
     await prisma.busRoute.upsert({ where: { id: route.id }, update: { ...route, status: BusRouteStatus.ACTIVE }, create: { ...route, status: BusRouteStatus.ACTIVE } });
   }
 
   const busTrips = [
-    { id: 'trip-quito-guayaquil-001', routeId: 'route-quito-guayaquil', departureTime: '2026-09-01T07:00:00-05:00', arrivalTime: '2026-09-01T15:00:00-05:00', boardingPlatform: 'Andén demo 12', baggageInfo: '1 pieza incluida (demo)', price: 18, totalSeats: 40 },
-    { id: 'trip-quito-guayaquil-002', routeId: 'route-quito-guayaquil', departureTime: '2026-09-01T21:00:00-05:00', arrivalTime: '2026-09-02T05:00:00-05:00', boardingPlatform: 'Andén demo 8', baggageInfo: 'Equipaje sujeto a validación del operador (demo)', price: 20, totalSeats: 40 },
-    { id: 'trip-quito-cuenca-001', routeId: 'route-quito-cuenca', departureTime: '2026-09-02T08:30:00-05:00', arrivalTime: '2026-09-02T17:00:00-05:00', boardingPlatform: 'Andén demo 4', baggageInfo: '1 pieza incluida (demo)', price: 16, totalSeats: 36 },
+    { id: 'trip-quito-guayaquil-001', routeId: 'route-quito-guayaquil', departureTime: '2026-09-01T07:00:00-05:00', arrivalTime: '2026-09-01T15:00:00-05:00', boardingPlatform: 'Andén 12', baggageInfo: '1 pieza incluida', price: 18, totalSeats: 40 },
+    { id: 'trip-quito-guayaquil-002', routeId: 'route-quito-guayaquil', departureTime: '2026-09-01T21:00:00-05:00', arrivalTime: '2026-09-02T05:00:00-05:00', boardingPlatform: 'Andén 8', baggageInfo: 'Equipaje sujeto a validación del operador', price: 20, totalSeats: 40 },
+    { id: 'trip-quito-cuenca-001', routeId: 'route-quito-cuenca', departureTime: '2026-09-02T08:30:00-05:00', arrivalTime: '2026-09-02T17:00:00-05:00', boardingPlatform: 'Andén 4', baggageInfo: '1 pieza incluida', price: 16, totalSeats: 36 },
   ];
   for (const trip of busTrips) {
     await prisma.busTrip.upsert({ where: { id: trip.id }, update: { ...trip, departureTime: new Date(trip.departureTime), arrivalTime: new Date(trip.arrivalTime), status: BusTripStatus.SCHEDULED }, create: { ...trip, departureTime: new Date(trip.departureTime), arrivalTime: new Date(trip.arrivalTime), status: BusTripStatus.SCHEDULED } });

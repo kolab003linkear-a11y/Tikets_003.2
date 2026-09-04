@@ -4,9 +4,9 @@ import helmet from 'helmet';
 import dotenv from 'dotenv';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { Prisma, PrismaClient, ReservationStatus, StadiumTicketStatus, TicketStatus, UserRole, ParkingTicketStatus, BusTicketStatus, ParkingAccessMode, ParkingTicketMode, BusOriginTerminal } from '@prisma/client';
+import { Prisma, PrismaClient, ReservationStatus, StadiumTicketStatus, TicketStatus, UserRole, ParkingTicketStatus, BusTicketStatus, ParkingAccessMode, ParkingTicketMode, ParkingSpaceStatus, BusOriginTerminal } from '@prisma/client';
 import { z } from 'zod';
-import { createHash } from 'crypto';
+import { createHash, createHmac, timingSafeEqual } from 'crypto';
 import { writeLog } from './logger';
 
 dotenv.config();
@@ -66,6 +66,7 @@ const webhookSchema = z.object({
 
 const paymentConfirmationSchema = z.object({
   reservationId: z.string().min(1),
+  paymentMethod: z.enum(['CARD', 'APPLE_PAY', 'PAYPAL', 'CASH']).optional(),
 });
 
 const profileSchema = z.object({
@@ -169,18 +170,59 @@ const parkingSchema = z.object({
   city: z.string().trim().min(1).max(80),
   totalSpaces: z.coerce.number().int().min(1).max(100000),
   price: z.coerce.number().nonnegative().max(10000),
-  operator: z.string().trim().min(1).max(120).default('Operador demo TiKetSafe'),
-  openingHours: z.string().trim().min(1).max(120).default('Horario demo por confirmar'),
+  operator: z.string().trim().min(1).max(120).default('Operador TiKetSafe'),
+  openingHours: z.string().trim().min(1).max(120).default('Horario por confirmar'),
   terminalName: z.string().trim().max(120).nullable().optional(),
   accessMode: z.enum(['QR', 'TARJETA', 'TICKET']).default('QR'),
   vehicleTypes: z.array(z.string().trim().min(1).max(40)).min(1).max(20).default(['AUTO']),
   status: z.enum(['ACTIVE', 'INACTIVE']).optional(),
 });
 
+const parkingSpaceSchema = z.object({
+  spaceNumber: z.coerce.number().int().min(1),
+  floor: z.coerce.number().int().min(1).max(100).optional(),
+  code: z.string().trim().min(1).max(20).optional(),
+  status: z.enum(['AVAILABLE', 'MAINTENANCE', 'CLOSED']).optional(),
+});
+
+const parkingSpaceStatusSchema = z.object({ status: z.enum(['AVAILABLE', 'MAINTENANCE', 'CLOSED']) });
+
+const parkingSpaceCode = (spaceNumber: number) => {
+  const index = spaceNumber - 1;
+  return `${String.fromCharCode(65 + Math.floor(index / 4) % 3)}${(index % 4) + 1}`;
+};
+
+async function ensureParkingSpaces(parkingId: string, totalSpaces: number) {
+  const baseSize = Math.floor(totalSpaces / 3);
+  const remainder = totalSpaces % 3;
+  const floorSizes = [baseSize + (remainder > 0 ? 1 : 0), baseSize + (remainder > 1 ? 1 : 0), baseSize];
+  const spaces = Array.from({ length: totalSpaces }, (_, index) => {
+    const spaceNumber = index + 1;
+    const floor = index < floorSizes[0] ? 1 : index < floorSizes[0] + floorSizes[1] ? 2 : 3;
+    const letter = String.fromCharCode(64 + floor);
+    const position = floor === 1 ? index + 1 : floor === 2 ? index - floorSizes[0] + 1 : index - floorSizes[0] - floorSizes[1] + 1;
+    return { parkingId, spaceNumber, floor, code: `${letter}${position}-${floor}` };
+  });
+  const existing = await prisma.parkingSpace.findMany({ where: { parkingId }, select: { id: true, spaceNumber: true } });
+  await prisma.$transaction([
+    ...existing.map((space) => prisma.parkingSpace.update({ where: { id: space.id }, data: { code: `__sync_${parkingId}_${space.spaceNumber}` } })),
+    ...spaces.map((space) => prisma.parkingSpace.upsert({
+      where: { parkingId_spaceNumber: { parkingId, spaceNumber: space.spaceNumber } },
+      create: space,
+      update: { floor: space.floor, code: space.code },
+    })),
+  ]);
+  return prisma.parkingSpace.findMany({ where: { parkingId, spaceNumber: { lte: totalSpaces } }, orderBy: { spaceNumber: 'asc' } });
+}
+
 const parkingTicketSchema = z.object({
   spaceNumber: z.coerce.number().int().min(1),
   date: z.coerce.date(),
   entryTime: z.coerce.date().nullable().optional(),
+});
+
+const parkingPaymentSchema = z.object({
+  paymentMethod: z.enum(['CARD', 'APPLE_PAY', 'PAYPAL', 'CASH']),
 });
 
 const busRouteSchema = z.object({
@@ -230,7 +272,7 @@ function signToken(payload: { sub: string; email: string; role: UserRole }) {
   return jwt.sign(payload, jwtSecret, { expiresIn: '7d' });
 }
 
-function authMiddleware(req: Request, _res: Response, next: NextFunction) {
+async function authMiddleware(req: Request, _res: Response, next: NextFunction) {
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -239,12 +281,20 @@ function authMiddleware(req: Request, _res: Response, next: NextFunction) {
 
   const token = authHeader.replace('Bearer ', '');
 
+  let decoded: { sub: string };
   try {
-    const decoded = jwt.verify(token, jwtSecret) as { sub: string; email: string; role: UserRole };
-    (req as Request & { user?: { sub: string; email: string; role: UserRole } }).user = decoded;
-    return next();
+    decoded = jwt.verify(token, jwtSecret) as { sub: string };
   } catch {
     return next(new AppError('Invalid or expired token.', 401));
+  }
+
+  try {
+    const user = await prisma.user.findUnique({ where: { id: decoded.sub }, select: { id: true, email: true, role: true } });
+    if (!user) return next(new AppError('Invalid or expired token.', 401));
+    (req as Request & { user?: { sub: string; email: string; role: UserRole } }).user = { sub: user.id, email: user.email, role: user.role };
+    return next();
+  } catch (error) {
+    return next(error);
   }
 }
 
@@ -372,11 +422,12 @@ app.post('/api/auth/guest', async (req, res, next) => {
   try {
     const payload = guestSchema.parse(req.body);
     const email = payload.email.trim().toLowerCase();
-    const existingUser = await prisma.user.findUnique({ where: { email }, select: { id: true, role: true } });
-    const user = await prisma.user.upsert({
-      where: { email },
-      update: { fullName: payload.fullName.trim(), phone: payload.phone.trim() },
-      create: {
+    const existingUser = await prisma.user.findUnique({ where: { email }, select: { id: true } });
+    if (existingUser) {
+      throw new AppError('This email already has an account. Please sign in with your password.', 409);
+    }
+    const user = await prisma.user.create({
+      data: {
         email,
         fullName: payload.fullName.trim(),
         phone: payload.phone.trim(),
@@ -385,7 +436,7 @@ app.post('/api/auth/guest', async (req, res, next) => {
       },
       select: { id: true, email: true, fullName: true, phone: true, role: true, createdAt: true },
     });
-    const token = signToken({ sub: user.id, email: user.email, role: existingUser?.role ?? user.role });
+    const token = signToken({ sub: user.id, email: user.email, role: user.role });
     res.json({ user, token });
   } catch (error) {
     next(error);
@@ -703,7 +754,7 @@ app.get('/api/admin/showtimes', authMiddleware, async (req, res, next) => {
     const authenticatedUser = (req as Request & { user: { role: UserRole } }).user;
     if (authenticatedUser.role !== UserRole.ADMIN) throw new AppError('Only administrators can manage showtimes.', 403);
     const showtimes = await prisma.showtime.findMany({
-      include: { movie: { select: { id: true, title: true } }, room: { select: { id: true, name: true, capacity: true } } },
+      include: { movieEvent: { select: { id: true, title: true } }, room: { select: { id: true, name: true, capacity: true } } },
       orderBy: { startTime: 'asc' },
     });
     return res.json({ showtimes });
@@ -725,9 +776,9 @@ app.post('/api/admin/showtimes', authMiddleware, async (req, res, next) => {
     if (availableSeats > room.capacity) throw new AppError('Availability cannot exceed room capacity.', 400);
     const { movieId, ...restPayload } = payload;
     const showtime = await prisma.showtime.create({
-  data: { ...restPayload, movieId, availableSeats },
+  data: { ...restPayload, movieEventId: movieId, availableSeats },
   include: {
-    movie: { select: { id: true, title: true } },
+    movieEvent: { select: { id: true, title: true } },
     room: { select: { id: true, name: true, capacity: true } },
   },
 });
@@ -749,8 +800,8 @@ app.patch('/api/admin/showtimes/:showtimeId', authMiddleware, async (req, res, n
     const { movieId, ...restPayload } = payload;
     const showtime = await prisma.showtime.update({
       where: { id: req.params.showtimeId },
-      data: { ...restPayload, movieId, availableSeats },
-      include: { movie: { select: { id: true, title: true } }, room: { select: { id: true, name: true, capacity: true } } },
+      data: { ...restPayload, movieEventId: movieId, availableSeats },
+      include: { movieEvent: { select: { id: true, title: true } }, room: { select: { id: true, name: true, capacity: true } } },
     });
     return res.json({ showtime });
   } catch (error) {
@@ -1013,8 +1064,12 @@ app.get('/api/parking', async (_req, res, next) => {
     const requestedDate = _req.query.date ? new Date(String(_req.query.date)) : new Date();
     requestedDate.setHours(0, 0, 0, 0);
     const nextDate = new Date(requestedDate); nextDate.setDate(nextDate.getDate() + 1);
-    const parking = await prisma.parkingLot.findMany({ where: { status: 'ACTIVE' }, include: { tickets: { where: { date: { gte: requestedDate, lt: nextDate }, status: { in: ['VALID', 'USED'] } }, select: { spaceNumber: true } } }, orderBy: { name: 'asc' } });
-    return res.json({ parking: parking.map(({ tickets, ...item }) => ({ ...item, reservedSpaces: tickets.length, availableSpaces: Math.max(item.totalSpaces - tickets.length, 0), reservedSpaceNumbers: tickets.map((ticket) => ticket.spaceNumber), availabilityDate: requestedDate.toISOString() })) });
+    const parking = await prisma.parkingLot.findMany({ where: { status: 'ACTIVE' }, include: { tickets: { where: { date: { gte: requestedDate, lt: nextDate }, status: ParkingTicketStatus.VALID }, select: { spaceNumber: true } } }, orderBy: { name: 'asc' } });
+    return res.json({ parking: await Promise.all(parking.map(async ({ tickets, ...item }) => {
+      const spaces = await ensureParkingSpaces(item.id, item.totalSpaces);
+      const reserved = new Set(tickets.map((ticket) => ticket.spaceNumber));
+      return { ...item, spaces: spaces.map((space) => ({ ...space, occupied: reserved.has(space.spaceNumber) })), reservedSpaces: tickets.length, availableSpaces: Math.max(item.totalSpaces - tickets.length, 0), reservedSpaceNumbers: tickets.map((ticket) => ticket.spaceNumber), availabilityDate: requestedDate.toISOString() };
+    })) });
   } catch (error) { next(error); }
 });
 
@@ -1033,7 +1088,78 @@ app.get('/api/admin/parking', authMiddleware, async (req, res, next) => {
   try {
     const user = (req as Request & { user: { role: UserRole } }).user;
     if (user.role !== UserRole.ADMIN) throw new AppError('Only administrators can manage parking lots.', 403);
-    return res.json({ parking: await prisma.parkingLot.findMany({ include: { _count: { select: { tickets: true } } }, orderBy: { name: 'asc' } }) });
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const parking = await prisma.parkingLot.findMany({
+      include: {
+        _count: { select: { tickets: true } },
+        tickets: {
+          where: { date: { gte: today, lt: tomorrow }, status: ParkingTicketStatus.VALID },
+          select: { spaceNumber: true },
+        },
+      },
+      orderBy: { name: 'asc' },
+    });
+    const dailyTickets = await prisma.parkingTicket.findMany({ where: { date: { gte: today, lt: tomorrow }, status: { in: [ParkingTicketStatus.VALID, ParkingTicketStatus.USED] } }, select: { parkingId: true, status: true, entryTime: true, exitTime: true, usedAt: true, createdAt: true, parking: { select: { price: true } } } });
+    const now = Date.now();
+    const revenue = dailyTickets.reduce((total, ticket) => {
+      const startedAt = Math.max((ticket.entryTime ?? ticket.createdAt).getTime(), today.getTime());
+      const finishedAt = ticket.status === ParkingTicketStatus.USED ? (ticket.exitTime ?? ticket.usedAt ?? ticket.createdAt).getTime() : now;
+      return total + Math.max((finishedAt - startedAt) / 3600000, 0) * Number(ticket.parking.price);
+    }, 0);
+    const demandByHour = Array.from({ length: 24 }, (_, hour) => ({ hour, count: dailyTickets.filter((ticket) => (ticket.entryTime ?? ticket.createdAt).getHours() === hour).length }));
+    return res.json({ parking: await Promise.all(parking.map(async ({ tickets, ...item }) => {
+      const spaces = await ensureParkingSpaces(item.id, item.totalSpaces);
+      const occupied = new Set(tickets.map((ticket) => ticket.spaceNumber));
+      return { ...item, spaces: spaces.map((space) => ({ ...space, occupied: occupied.has(space.spaceNumber) })) };
+    })), projectedRevenue: revenue, finalizedRevenue: dailyTickets.filter((ticket) => ticket.status === ParkingTicketStatus.USED).reduce((total, ticket) => total + Math.max(((ticket.exitTime ?? ticket.usedAt ?? ticket.createdAt).getTime() - Math.max((ticket.entryTime ?? ticket.createdAt).getTime(), today.getTime())) / 3600000, 0) * Number(ticket.parking.price), 0), demandByHour, revenueDate: today.toISOString().slice(0, 10), updatedAt: new Date().toISOString() });
+  } catch (error) { next(error); }
+});
+
+app.post('/api/admin/parking/:parkingId/spaces', authMiddleware, async (req, res, next) => {
+  try {
+    const user = (req as Request & { user: { role: UserRole } }).user;
+    if (user.role !== UserRole.ADMIN) throw new AppError('Only administrators can manage parking spaces.', 403);
+    const payload = parkingSpaceSchema.parse(req.body);
+    const parking = await prisma.parkingLot.findUnique({ where: { id: req.params.parkingId } });
+    if (!parking) throw new AppError('Parking lot not found.', 404);
+    if (payload.spaceNumber > parking.totalSpaces) await prisma.parkingLot.update({ where: { id: parking.id }, data: { totalSpaces: payload.spaceNumber } });
+    const nextTotal = Math.max(parking.totalSpaces, payload.spaceNumber);
+    const baseSize = Math.floor(nextTotal / 3);
+    const remainder = nextTotal % 3;
+    const floorSizes = [baseSize + (remainder > 0 ? 1 : 0), baseSize + (remainder > 1 ? 1 : 0), baseSize];
+    const floor = payload.floor ?? (payload.spaceNumber <= floorSizes[0] ? 1 : payload.spaceNumber <= floorSizes[0] + floorSizes[1] ? 2 : 3);
+    const position = floor === 1 ? payload.spaceNumber : floor === 2 ? payload.spaceNumber - floorSizes[0] : payload.spaceNumber - floorSizes[0] - floorSizes[1];
+    const code = payload.code ?? `${String.fromCharCode(64 + floor)}${position}-${floor}`;
+    const space = await prisma.parkingSpace.create({ data: { parkingId: parking.id, spaceNumber: payload.spaceNumber, floor, code, status: payload.status ? ParkingSpaceStatus[payload.status] : ParkingSpaceStatus.AVAILABLE } });
+    if (nextTotal !== parking.totalSpaces) await ensureParkingSpaces(parking.id, nextTotal);
+    return res.status(201).json({ space });
+  } catch (error) { if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') return next(new AppError('La plaza ya existe en este parqueadero.', 409)); next(error); }
+});
+
+app.delete('/api/admin/parking/:parkingId', authMiddleware, async (req, res, next) => {
+  try {
+    const user = (req as Request & { user: { role: UserRole } }).user;
+    if (user.role !== UserRole.ADMIN) throw new AppError('Only administrators can delete parking lots.', 403);
+    await prisma.parkingLot.delete({ where: { id: req.params.parkingId } });
+    return res.json({ success: true });
+  } catch (error) { next(error); }
+});
+
+app.patch('/api/admin/parking/:parkingId/spaces/:spaceId', authMiddleware, async (req, res, next) => {
+  try {
+    const user = (req as Request & { user: { role: UserRole } }).user;
+    if (user.role !== UserRole.ADMIN) throw new AppError('Only administrators can manage parking spaces.', 403);
+    const payload = parkingSpaceStatusSchema.parse(req.body);
+    const space = await prisma.parkingSpace.findFirst({ where: { id: req.params.spaceId, parkingId: req.params.parkingId } });
+    if (!space) throw new AppError('Parking space not found.', 404);
+    if (payload.status !== 'AVAILABLE') {
+      const activeTicket = await prisma.parkingTicket.findFirst({ where: { parkingId: space.parkingId, spaceNumber: space.spaceNumber, status: ParkingTicketStatus.VALID, date: { gte: new Date(new Date().setHours(0, 0, 0, 0)), lt: new Date(new Date().setHours(24, 0, 0, 0)) } } });
+      if (activeTicket) throw new AppError('No puedes cerrar una plaza con una reserva activa.', 409);
+    }
+    return res.json({ space: await prisma.parkingSpace.update({ where: { id: space.id }, data: { status: ParkingSpaceStatus[payload.status] } }) });
   } catch (error) { next(error); }
 });
 
@@ -1042,7 +1168,9 @@ app.post('/api/admin/parking', authMiddleware, async (req, res, next) => {
     const user = (req as Request & { user: { role: UserRole } }).user;
     if (user.role !== UserRole.ADMIN) throw new AppError('Only administrators can manage parking lots.', 403);
     const payload = parkingSchema.parse(req.body);
-    return res.status(201).json({ parking: await prisma.parkingLot.create({ data: { ...payload, status: payload.status ?? 'ACTIVE' } }) });
+    const parking = await prisma.parkingLot.create({ data: { ...payload, status: payload.status ?? 'ACTIVE' } });
+    const spaces = await ensureParkingSpaces(parking.id, parking.totalSpaces);
+    return res.status(201).json({ parking: { ...parking, spaces } });
   } catch (error) { next(error); }
 });
 
@@ -1063,11 +1191,34 @@ app.post('/api/parking/:parkingId/tickets', authMiddleware, async (req, res, nex
     const parking = await prisma.parkingLot.findUnique({ where: { id: req.params.parkingId } });
     if (!parking || parking.status !== 'ACTIVE') throw new AppError('Parking lot is not available.', 409);
     if (payload.spaceNumber > parking.totalSpaces) throw new AppError('Space is outside this parking lot.', 400);
+    const space = await prisma.parkingSpace.findUnique({ where: { parkingId_spaceNumber: { parkingId: parking.id, spaceNumber: payload.spaceNumber } } });
+    if (space && space.status !== ParkingSpaceStatus.AVAILABLE) throw new AppError('This parking space is not available.', 409);
     const date = new Date(payload.date); date.setHours(0, 0, 0, 0);
+    const activeReservation = await prisma.parkingTicket.findFirst({ where: { parkingId: parking.id, spaceNumber: payload.spaceNumber, date, status: ParkingTicketStatus.VALID }, select: { id: true } });
+    if (activeReservation) throw new AppError('Ese espacio ya está reservado para la fecha seleccionada.', 409);
     const qrCodeHash = createHash('sha256').update(`${parking.id}:${payload.spaceNumber}:${date.toISOString()}:${Date.now()}:${Math.random()}`).digest('hex');
     const ticket = await prisma.parkingTicket.create({ data: { parkingId: parking.id, userId: user.sub, spaceNumber: payload.spaceNumber, date, entryTime: payload.entryTime ?? null, ticketMode: parking.accessMode as ParkingTicketMode, entryMetadata: { demo: true, accessMode: parking.accessMode, operator: parking.operator, terminalName: parking.terminalName, date: date.toISOString() }, qrCodeHash }, include: { parking: true } });
-    return res.status(201).json({ ticket: { id: ticket.id, spaceNumber: ticket.spaceNumber, date: ticket.date, status: ticket.status, qrPayload: `parkingsafe:v1:${ticket.id}:${ticket.qrCodeHash}`, parking: ticket.parking } });
+    return res.status(201).json({ ticket: { id: ticket.id, spaceNumber: ticket.spaceNumber, date: ticket.date, createdAt: ticket.createdAt, status: ticket.status, qrPayload: `parkingsafe:v1:${ticket.id}:${ticket.qrCodeHash}`, parking: ticket.parking } });
   } catch (error) { if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') return next(new AppError('Ese espacio ya está reservado para la fecha seleccionada.', 409)); next(error); }
+});
+
+app.post('/api/parking/tickets/:ticketId/pay', authMiddleware, async (req, res, next) => {
+  try {
+    const payload = parkingPaymentSchema.parse(req.body);
+    const user = (req as Request & { user: { sub: string } }).user;
+    const ticket = await prisma.parkingTicket.findUnique({ where: { id: req.params.ticketId }, include: { parking: true } });
+    if (!ticket || ticket.userId !== user.sub) throw new AppError('Parking ticket not found.', 404);
+    if (ticket.status !== ParkingTicketStatus.VALID) throw new AppError('This parking ticket is no longer payable.', 409);
+
+    const paidTicket = await prisma.parkingTicket.update({
+      where: { id: ticket.id },
+      data: { status: ParkingTicketStatus.USED, usedAt: new Date(), exitTime: new Date(), entryMetadata: { ...(ticket.entryMetadata as object), paymentMethod: payload.paymentMethod } },
+      include: { parking: true },
+    });
+    return res.json({ success: true, paymentMethod: payload.paymentMethod, ticket: { id: paidTicket.id, spaceNumber: paidTicket.spaceNumber, date: paidTicket.date, createdAt: paidTicket.createdAt, status: paidTicket.status, qrPayload: `parkingsafe:v1:${paidTicket.id}:${paidTicket.qrCodeHash}`, parking: paidTicket.parking } });
+  } catch (error) {
+    next(error);
+  }
 });
 
 app.get('/api/admin/bus-routes', authMiddleware, async (req, res, next) => {
@@ -1171,9 +1322,10 @@ app.get('/api/catalog', async (req, res, next) => {
             room: true,
             reservations: {
               where: {
-                status: {
-                  in: [ReservationStatus.PENDING, ReservationStatus.PAID],
-                },
+                OR: [
+                  { status: ReservationStatus.PAID },
+                  { status: ReservationStatus.PENDING, OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] },
+                ],
               },
               include: {
                 tickets: {
@@ -1197,6 +1349,7 @@ app.get('/api/catalog', async (req, res, next) => {
           occupiedSeats: showtime.reservations.flatMap((reservation) =>
             reservation.tickets.map((ticket) => ticket.seatNumber),
           ),
+          availableSeats: Math.max(showtime.room.capacity - showtime.reservations.flatMap((reservation) => reservation.tickets).length, 0),
           reservations: undefined,
         })),
       })),
@@ -1241,6 +1394,22 @@ app.post('/api/reservations/create', authMiddleware, async (req, res, next) => {
 
       await tx.$queryRaw`SELECT id FROM "showtimes" WHERE id = ${payload.showtimeId} FOR UPDATE`;
 
+      const expiredReservations = await tx.reservation.findMany({
+        where: { showtimeId: payload.showtimeId, status: ReservationStatus.PENDING, expiresAt: { lte: new Date() } },
+        select: { id: true, tickets: { select: { id: true } } },
+      });
+      const expiredTicketCount = expiredReservations.reduce((count, reservation) => count + reservation.tickets.length, 0);
+      if (expiredReservations.length > 0) {
+        await tx.reservation.updateMany({ where: { id: { in: expiredReservations.map((reservation) => reservation.id) } }, data: { status: ReservationStatus.CANCELLED } });
+        await tx.ticket.updateMany({ where: { reservationId: { in: expiredReservations.map((reservation) => reservation.id) } }, data: { status: TicketStatus.EXPIRED } });
+        if (expiredTicketCount > 0) {
+          await tx.showtime.update({ where: { id: payload.showtimeId }, data: { availableSeats: { increment: expiredTicketCount } } });
+        }
+      }
+
+      const currentShowtime = await tx.showtime.findUnique({ where: { id: payload.showtimeId }, include: { room: true } });
+      if (!currentShowtime) throw new AppError('Selected showtime was not found.', 404);
+
       const occupied = await tx.$queryRaw<{ seat_number: string }[]>`
         SELECT t."seat_number" AS seat_number
         FROM "tickets" t
@@ -1256,7 +1425,8 @@ app.post('/api/reservations/create', authMiddleware, async (req, res, next) => {
         throw new AppError(`Seats already reserved: ${conflicts.join(', ')}`, 409);
       }
 
-      if (seatNumbers.length > showtime.availableSeats) {
+      const availableSeatCount = Math.max(currentShowtime.room.capacity - occupiedSet.size, 0);
+      if (seatNumbers.length > availableSeatCount) {
         throw new AppError('Not enough available seats remain for this showtime.', 409);
       }
 
@@ -1289,9 +1459,7 @@ app.post('/api/reservations/create', authMiddleware, async (req, res, next) => {
       await tx.showtime.update({
         where: { id: payload.showtimeId },
         data: {
-          availableSeats: {
-            decrement: seatNumbers.length,
-          },
+          availableSeats: availableSeatCount - seatNumbers.length,
         },
       });
 
@@ -1390,9 +1558,12 @@ app.post('/api/payments/demo-confirm', authMiddleware, async (req, res, next) =>
     }
 
     if (reservation.expiresAt && reservation.expiresAt <= new Date()) {
-      await prisma.reservation.update({
-        where: { id: reservation.id },
-        data: { status: ReservationStatus.CANCELLED },
+      await prisma.$transaction(async (tx) => {
+        await tx.reservation.update({ where: { id: reservation.id }, data: { status: ReservationStatus.CANCELLED } });
+        await tx.ticket.updateMany({ where: { reservationId: reservation.id }, data: { status: TicketStatus.EXPIRED } });
+        if (reservation.tickets.length > 0) {
+          await tx.showtime.update({ where: { id: reservation.showtimeId }, data: { availableSeats: { increment: reservation.tickets.length } } });
+        }
       });
       throw new AppError('The reservation has expired.', 409);
     }
@@ -1403,7 +1574,7 @@ app.post('/api/payments/demo-confirm', authMiddleware, async (req, res, next) =>
         data: { status: ReservationStatus.PAID },
         include: {
           tickets: true,
-          showtime: { include: { movie: true, room: true } },
+          showtime: { include: { movieEvent: true, room: true } },
         },
       });
 
@@ -1429,7 +1600,7 @@ app.get('/api/tickets', authMiddleware, async (req, res, next) => {
         where: { reservation: { userId: authenticatedUser.sub } },
         include: {
           reservation: {
-            include: { showtime: { include: { movie: true, room: true } } },
+            include: { showtime: { include: { movieEvent: true, room: true } } },
           },
         },
         orderBy: { createdAt: 'desc' },
@@ -1461,7 +1632,7 @@ app.get('/api/tickets', authMiddleware, async (req, res, next) => {
       reservationId: ticket.reservationId,
       reservationStatus: ticket.reservation.status,
       event: {
-        title: ticket.reservation.showtime.movie.title,
+        title: ticket.reservation.showtime.movieEvent.title,
         startTime: ticket.reservation.showtime.startTime,
         room: ticket.reservation.showtime.room.name,
       },
@@ -1536,7 +1707,9 @@ app.post('/api/admin/tickets/validate', authMiddleware, async (req, res, next) =
       if (!parkingTicket || parkingTicket.qrCodeHash !== parkingMatches[2]) return res.status(404).json({ valid: false, status: 'INVALID', message: 'Parking ticket not found or QR invalid.' });
       if (parkingTicket.status === ParkingTicketStatus.USED) return res.json({ valid: false, status: 'USED', message: 'This parking ticket has already been used.', ticket: { id: parkingTicket.id, spaceNumber: parkingTicket.spaceNumber, usedAt: parkingTicket.usedAt } });
       if (parkingTicket.status === ParkingTicketStatus.EXPIRED) return res.json({ valid: false, status: 'EXPIRED', message: 'This parking ticket has expired.', ticket: { id: parkingTicket.id, spaceNumber: parkingTicket.spaceNumber } });
-      const updated = await prisma.parkingTicket.update({ where: { id: parkingTicket.id }, data: { status: ParkingTicketStatus.USED, usedAt: new Date() }, include: { parking: true } });
+      const claimed = await prisma.parkingTicket.updateMany({ where: { id: parkingTicket.id, status: ParkingTicketStatus.VALID }, data: { status: ParkingTicketStatus.USED, usedAt: new Date() } });
+      if (claimed.count === 0) return res.json({ valid: false, status: 'USED', message: 'This parking ticket has already been used.' });
+      const updated = await prisma.parkingTicket.findUniqueOrThrow({ where: { id: parkingTicket.id }, include: { parking: true } });
       return res.json({ valid: true, status: 'USED', message: 'Parking ticket validated successfully.', ticket: { id: updated.id, spaceNumber: updated.spaceNumber, status: updated.status, usedAt: updated.usedAt, event: { title: updated.parking.name, startTime: updated.date, room: `${updated.parking.city} · ${updated.parking.address}` } } });
     }
 
@@ -1546,7 +1719,9 @@ app.post('/api/admin/tickets/validate', authMiddleware, async (req, res, next) =
       if (!busTicket || busTicket.qrCodeHash !== busMatches[2]) return res.status(404).json({ valid: false, status: 'INVALID', message: 'Bus ticket not found or QR invalid.' });
       if (busTicket.status === BusTicketStatus.USED) return res.json({ valid: false, status: 'USED', message: 'This bus ticket has already been used.', ticket: { id: busTicket.id, seatNumber: busTicket.seatNumber, usedAt: busTicket.usedAt } });
       if (busTicket.status === BusTicketStatus.EXPIRED) return res.json({ valid: false, status: 'EXPIRED', message: 'This bus ticket has expired.', ticket: { id: busTicket.id, seatNumber: busTicket.seatNumber } });
-      const updated = await prisma.busTicket.update({ where: { id: busTicket.id }, data: { status: BusTicketStatus.USED, usedAt: new Date() }, include: { trip: { include: { route: true } } } });
+      const claimed = await prisma.busTicket.updateMany({ where: { id: busTicket.id, status: BusTicketStatus.VALID }, data: { status: BusTicketStatus.USED, usedAt: new Date() } });
+      if (claimed.count === 0) return res.json({ valid: false, status: 'USED', message: 'This bus ticket has already been used.' });
+      const updated = await prisma.busTicket.findUniqueOrThrow({ where: { id: busTicket.id }, include: { trip: { include: { route: true } } } });
       return res.json({ valid: true, status: 'USED', message: 'Bus ticket validated successfully.', ticket: { id: updated.id, seatNumber: updated.seatNumber, status: updated.status, usedAt: updated.usedAt, event: { title: `${updated.trip.route.origin} → ${updated.trip.route.destination}`, startTime: updated.trip.departureTime, room: updated.trip.route.operator } } });
     }
 
@@ -1594,11 +1769,9 @@ app.post('/api/admin/tickets/validate', authMiddleware, async (req, res, next) =
         });
       }
 
-      const updatedStadiumTicket = await prisma.stadiumTicket.update({
-        where: { id: stadiumTicket.id },
-        data: { status: StadiumTicketStatus.USED, usedAt: new Date() },
-        include: { match: { include: { stadium: true, homeTeam: true, awayTeam: true } }, sector: true },
-      });
+      const claimed = await prisma.stadiumTicket.updateMany({ where: { id: stadiumTicket.id, status: StadiumTicketStatus.VALID }, data: { status: StadiumTicketStatus.USED, usedAt: new Date() } });
+      if (claimed.count === 0) return res.json({ valid: false, status: 'USED', message: 'This stadium ticket has already been used.' });
+  const updatedStadiumTicket = await prisma.stadiumTicket.findUniqueOrThrow({ where: { id: stadiumTicket.id }, include: { match: { include: { stadium: true, homeTeam: true, awayTeam: true } }, sector: true } });
 
       return res.json({
         valid: true,
@@ -1625,7 +1798,7 @@ app.post('/api/admin/tickets/validate', authMiddleware, async (req, res, next) =
       include: {
         reservation: {
           include: {
-            showtime: { include: { movie: true, room: true } },
+            showtime: { include: { movieEvent: true, room: true } },
           },
         },
       },
@@ -1682,20 +1855,9 @@ app.post('/api/admin/tickets/validate', authMiddleware, async (req, res, next) =
       });
     }
 
-    const updated = await prisma.ticket.update({
-      where: { id: ticket.id },
-      data: {
-        status: TicketStatus.USED,
-        usedAt: new Date(),
-      },
-      include: {
-        reservation: {
-          include: {
-            showtime: { include: { movie: true, room: true } },
-          },
-        },
-      },
-    });
+    const claimed = await prisma.ticket.updateMany({ where: { id: ticket.id, status: TicketStatus.VALID }, data: { status: TicketStatus.USED, usedAt: new Date() } });
+    if (claimed.count === 0) return res.json({ valid: false, status: 'USED', message: 'This ticket has already been used.' });
+    const updated = await prisma.ticket.findUniqueOrThrow({ where: { id: ticket.id }, include: { reservation: { include: { showtime: { include: { movieEvent: true, room: true } } } } } });
 
     return res.json({
       valid: true,
@@ -1708,7 +1870,7 @@ app.post('/api/admin/tickets/validate', authMiddleware, async (req, res, next) =
         usedAt: updated.usedAt,
         reservationId: updated.reservationId,
         event: {
-          title: updated.reservation.showtime.movie.title,
+          title: updated.reservation.showtime.movieEvent.title,
           startTime: updated.reservation.showtime.startTime,
           room: updated.reservation.showtime.room.name,
         },
@@ -1722,24 +1884,41 @@ app.post('/api/admin/tickets/validate', authMiddleware, async (req, res, next) =
 app.post('/api/payments/webhook', async (req, res, next) => {
   try {
     const payload = webhookSchema.parse(req.body);
+    const webhookSecret = process.env.PAYMENT_WEBHOOK_SECRET;
+    const signature = req.header('x-payment-signature');
+    if (!webhookSecret || !signature) throw new AppError('Payment webhook is not configured.', 503);
+    const expectedSignature = createHmac('sha256', webhookSecret).update(`${payload.event}:${payload.reservationId}`).digest('hex');
+    if (signature.length !== expectedSignature.length || !timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSignature))) {
+      throw new AppError('Invalid payment webhook signature.', 401);
+    }
 
     if (payload.event === 'payment.success') {
-      await prisma.reservation.update({
-        where: { id: payload.reservationId },
-        data: { status: ReservationStatus.PAID },
-      });
-
-      await prisma.ticket.updateMany({
-        where: { reservationId: payload.reservationId },
-        data: { status: TicketStatus.VALID },
+      await prisma.$transaction(async (tx) => {
+        const reservation = await tx.reservation.findUnique({ where: { id: payload.reservationId }, include: { tickets: true } });
+        if (!reservation) throw new AppError('Reservation not found.', 404);
+        if (reservation.status === ReservationStatus.PAID) return;
+        if (reservation.status !== ReservationStatus.PENDING) throw new AppError('Reservation is no longer payable.', 409);
+        if (reservation.expiresAt && reservation.expiresAt <= new Date()) {
+          await tx.reservation.update({ where: { id: reservation.id }, data: { status: ReservationStatus.CANCELLED } });
+          await tx.ticket.updateMany({ where: { reservationId: reservation.id }, data: { status: TicketStatus.EXPIRED } });
+          if (reservation.tickets.length > 0) await tx.showtime.update({ where: { id: reservation.showtimeId }, data: { availableSeats: { increment: reservation.tickets.length } } });
+          throw new AppError('The reservation has expired.', 409);
+        }
+        await tx.reservation.update({ where: { id: reservation.id }, data: { status: ReservationStatus.PAID } });
+        await tx.ticket.updateMany({ where: { reservationId: reservation.id }, data: { status: TicketStatus.VALID } });
       });
 
       return res.json({ success: true, message: 'Payment confirmed and tickets released.' });
     }
 
-    await prisma.reservation.update({
-      where: { id: payload.reservationId },
-      data: { status: ReservationStatus.CANCELLED },
+    await prisma.$transaction(async (tx) => {
+      const reservation = await tx.reservation.findUnique({ where: { id: payload.reservationId }, include: { tickets: true } });
+      if (!reservation) throw new AppError('Reservation not found.', 404);
+      if (reservation.status === ReservationStatus.CANCELLED) return;
+      if (reservation.status !== ReservationStatus.PENDING) throw new AppError('Reservation is no longer pending.', 409);
+      await tx.reservation.update({ where: { id: reservation.id }, data: { status: ReservationStatus.CANCELLED } });
+      await tx.ticket.updateMany({ where: { reservationId: reservation.id }, data: { status: TicketStatus.EXPIRED } });
+      if (reservation.tickets.length > 0) await tx.showtime.update({ where: { id: reservation.showtimeId }, data: { availableSeats: { increment: reservation.tickets.length } } });
     });
 
     return res.status(400).json({

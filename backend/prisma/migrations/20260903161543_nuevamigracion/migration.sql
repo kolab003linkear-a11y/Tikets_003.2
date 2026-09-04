@@ -25,15 +25,21 @@ DROP INDEX "showtimes_movie_id_room_id_start_time_key";
 -- DropIndex
 DROP INDEX "showtimes_start_time_idx";
 
+-- Add the new relation before removing the legacy movie reference.
+ALTER TABLE "showtimes" ADD COLUMN "movie_event_id" TEXT;
+
+UPDATE "showtimes"
+SET "movie_event_id" = "movie_id";
+
 -- AlterTable
 ALTER TABLE "showtimes" DROP COLUMN "available_seats",
 DROP COLUMN "movie_id",
 DROP COLUMN "price",
 ADD COLUMN     "end_time" TIMESTAMP(3),
-ADD COLUMN     "movie_id" TEXT NOT NULL;
+ALTER COLUMN "movie_event_id" SET NOT NULL;
 
 -- CreateIndex
-CREATE INDEX "showtimes_movie_id_start_time_idx" ON "showtimes"("movie_id", "start_time");
+CREATE INDEX "showtimes_movie_event_id_start_time_idx" ON "showtimes"("movie_event_id", "start_time");
 
 -- CreateIndex
 CREATE INDEX "showtimes_room_id_start_time_idx" ON "showtimes"("room_id", "start_time");
@@ -42,4 +48,4 @@ CREATE INDEX "showtimes_room_id_start_time_idx" ON "showtimes"("room_id", "start
 CREATE UNIQUE INDEX "showtimes_room_id_start_time_key" ON "showtimes"("room_id", "start_time");
 
 -- AddForeignKey
-ALTER TABLE "showtimes" ADD CONSTRAINT "showtimes_movie_id_fkey" FOREIGN KEY ("movie_id") REFERENCES "movie_events"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "showtimes" ADD CONSTRAINT "showtimes_movie_event_id_fkey" FOREIGN KEY ("movie_event_id") REFERENCES "movie_events"("id") ON DELETE CASCADE ON UPDATE CASCADE;
