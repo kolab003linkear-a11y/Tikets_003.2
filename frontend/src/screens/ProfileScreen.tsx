@@ -32,11 +32,7 @@ export default function ProfileScreen() {
   const initials = (fullName || user?.email?.split('@')[0] || 'OM').split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase();
   const roleLabel = !user ? 'Invitado' : user.role === 'ADMIN' ? 'Administrador' : user.role === 'SCANNER' ? 'Control de acceso' : 'Cliente';
   const showAdminAccess = !user || (user.role !== 'ADMIN' && user.role !== 'SCANNER');
-  
-  // Debug logging
-  console.log('[ProfileScreen] user:', user);
-  console.log('[ProfileScreen] user?.role:', user?.role);
-  
+
   const memberSince = user?.createdAt
     ? new Date(user.createdAt).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })
     : 'Hoy';

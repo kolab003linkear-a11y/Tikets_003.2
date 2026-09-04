@@ -49,9 +49,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             const response = await getMe(storedToken);
             setToken(storedToken);
             setUser(response.user);
-            console.log('[AuthContext] Restored session from storage:', response.user?.role);
-          } catch (error) {
-            console.error('[AuthContext] Failed to restore session:', error);
+          } catch {
             // An expired session returns the app to anonymous browsing.
             await deleteStoredValue(TOKEN_KEY);
             await deleteStoredValue(USER_KEY);

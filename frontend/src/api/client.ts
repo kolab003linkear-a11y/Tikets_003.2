@@ -1,7 +1,13 @@
 import { Platform } from 'react-native';
 
-const defaultApiUrl = Platform.OS === 'web' ? 'http://localhost:4001' : 'http://192.168.100.93:4001';
-export const API_BASE_URL = (process.env.EXPO_PUBLIC_API_URL ?? defaultApiUrl).replace(/\/$/, '');
+function resolveDefaultApiUrl() {
+  if (Platform.OS === 'web') return 'http://localhost:4001';
+  if (Platform.OS === 'android') return 'http://10.0.2.2:4001';
+  if (Platform.OS === 'ios') return 'http://localhost:4001';
+  return 'http://localhost:4001';
+}
+
+export const API_BASE_URL = (process.env.EXPO_PUBLIC_API_URL ?? resolveDefaultApiUrl()).replace(/\/$/, '');
 
 export type CatalogShowtime = {
   id: string;

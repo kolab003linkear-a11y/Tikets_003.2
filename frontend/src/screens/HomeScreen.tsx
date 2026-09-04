@@ -87,6 +87,50 @@ export default function HomeScreen() {
     [matches],
   );
 
+  const formatShowtime = (startTime: string) => {
+    const date = new Date(startTime);
+    return date.toLocaleString('es-ES', { weekday: 'short', hour: '2-digit', minute: '2-digit' });
+  };
+
+  const notifications = useMemo(() => {
+    const items: Array<{ id: string; title: string; subtitle: string; tag: string; tone: 'info' | 'success' | 'warning' }> = [];
+
+    movies.slice(0, 2).forEach((movie) => {
+      const showtime = movie.showtimes[0];
+      if (showtime) {
+        items.push({
+          id: `movie-${movie.id}`,
+          title: `${movie.title}`,
+          subtitle: `${formatShowtime(showtime.startTime)} • ${showtime.room.name}`,
+          tag: 'Recordatorio',
+          tone: 'info',
+        });
+      }
+    });
+
+    matches.slice(0, 2).forEach((match) => {
+      items.push({
+        id: `match-${match.id}`,
+        title: `${match.homeTeam.name} vs ${match.awayTeam.name}`,
+        subtitle: `${match.stadium.name} • ${formatShowtime(match.startTime)}`,
+        tag: 'Partido',
+        tone: 'warning',
+      });
+    });
+
+    if (items.length === 0) {
+      items.push({
+        id: 'default',
+        title: 'Todo listo para explorar',
+        subtitle: 'Descubre nuevas experiencias y guarda tus favoritos para recordatorios.',
+        tag: 'Novedad',
+        tone: 'success',
+      });
+    }
+
+    return items.slice(0, 4);
+  }, [movies, matches]);
+
   useEffect(() => {
     if (recommendedMovies.length < 2) return;
     const rotation = setInterval(() => {
@@ -94,11 +138,6 @@ export default function HomeScreen() {
     }, 5000);
     return () => clearInterval(rotation);
   }, [recommendedMovies.length]);
-
-  const formatShowtime = (startTime: string) => {
-    const date = new Date(startTime);
-    return date.toLocaleString('es-ES', { weekday: 'short', hour: '2-digit', minute: '2-digit' });
-  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -132,7 +171,20 @@ export default function HomeScreen() {
                           <View><Text style={styles.notificationsKicker}>CENTRO DE AVISOS</Text><Text style={styles.notificationsTitle}>Notificaciones</Text></View>
                           <Pressable accessibilityRole="button" accessibilityLabel="Cerrar notificaciones" style={styles.closeButton} onPress={() => setNotificationsOpen(false)}><Ionicons name="close-outline" size={22} color={colors.text} /></Pressable>
                         </View>
-                        <View style={styles.emptyNotifications}><Ionicons name="checkmark-circle-outline" size={34} color={colors.success} /><Text style={styles.emptyTitle}>Todo al día</Text><Text style={styles.emptyText}>No tienes notificaciones nuevas.</Text></View>
+
+                        <View style={styles.notificationsList}>
+                          {notifications.map((item) => (
+                            <View key={item.id} style={styles.notificationItem}>
+                              <View style={[styles.notificationBadge, item.tone === 'success' ? styles.notificationBadgeSuccess : item.tone === 'warning' ? styles.notificationBadgeWarning : styles.notificationBadgeInfo]}>
+                                <Text style={styles.notificationBadgeText}>{item.tag}</Text>
+                              </View>
+                              <View style={styles.notificationCopy}>
+                                <Text style={styles.notificationTitle}>{item.title}</Text>
+                                <Text style={styles.notificationText}>{item.subtitle}</Text>
+                              </View>
+                            </View>
+                          ))}
+                        </View>
                       </Pressable>
                     </Pressable>
                   </Modal>
@@ -322,9 +374,16 @@ const styles = StyleSheet.create({
     notificationsKicker: { color: colors.primary, fontSize: 10, fontWeight: '800', letterSpacing: 1.2 },
     notificationsTitle: { color: colors.text, fontSize: 20, fontWeight: '800', marginTop: 4 },
     closeButton: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center', borderRadius: 10, backgroundColor: colors.surfaceRaised },
-    emptyNotifications: { alignItems: 'center', paddingVertical: 28 },
-    emptyTitle: { color: colors.text, fontSize: 16, fontWeight: '800', marginTop: 10 },
-    emptyText: { color: colors.textSecondary, fontSize: 13, marginTop: 5 },
+    notificationsList: { gap: 10, paddingTop: 18 },
+    notificationItem: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, backgroundColor: colors.surfaceRaised, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: colors.border },
+    notificationBadge: { paddingHorizontal: 8, paddingVertical: 5, borderRadius: 999 },
+    notificationBadgeInfo: { backgroundColor: colors.primary + '20' },
+    notificationBadgeSuccess: { backgroundColor: colors.success + '20' },
+    notificationBadgeWarning: { backgroundColor: colors.warning + '20' },
+    notificationBadgeText: { color: colors.text, fontSize: 9, fontWeight: '800', letterSpacing: 0.8 },
+    notificationCopy: { flex: 1 },
+    notificationTitle: { color: colors.text, fontSize: 14, fontWeight: '700' },
+    notificationText: { color: colors.textSecondary, fontSize: 12, marginTop: 3, lineHeight: 18 },
   avatar: { width: 42, height: 42, borderRadius: 21, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
   avatarText: { color: colors.text, fontWeight: '700' },
   searchInput: {

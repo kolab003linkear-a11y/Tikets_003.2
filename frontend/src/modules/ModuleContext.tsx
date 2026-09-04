@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { getModules, ModuleKey, ModuleSettings } from '../api/client';
 
-const defaults: ModuleSettings = { catalog: true, events: true, stadiums: true, parking: true, buses: true, assistant: true };
+const defaults: ModuleSettings = { catalog: true, events: true, stadiums: true, parking: true, buses: false, assistant: true };
 
 type ModuleContextValue = {
   modules: ModuleSettings;
@@ -17,7 +17,7 @@ export function ModuleProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    getModules().then((response) => setModules(response.modules)).catch(() => setModules(defaults)).finally(() => setLoading(false));
+    getModules().then((response) => setModules({ ...response.modules, buses: false })).catch(() => setModules(defaults)).finally(() => setLoading(false));
   }, []);
 
   return <ModuleContext.Provider value={{ modules, loading, setModules, isEnabled: (key) => modules[key] }}>{children}</ModuleContext.Provider>;

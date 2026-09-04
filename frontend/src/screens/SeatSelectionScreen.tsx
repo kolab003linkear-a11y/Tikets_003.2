@@ -344,11 +344,8 @@ export default function SeatSelectionScreen() {
               token,
               reservationId,
             );
-          } catch (error) {
-            console.log(
-              'No se pudo cancelar la reserva:',
-              error,
-            );
+          } catch {
+            // Ignore cancelation errors for expired sessions; the server will clean up the pending reservation.
           }
 
           setPendingReservationId(
@@ -620,12 +617,7 @@ export default function SeatSelectionScreen() {
         ) {
           navigation.goBack();
         }
-      } catch (error) {
-        console.log(
-          'Error cancelando reserva:',
-          error,
-        );
-
+      } catch {
         if (
           showConfirmation
         ) {
@@ -933,11 +925,6 @@ export default function SeatSelectionScreen() {
       } catch (
         error: any
       ) {
-        console.log(
-          'Error creando reserva:',
-          error,
-        );
-
         const message =
           String(
             error?.message ||

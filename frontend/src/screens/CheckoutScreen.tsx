@@ -17,6 +17,7 @@ export default function CheckoutScreen() {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('CARD');
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [sendReminder, setSendReminder] = useState(true);
 
   const formattedDate = startTime
     ? new Date(startTime).toLocaleString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })
@@ -30,6 +31,10 @@ export default function CheckoutScreen() {
       const response = await confirmDemoPayment(token, reservationId, paymentMethod);
       const ticket = response.reservation.tickets[0];
       if (!ticket) throw new Error('El pago fue confirmado, pero no se recibió el ticket.');
+
+      if (sendReminder) {
+        Alert.alert('Recordatorio activo', 'Se enviará un recordatorio para esta compra antes del evento.');
+      }
 
       navigation.navigate('Ticket', {
         ticketId: ticket.id,
@@ -80,12 +85,28 @@ export default function CheckoutScreen() {
           <View style={styles.infoRow}><Ionicons name="calendar-outline" size={17} color={colors.primary} /><Text style={styles.text}>{formattedDate}</Text></View>
           <View style={styles.infoRow}><Ionicons name="business-outline" size={17} color={colors.primary} /><Text style={styles.text}>{roomName ?? 'Sala pendiente'}</Text></View>
           <View style={styles.infoRow}><Ionicons name="grid-outline" size={17} color={colors.primary} /><Text style={styles.text}>{ticketCount} {ticketCount === 1 ? 'entrada' : 'entradas'} · {selectedSeats.join(', ')}</Text></View>
-          <View style={styles.priceBreakdown}><Text style={styles.breakdownText}>${Number(price ?? total / ticketCount).toFixed(2)} x {ticketCount}</Text><Text style={styles.total}>${total.toFixed(2)}</Text></View>
+
+          <View style={styles.detailList}>
+            <View style={styles.detailRow}><Text style={styles.detailLabel}>Precio unitario</Text><Text style={styles.detailValue}>${Number(price ?? total / ticketCount).toFixed(2)}</Text></View>
+            <View style={styles.detailRow}><Text style={styles.detailLabel}>Cantidad</Text><Text style={styles.detailValue}>{ticketCount}</Text></View>
+            <View style={styles.detailRow}><Text style={styles.detailLabel}>Servicio</Text><Text style={styles.detailValue}>Incluido</Text></View>
+          </View>
+
+          <View style={styles.priceBreakdown}><Text style={styles.breakdownText}>Total estimado</Text><Text style={styles.total}>${total.toFixed(2)}</Text></View>
           <Text style={styles.reservationId}>Reserva temporal: {reservationId}</Text>
         </View>
 
         <View style={styles.formCard}>
           <View style={styles.paymentHeader}><View><Text style={styles.label}>Pago seguro</Text><Text style={styles.summaryHint}>Tus datos se procesan de forma protegida</Text></View><Ionicons name="lock-closed-outline" size={20} color={colors.success} /></View>
+          <Pressable accessibilityRole="button" accessibilityState={{ selected: sendReminder }} onPress={() => setSendReminder((value) => !value)} style={styles.reminderCard}>
+            <View style={styles.reminderTextWrap}>
+              <Text style={styles.reminderTitle}>Enviar recordatorio</Text>
+              <Text style={styles.reminderSubtitle}>Te avisaremos antes del evento.</Text>
+            </View>
+            <View style={[styles.switch, sendReminder && styles.switchActive]}>
+              <View style={[styles.switchThumb, sendReminder && styles.switchThumbActive]} />
+            </View>
+          </Pressable>
           <Text style={styles.methodLabel}>MÉTODO DE PAGO</Text>
           <View style={styles.methods}>
             {paymentMethods.map((method) => (
@@ -119,11 +140,23 @@ const styles = StyleSheet.create({
   movieTitle: { color: colors.text, fontSize: 22, fontWeight: '800', marginBottom: 10 },
   text: { color: colors.textSecondary, fontSize: 14, marginBottom: 8 },
   infoRow: { flexDirection: 'row', alignItems: 'center', gap: 9 },
+  detailList: { borderTopWidth: 1, borderTopColor: colors.border, marginTop: 14, paddingTop: 12, gap: 8 },
+  detailRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  detailLabel: { color: colors.textSecondary, fontSize: 13 },
+  detailValue: { color: colors.text, fontSize: 13, fontWeight: '700' },
   priceBreakdown: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: colors.border, marginTop: 5, paddingTop: 13 },
   breakdownText: { color: colors.textSecondary, fontSize: 13 },
-  total: { color: colors.text, fontSize: 20, fontWeight: '800', marginTop: 12 },
+  total: { color: colors.text, fontSize: 20, fontWeight: '800', marginTop: 2 },
   reservationId: { color: colors.textSecondary, fontSize: 11, marginTop: 12 },
   formCard: { backgroundColor: colors.surface, borderRadius: 18, borderWidth: 1, borderColor: colors.border, padding: 18 },
+  reminderCard: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: colors.surfaceRaised, borderRadius: 12, borderWidth: 1, borderColor: colors.border, padding: 12, marginBottom: 14 },
+  reminderTextWrap: { flex: 1, paddingRight: 10 },
+  reminderTitle: { color: colors.text, fontSize: 14, fontWeight: '700' },
+  reminderSubtitle: { color: colors.textSecondary, fontSize: 12, marginTop: 2 },
+  switch: { width: 44, height: 24, borderRadius: 999, backgroundColor: colors.border, justifyContent: 'center', paddingHorizontal: 2 },
+  switchActive: { backgroundColor: colors.primary },
+  switchThumb: { width: 18, height: 18, borderRadius: 9, backgroundColor: colors.text, marginLeft: 2 },
+  switchThumbActive: { marginLeft: 22 },
   methodLabel: { color: colors.textSecondary, fontSize: 11, fontWeight: '800', letterSpacing: 1, marginBottom: 8 },
   methods: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 14 },
   method: { width: '48%', minHeight: 46, borderWidth: 1, borderColor: colors.border, borderRadius: 10, paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center', gap: 7 },

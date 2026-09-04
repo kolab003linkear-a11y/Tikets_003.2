@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, SafeAreaView, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../auth/AuthContext';
@@ -11,10 +11,12 @@ import AdminTeamsScreen from './AdminTeamsScreen';
 import AdminMatchesScreen from './AdminMatchesScreen';
 import ProfileAvatar from '../components/ProfileAvatar';
 import AdminParkingScreen from './AdminParkingScreen';
-import AdminBusesScreen from './AdminBusesScreen';
 import AdminFoodScreen from './AdminFoodScreen';
+import { getAdminModules, getAdminParking, getAdminStadiums, getCatalog, getMatches, ModuleKey, updateAdminModule } from '../api/client';
+import { useModules } from '../modules/ModuleContext';
 
 type AdminSection =
+  | 'dashboard'
   | 'scanner'
   | 'events'
   | 'schedule'
@@ -22,17 +24,16 @@ type AdminSection =
   | 'teams'
   | 'matches'
   | 'parking'
-  | 'buses'
   | 'modules'
   | 'food';
-import { getAdminModules, ModuleKey, updateAdminModule } from '../api/client';
-import { useModules } from '../modules/ModuleContext';
+
 export default function AdminHubScreen() {
   const { user, token } = useAuth();
   const { modules, setModules } = useModules();
   const isAdmin = user?.role === 'ADMIN';
   const sections: Array<{ key: AdminSection; label: string; icon: keyof typeof Ionicons.glyphMap }> = isAdmin
     ? [
+        { key: 'dashboard', label: 'Dashboard', icon: 'stats-chart-outline' },
         { key: 'scanner', label: 'Escáner', icon: 'scan-outline' },
         { key: 'events', label: 'Eventos', icon: 'film-outline' },
         { key: 'schedule', label: 'Salas', icon: 'calendar-outline' },
@@ -40,28 +41,80 @@ export default function AdminHubScreen() {
         { key: 'teams', label: 'Equipos', icon: 'shield-outline' },
         { key: 'matches', label: 'Partidos', icon: 'trophy-outline' },
         { key: 'parking', label: 'Parqueaderos', icon: 'car-outline' },
-        { key: 'buses', label: 'Buses', icon: 'bus-outline' },
         { key: 'modules', label: 'Módulos', icon: 'options-outline' },
         { key: 'food', label: 'Comidas', icon: 'fast-food-outline' },
       ]
     : [{ key: 'scanner', label: 'Escáner', icon: 'scan-outline' }];
-  const [section, setSection] = useState<AdminSection>('scanner');
+  const [section, setSection] = useState<AdminSection>(isAdmin ? 'dashboard' : 'scanner');
   const [moduleError, setModuleError] = useState('');
   const [moduleLoading, setModuleLoading] = useState(false);
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [summaryError, setSummaryError] = useState('');
+  const [summary, setSummary] = useState({
+    events: 0,
+    matches: 0,
+    stadiums: 0,
+    parking: 0,
+    modules: 0,
+  });
+
+  useEffect(() => {
+    if (!isAdmin || !token) return;
+
+    let active = true;
+
+    const loadSummary = async () => {
+      setSummaryLoading(true);
+      setSummaryError('');
+
+      try {
+        const [catalogResult, matchesResult, stadiumsResult, parkingResult] = await Promise.allSettled([
+          getCatalog(),
+          getMatches(),
+          getAdminStadiums(token),
+          getAdminParking(token),
+        ]);
+
+        if (!active) return;
+
+        const catalogCount = catalogResult.status === 'fulfilled' ? catalogResult.value.movies.length : 0;
+        const matchesCount = matchesResult.status === 'fulfilled' ? matchesResult.value.matches.length : 0;
+        const stadiumsCount = stadiumsResult.status === 'fulfilled' ? stadiumsResult.value.stadiums.length : 0;
+        const parkingCount = parkingResult.status === 'fulfilled' ? parkingResult.value.parking.length : 0;
+        setSummary({
+          events: catalogCount,
+          matches: matchesCount,
+          stadiums: stadiumsCount,
+          parking: parkingCount,
+          modules: Object.entries(modules).filter(([key, enabled]) => key !== 'buses' && enabled).length,
+        });
+      } catch (error) {
+        if (!active) return;
+        setSummaryError(error instanceof Error ? error.message : 'No se pudo cargar el resumen del sistema.');
+      } finally {
+        if (active) setSummaryLoading(false);
+      }
+    };
+
+    void loadSummary();
+
+    return () => {
+      active = false;
+    };
+  }, [isAdmin, token, modules]);
 
   const moduleItems: Array<{ key: ModuleKey; label: string; description: string }> = [
     { key: 'catalog', label: 'Inicio', description: 'Dashboard con cine, teatro y accesos a todos los módulos' },
     { key: 'events', label: 'Eventos', description: 'Acceso a conciertos, teatro y experiencias' },
     { key: 'stadiums', label: 'Estadios', description: 'Partidos y venta de localidades' },
     { key: 'parking', label: 'Parqueaderos', description: 'Reservas de estacionamiento' },
-    { key: 'buses', label: 'Buses', description: 'Rutas y tickets de transporte' },
     { key: 'assistant', label: 'Asistente', description: 'Asistente de búsqueda para clientes' },
   ];
 
   const loadModules = async () => {
     if (!token) return;
     setModuleLoading(true);
-    try { setModules((await getAdminModules(token)).modules); setModuleError(''); }
+    try { setModules({ ...(await getAdminModules(token)).modules, buses: false }); setModuleError(''); }
     catch (error) { setModuleError(error instanceof Error ? error.message : 'No se pudo cargar la configuración.'); }
     finally { setModuleLoading(false); }
   };
@@ -69,7 +122,7 @@ export default function AdminHubScreen() {
   const toggleModule = async (key: ModuleKey, enabled: boolean) => {
     if (!token) return;
     setModuleLoading(true);
-    try { setModules((await updateAdminModule(token, key, enabled)).modules); setModuleError(''); }
+    try { setModules({ ...(await updateAdminModule(token, key, enabled)).modules, buses: false }); setModuleError(''); }
     catch (error) { setModuleError(error instanceof Error ? error.message : 'No se pudo actualizar el módulo.'); }
     finally { setModuleLoading(false); }
   };
@@ -77,6 +130,14 @@ export default function AdminHubScreen() {
   if (!user || (user.role !== 'ADMIN' && user.role !== 'SCANNER')) {
     return <AdminScannerScreen />;
   }
+
+  const dashboardCards = [
+    { label: 'Eventos', value: String(summary.events), accent: colors.primary, icon: 'film-outline' },
+    { label: 'Partidos', value: String(summary.matches), accent: colors.warning, icon: 'football-outline' },
+    { label: 'Estadios', value: String(summary.stadiums), accent: colors.success, icon: 'business-outline' },
+    { label: 'Parqueaderos', value: String(summary.parking), accent: '#7C3AED', icon: 'car-outline' },
+    { label: 'Módulos activos', value: String(summary.modules), accent: '#F97316', icon: 'toggle-outline' },
+  ];
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -100,6 +161,57 @@ export default function AdminHubScreen() {
         ))}
       </View>
       <View style={styles.content}>
+        {section === 'dashboard' && isAdmin && (
+          <ScrollView style={styles.dashboardScroll} contentContainerStyle={styles.dashboardContainer} showsVerticalScrollIndicator={false}>
+            <View style={styles.dashboardHeader}>
+              <View>
+                <Text style={styles.kicker}>Sistema operativo</Text>
+                <Text style={styles.sectionTitle}>Dashboard administrativo</Text>
+              </View>
+              <Pressable style={styles.refreshButton} onPress={() => void loadModules()} accessibilityRole="button" accessibilityLabel="Actualizar dashboard">
+                <Ionicons name="refresh-outline" size={18} color={colors.primary} />
+              </Pressable>
+            </View>
+
+            {summaryLoading && <ActivityIndicator color={colors.primary} style={styles.summaryLoader} />}
+            {!!summaryError && <Text style={styles.error}>{summaryError}</Text>}
+
+            <View style={styles.dashboardGrid}>
+              {dashboardCards.map((card) => (
+                <View key={card.label} style={[styles.metricCard, { borderColor: card.accent + '44' }]}>
+                  <View style={[styles.metricIcon, { backgroundColor: card.accent + '18' }]}>
+                    <Ionicons name={card.icon as keyof typeof Ionicons.glyphMap} size={20} color={card.accent} />
+                  </View>
+                  <Text style={styles.metricValue}>{card.value}</Text>
+                  <Text style={styles.metricLabel}>{card.label}</Text>
+                </View>
+              ))}
+            </View>
+
+            <View style={styles.panelCard}>
+              <Text style={styles.panelTitle}>Resumen operativo</Text>
+              <View style={styles.listRow}>
+                <Text style={styles.listLabel}>Módulos activos</Text>
+                <Text style={styles.listValue}>{summary.modules}/{moduleItems.length}</Text>
+              </View>
+              <View style={styles.listRow}>
+                <Text style={styles.listLabel}>Capacidad de venta</Text>
+                <Text style={styles.listValue}>{summary.events + summary.matches + summary.stadiums} unidades</Text>
+              </View>
+              <View style={styles.listRow}>
+                <Text style={styles.listLabel}>Cobertura operativa</Text>
+                <Text style={styles.listValue}>{summary.parking} puntos activos</Text>
+              </View>
+            </View>
+
+            <View style={styles.panelCard}>
+              <Text style={styles.panelTitle}>Qué revisar hoy</Text>
+              <View style={styles.todoRow}><Ionicons name="checkmark-circle-outline" size={16} color={colors.success} /><Text style={styles.todoText}>Validar tickets con alta demanda.</Text></View>
+              <View style={styles.todoRow}><Ionicons name="calendar-outline" size={16} color={colors.primary} /><Text style={styles.todoText}>Confirmar próximos partidos y horarios.</Text></View>
+              <View style={styles.todoRow}><Ionicons name="car-outline" size={16} color={colors.warning} /><Text style={styles.todoText}>Revisar disponibilidad de parqueaderos y rutas.</Text></View>
+            </View>
+          </ScrollView>
+        )}
         {section === 'scanner' && <AdminScannerScreen />}
         {section === 'events' && <AdminEventsScreen />}
         {section === 'schedule' && <AdminScheduleScreen />}
@@ -107,7 +219,6 @@ export default function AdminHubScreen() {
         {section === 'teams' && <AdminTeamsScreen />}
         {section === 'matches' && <AdminMatchesScreen />}
         {section === 'parking' && <AdminParkingScreen />}
-        {section === 'buses' && <AdminBusesScreen />}
         {section === 'food' && <AdminFoodScreen />}
         {section === 'modules' && <View style={styles.modulesPanel}>
           <View style={styles.modulesHeader}><View><Text style={styles.sectionTitle}>Módulos del cliente</Text><Text style={styles.formHint}>Controla qué experiencias aparecen en la app.</Text></View><Pressable onPress={() => void loadModules()}><Ionicons name="refresh-outline" size={20} color={colors.primary} /></Pressable></View>
@@ -136,6 +247,24 @@ const styles = StyleSheet.create({
   selectorTextActive: { color: colors.text },
   activeLine: { position: 'absolute', bottom: -1, left: 12, right: 12, height: 2, borderRadius: 2, backgroundColor: colors.primary },
   content: { flex: 1 },
+  dashboardScroll: { flex: 1 },
+  dashboardContainer: { padding: 18, gap: 16 },
+  dashboardHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  kicker: { color: colors.primary, fontSize: 10, fontWeight: '800', letterSpacing: 1.1, textTransform: 'uppercase' },
+  refreshButton: { width: 38, height: 38, borderRadius: 10, backgroundColor: colors.primary + '15', alignItems: 'center', justifyContent: 'center' },
+  summaryLoader: { marginVertical: 8 },
+  dashboardGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  metricCard: { width: '48%', borderWidth: 1, borderRadius: 14, backgroundColor: colors.surface, padding: 14, minHeight: 110 },
+  metricIcon: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
+  metricValue: { color: colors.text, fontSize: 26, fontWeight: '800', fontFamily: typography.display },
+  metricLabel: { color: colors.textSecondary, fontSize: 12, marginTop: 4 },
+  panelCard: { backgroundColor: colors.surface, borderRadius: 16, padding: 16, gap: 10 },
+  panelTitle: { color: colors.text, fontSize: 17, fontWeight: '800' },
+  listRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 6 },
+  listLabel: { color: colors.textSecondary, fontSize: 13 },
+  listValue: { color: colors.text, fontSize: 13, fontWeight: '700' },
+  todoRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 4 },
+  todoText: { color: colors.text, fontSize: 13, flexShrink: 1 },
   modulesPanel: { padding: 18, gap: 14 },
   modulesHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   sectionTitle: { color: colors.text, fontSize: 18, fontWeight: '800' },

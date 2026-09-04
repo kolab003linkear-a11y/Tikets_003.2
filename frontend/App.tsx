@@ -28,7 +28,6 @@ import StadiumScreen from './src/screens/StadiumScreen';
 import AssistantScreen from './src/screens/AssistantScreen';
 import ParkingScreen from './src/screens/ParkingScreen';
 import AdminParkingScreen from './src/screens/AdminParkingScreen';
-import BusScreen from './src/screens/BusScreen';
 
 import CinemaScreen from './src/screens/CinemaScreen';
 import TheaterScreen from './src/screens/TheaterScreen';
@@ -178,7 +177,6 @@ function HomeTabs() {
             Inicio: 'home-outline',
             Estadios: 'football-outline',
             Parqueaderos: 'car-outline',
-            Buses: 'bus-outline',
             Eventos: 'calendar-outline',
             'Mis Tickets': 'ticket-outline',
             Admin: 'grid-outline',
@@ -197,7 +195,6 @@ function HomeTabs() {
       {isEnabled('catalog') && <Tab.Screen name="Inicio" component={HomeScreen} />}
       {isEnabled('stadiums') && <Tab.Screen name="Estadios" component={StadiumScreen} />}
       {isEnabled('parking') && <Tab.Screen name="Parqueaderos" component={ParkingScreen} />}
-      {isEnabled('buses') && <Tab.Screen name="Buses" component={BusScreen} />}
       {isEnabled('events') && <Tab.Screen name="Eventos" component={EventsScreen} />}
       <Tab.Screen name="Mis Tickets" component={MyTicketsScreen} />
       {canUseAdmin && <Tab.Screen name="Admin" component={AdminHubScreen} />}
