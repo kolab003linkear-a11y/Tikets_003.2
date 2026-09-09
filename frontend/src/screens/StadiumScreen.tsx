@@ -20,18 +20,8 @@ const stadiumImages: Record<string, string> = {
   'Estadio Capwell': 'https://images.unsplash.com/photo-1522778119026-d647f0596c20?auto=format&fit=crop&w=1200&q=80',
   'Estadio Moreno Martínez': 'https://images.unsplash.com/photo-1461896836934-ffe607ba8211?auto=format&fit=crop&w=1200&q=80',
 };
-const teamLogos: Record<string, string> = {
-  'LDU Quito': 'https://upload.wikimedia.org/wikipedia/commons/8/8c/LDU_Logo.svg',
-  'Barcelona SC': 'https://upload.wikimedia.org/wikipedia/commons/6/6d/Barcelona_Sporting_Club_logo.svg',
-  Emelec: 'https://upload.wikimedia.org/wikipedia/commons/1/1b/Club_Sport_Emelec_logo.svg',
-};
-
 function getStadiumImage(stadiumName: string, imageUrl?: string | null) {
   return imageUrl ?? stadiumImages[stadiumName] ?? defaultStadiumImage;
-}
-
-function getTeamLogo(team: Team) {
-  return team.logoUrl ?? teamLogos[team.name];
 }
 
 function StadiumImage({ uri, style }: { uri: string; style: object }) {
@@ -76,8 +66,7 @@ export default function StadiumScreen() {
   // se eligió el partido.
   const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null);
   const [selectedSectorId, setSelectedSectorId] = useState('');
-  // Se puede elegir más de una localidad para el mismo partido/sector: al
-  // comprar se genera un ticket independiente por cada una.
+  // La compra de Estadios usa una sola localidad por operación.
   const [selectedSeats, setSelectedSeats] = useState<string[]>([]);
   const [manualSeatDraft, setManualSeatDraft] = useState('');
   const [loading, setLoading] = useState(true);
@@ -227,18 +216,26 @@ export default function StadiumScreen() {
   };
 
   const toggleSeat = (seat: string) => {
-    setSelectedSeats((current) => (current.includes(seat) ? current.filter((s) => s !== seat) : [...current, seat]));
+    setSelectedSeats((current) => (current[0] === seat ? [] : [seat]));
   };
 
   const addManualSeat = () => {
     const seat = manualSeatDraft.trim().toUpperCase();
     if (!seat) return;
-    setSelectedSeats((current) => (current.includes(seat) ? current : [...current, seat]));
+    setSelectedSeats([seat]);
     setManualSeatDraft('');
   };
 
   const removeSeat = (seat: string) => {
     setSelectedSeats((current) => current.filter((s) => s !== seat));
+  };
+
+  const cancelSelection = () => {
+    setPaymentOpen(false);
+    setSelectedSeats([]);
+    setSelectedSectorId('');
+    setManualSeatDraft('');
+    setSelectedMatchId(null);
   };
 
   const buyTicket = async () => {
@@ -346,7 +343,10 @@ export default function StadiumScreen() {
   const occupiedSeats = selectedSector?.occupiedSeats ?? [];
   const sectorRows = getSectorRows(selectedSectorId);
   const sectorSeats = sectorRows.flatMap((row) => row.seats);
-  const availableSeats = sectorSeats.filter((seat) => !occupiedSeats.includes(seat));
+  const occupiedSeatSet = useMemo(() => new Set(occupiedSeats), [occupiedSeats]);
+  const availableSeats = sectorSeats.filter((seat) => !occupiedSeatSet.has(seat));
+  const selectedSectorName = selectedSector?.name ?? 'Sector seleccionado';
+  const selectedSectorPrice = Number(selectedSector?.price ?? 0);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -364,7 +364,7 @@ export default function StadiumScreen() {
             </View>
             <View style={styles.matchHeader}>
               <View style={styles.purchaseTeam}>
-                <View style={styles.largeTeamBadge}>{getTeamLogo(selectedMatch.homeTeam) ? <Image source={{ uri: getTeamLogo(selectedMatch.homeTeam) }} style={styles.largeTeamLogo} /> : <Text style={styles.largeTeamInitial}>{selectedMatch.homeTeam.name.charAt(0)}</Text>}</View>
+                <View style={styles.largeTeamBadge}><Text style={styles.teamBadgeName}>{selectedMatch.homeTeam.name.charAt(0).toUpperCase()}</Text></View>
                 <View style={styles.teamNameRow}>
                   <Text style={styles.matchTitle}>{selectedMatch.homeTeam.name}</Text>
                   <FavoriteToggle
@@ -375,7 +375,7 @@ export default function StadiumScreen() {
               </View>
               <View style={styles.vsBlock}><Text style={styles.vs}>VS</Text><Text style={styles.matchDate}>{new Date(selectedMatch.startTime).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}</Text></View>
               <View style={styles.purchaseTeam}>
-                <View style={[styles.largeTeamBadge, styles.awayBadge]}>{getTeamLogo(selectedMatch.awayTeam) ? <Image source={{ uri: getTeamLogo(selectedMatch.awayTeam) }} style={styles.largeTeamLogo} /> : <Text style={styles.largeTeamInitial}>{selectedMatch.awayTeam.name.charAt(0)}</Text>}</View>
+                <View style={[styles.largeTeamBadge, styles.awayBadge]}><Text style={styles.teamBadgeName}>{selectedMatch.awayTeam.name.charAt(0).toUpperCase()}</Text></View>
                 <View style={styles.teamNameRow}>
                   <Text style={styles.matchTitle}>{selectedMatch.awayTeam.name}</Text>
                   <FavoriteToggle
@@ -396,7 +396,7 @@ export default function StadiumScreen() {
 
             <View style={styles.selectionHeading}>
               <Text style={styles.sectionTitle}>Elige tu sector</Text>
-              <Text style={styles.selectionHint}>1 o más entradas</Text>
+              <Text style={styles.selectionHint}>1 entrada por compra</Text>
             </View>
             <View style={styles.options}>
               {selectedMatch.stadium.sectors.map((sector) => (
@@ -431,7 +431,7 @@ export default function StadiumScreen() {
                   <View style={styles.legendItem}><View style={[styles.legendSwatch, styles.legendOccupied]} /><Text style={styles.legendText}>Ocupada</Text></View>
                   <View style={styles.legendItem}><View style={[styles.legendSwatch, styles.legendSelected]} /><Text style={styles.legendText}>Seleccionada</Text></View>
                 </View>
-                <Text style={styles.multiSeatHint}>Toca todas las localidades que quieras comprar: se genera un ticket por cada una.</Text>
+                <Text style={styles.multiSeatHint}>Toca una localidad para seleccionarla. Si eliges otra, reemplazará la anterior.</Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.seatMapScroll}>
                   <View style={styles.seatMap}>
                     {sectorRows.map((row) => (
@@ -439,7 +439,7 @@ export default function StadiumScreen() {
                         <Text style={styles.rowLabel}>{row.label}</Text>
                         <View style={styles.seatsGrid}>
                           {row.seats.map((seat) => {
-                            const occupied = occupiedSeats.includes(seat);
+                            const occupied = occupiedSeatSet.has(seat);
                             const selected = selectedSeats.includes(seat);
                             return (
                               <Pressable
@@ -483,12 +483,12 @@ export default function StadiumScreen() {
             {selectedSeats.length > 0 && (
               <View style={styles.summary}>
                 <Text style={styles.summaryText}>Localidades: <Text style={styles.summaryBold}>{selectedSeats.join(', ')}</Text></Text>
-                <Text style={styles.summaryText}>Sector: <Text style={styles.summaryBold}>{selectedMatch.stadium.sectors.find((s) => s.id === selectedSectorId)?.name}</Text></Text>
-                <Text style={styles.summaryText}>Precio por localidad: <Text style={styles.summaryBold}>${Number(selectedMatch.stadium.sectors.find((s) => s.id === selectedSectorId)?.price).toFixed(2)}</Text></Text>
+                <Text style={styles.summaryText}>Sector: <Text style={styles.summaryBold}>{selectedSectorName}</Text></Text>
+                <Text style={styles.summaryText}>Precio por localidad: <Text style={styles.summaryBold}>${selectedSectorPrice.toFixed(2)}</Text></Text>
                 <Text style={styles.summaryText}>
-                  Total ({selectedSeats.length} ticket{selectedSeats.length === 1 ? '' : 's'}):{' '}
+                  Total: {' '}
                   <Text style={styles.summaryBold}>
-                    ${(Number(selectedMatch.stadium.sectors.find((s) => s.id === selectedSectorId)?.price ?? 0) * selectedSeats.length).toFixed(2)}
+                    ${(selectedSectorPrice * selectedSeats.length).toFixed(2)}
                   </Text>
                 </Text>
               </View>
@@ -499,9 +499,24 @@ export default function StadiumScreen() {
               onPress={beginPayment}
               disabled={buying || selectedSeats.length === 0}
             />
-            <AppButton label="Cancelar" variant="secondary" onPress={() => setSelectedMatchId(null)} disabled={buying} />
+            <AppButton label="Cancelar elección" variant="secondary" onPress={cancelSelection} disabled={buying} />
           </AppCard>
-          <PaymentModal isOpen={paymentOpen} onClose={() => setPaymentOpen(false)} totalAmount={Number(selectedSector?.price ?? 0) * selectedSeats.length} onConfirmPayment={() => { setPaymentOpen(false); void buyTicket(); }} processing={buying} />
+          <PaymentModal
+            isOpen={paymentOpen}
+            onClose={() => setPaymentOpen(false)}
+            totalAmount={selectedSectorPrice}
+            eventTitle={`${selectedMatch.homeTeam.name} vs ${selectedMatch.awayTeam.name}`}
+            eventDate={new Date(selectedMatch.startTime).toLocaleString('es-ES', { dateStyle: 'full', timeStyle: 'short' })}
+            eventVenue={`${selectedMatch.stadium.name} · ${selectedMatch.stadium.city}`}
+            seatNumber={selectedSeats[0]}
+            onConfirmPayment={() => { setPaymentOpen(false); void buyTicket(); }}
+            onCancel={() => {
+              setPaymentOpen(false);
+              setSelectedSeats([]);
+              setManualSeatDraft('');
+            }}
+            processing={buying}
+          />
         </ScrollView>
       ) : (
         <FlatList
@@ -635,7 +650,7 @@ export default function StadiumScreen() {
                 <Text style={styles.city}>{item.stadium.city}</Text>
               </View>
               <View style={styles.matchRow}>
-                <View style={[styles.teamBadge, styles.homeBadge]}>{getTeamLogo(item.homeTeam) ? <Image source={{ uri: getTeamLogo(item.homeTeam) }} style={styles.teamLogo} /> : <Text style={styles.teamInitial}>{item.homeTeam.name.charAt(0)}</Text>}</View>
+                <View style={[styles.teamBadge, styles.homeBadge]}><Text style={styles.teamBadgeName}>{item.homeTeam.name.charAt(0).toUpperCase()}</Text></View>
                 <View style={styles.matchTeam}>
                   <View style={styles.teamNameRow}>
                     <Text style={styles.teamName}>{item.homeTeam.name}</Text>
@@ -655,7 +670,7 @@ export default function StadiumScreen() {
                     />
                   </View>
                 </View>
-                <View style={[styles.teamBadge, styles.awayBadge]}>{getTeamLogo(item.awayTeam) ? <Image source={{ uri: getTeamLogo(item.awayTeam) }} style={styles.teamLogo} /> : <Text style={styles.teamInitial}>{item.awayTeam.name.charAt(0)}</Text>}</View>
+                <View style={[styles.teamBadge, styles.awayBadge]}><Text style={styles.teamBadgeName}>{item.awayTeam.name.charAt(0).toUpperCase()}</Text></View>
               </View>
               <View style={styles.detailsRow}>
                 <View style={styles.detailItem}>
@@ -713,11 +728,7 @@ export default function StadiumScreen() {
                       onPress={() => void toggleFavoriteTeam(team.id)}
                     >
                       <View style={styles.teamRowBadge}>
-                        {getTeamLogo(team) ? (
-                          <Image source={{ uri: getTeamLogo(team) }} style={styles.teamRowLogo} />
-                        ) : (
-                          <Text style={styles.teamInitial}>{team.name.charAt(0)}</Text>
-                        )}
+                        <Text style={styles.teamInitial}>{team.name.charAt(0).toUpperCase()}</Text>
                       </View>
                       <View style={styles.teamRowInfo}>
                         <Text style={styles.teamRowName}>{team.name}</Text>
@@ -793,9 +804,10 @@ const styles = StyleSheet.create({
   purchaseEyebrow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   matchHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginVertical: 14 },
   purchaseTeam: { flex: 1, alignItems: 'center', gap: 7 },
-  largeTeamBadge: { width: 48, height: 48, borderRadius: 16, backgroundColor: '#123F55', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.borderStrong },
+  largeTeamBadge: { width: 86, minHeight: 48, borderRadius: 16, backgroundColor: '#123F55', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.borderStrong, paddingHorizontal: 5, paddingVertical: 4 },
   largeTeamLogo: { width: 34, height: 34 },
-  largeTeamInitial: { color: colors.primary, fontSize: 21, fontWeight: '800' },
+  teamBadgeName: { color: colors.text, fontSize: 10, lineHeight: 12, fontWeight: '800', textAlign: 'center' },
+  teamInitial: { color: colors.primary, fontSize: 18, fontWeight: '800' },
   vsBlock: { alignItems: 'center', gap: 4 },
   matchDate: { color: colors.textSecondary, fontSize: 11, fontWeight: '700' },
   matchTitle: { color: colors.text, fontSize: 18, fontWeight: '800', flex: 1, textAlign: 'center' },
@@ -853,11 +865,10 @@ const styles = StyleSheet.create({
   teamName: { color: colors.text, fontSize: 16, fontWeight: '800', textAlign: 'center' },
   teamNameRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   favoriteButton: { padding: 2 },
-  teamBadge: { width: 40, height: 40, borderRadius: 12, backgroundColor: colors.surfaceRaised, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.borderStrong },
+  teamBadge: { width: 72, minHeight: 40, borderRadius: 12, backgroundColor: colors.surfaceRaised, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.borderStrong, paddingHorizontal: 4, paddingVertical: 3 },
   teamLogo: { width: 27, height: 27 },
   homeBadge: { backgroundColor: '#123F55' },
   awayBadge: { backgroundColor: '#3A2543', borderColor: colors.critical + '80' },
-  teamInitial: { color: colors.primary, fontSize: 18, fontWeight: '800' },
   detailsRow: { gap: 8, paddingTop: 4, borderTopWidth: 1, borderTopColor: colors.border },
   detailItem: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   cardFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
@@ -881,7 +892,6 @@ const styles = StyleSheet.create({
   teamRow: { flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1, borderColor: colors.border, borderRadius: 12, padding: 10, backgroundColor: colors.surface },
   teamRowSelected: { borderColor: colors.critical, backgroundColor: colors.critical + '12' },
   teamRowBadge: { width: 38, height: 38, borderRadius: 11, backgroundColor: colors.surfaceRaised, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.borderStrong },
-  teamRowLogo: { width: 26, height: 26 },
   teamRowInfo: { flex: 1 },
   teamRowName: { color: colors.text, fontSize: 14, fontWeight: '700' },
   teamRowCity: { color: colors.textSecondary, fontSize: 11, marginTop: 2 },

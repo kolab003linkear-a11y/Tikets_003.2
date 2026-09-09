@@ -8,6 +8,11 @@ import AppScreenHeader from '../components/AppScreenHeader';
 
 type EventDraft = AdminEventInput;
 
+type AdminEventsScreenProps = {
+  categoryFilter?: AdminEvent['category'];
+  topContent?: React.ReactNode;
+};
+
 const emptyDraft: EventDraft = {
   title: '',
   synopsis: '',
@@ -19,10 +24,10 @@ const emptyDraft: EventDraft = {
   status: 'COMING_SOON',
 };
 
-export default function AdminEventsScreen() {
+export default function AdminEventsScreen({ categoryFilter, topContent }: AdminEventsScreenProps = {}) {
   const { user, token } = useAuth();
   const [events, setEvents] = useState<AdminEvent[]>([]);
-  const [draft, setDraft] = useState<EventDraft>(emptyDraft);
+  const [draft, setDraft] = useState<EventDraft>({ ...emptyDraft, category: categoryFilter ?? emptyDraft.category });
   const [editingId, setEditingId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -47,9 +52,13 @@ export default function AdminEventsScreen() {
     if (user?.role === 'ADMIN') void loadEvents();
   }, [token, user?.role]);
 
+  const categoryEvents = useMemo(
+    () => categoryFilter ? events.filter((event) => event.category === categoryFilter) : events,
+    [categoryFilter, events],
+  );
   const visibleEvents = useMemo(
-    () => filter === 'ALL' ? events : events.filter((event) => event.status === filter),
-    [events, filter],
+    () => filter === 'ALL' ? categoryEvents : categoryEvents.filter((event) => event.status === filter),
+    [categoryEvents, filter],
   );
 
   if (!user || user.role !== 'ADMIN') {
@@ -80,7 +89,7 @@ export default function AdminEventsScreen() {
 
   const resetForm = () => {
     setEditingId(null);
-    setDraft(emptyDraft);
+    setDraft({ ...emptyDraft, category: categoryFilter ?? emptyDraft.category });
   };
 
   const saveEvent = async () => {
@@ -109,14 +118,15 @@ export default function AdminEventsScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.container}>
-        <AppScreenHeader eyebrow="Catálogo" title="Eventos" subtitle="Administra lo que aparece en la cartelera y mantén tu programación al día." right={<View style={styles.headerIcon}><Ionicons name="film-outline" size={21} color={colors.text} /></View>} />
+        {topContent}
+        <AppScreenHeader eyebrow={categoryFilter === 'TEATRO' ? 'Artes escénicas' : 'Catálogo'} title={categoryFilter === 'TEATRO' ? 'Teatros' : 'Eventos'} subtitle={categoryFilter === 'TEATRO' ? 'Administra obras, salas y funciones teatrales.' : 'Administra lo que aparece en la cartelera y mantén tu programación al día.'} right={<View style={styles.headerIcon}><Ionicons name={categoryFilter === 'TEATRO' ? 'easel-outline' : 'film-outline'} size={21} color={colors.text} /></View>} />
 
         <View style={styles.statsRow}>
-          <View style={styles.statItem}><Text style={styles.statValue}>{events.length}</Text><Text style={styles.statLabel}>Eventos</Text></View>
+          <View style={styles.statItem}><Text style={styles.statValue}>{categoryEvents.length}</Text><Text style={styles.statLabel}>{categoryFilter === 'TEATRO' ? 'Obras' : 'Eventos'}</Text></View>
           <View style={styles.statDivider} />
-          <View style={styles.statItem}><Text style={[styles.statValue, styles.statSuccess]}>{events.filter((event) => event.status === 'NOW_SHOWING').length}</Text><Text style={styles.statLabel}>En cartelera</Text></View>
+          <View style={styles.statItem}><Text style={[styles.statValue, styles.statSuccess]}>{categoryEvents.filter((event) => event.status === 'NOW_SHOWING').length}</Text><Text style={styles.statLabel}>En cartelera</Text></View>
           <View style={styles.statDivider} />
-          <View style={styles.statItem}><Text style={[styles.statValue, styles.statWarning]}>{events.reduce((total, event) => total + (event._count?.showtimes ?? 0), 0)}</Text><Text style={styles.statLabel}>Funciones</Text></View>
+          <View style={styles.statItem}><Text style={[styles.statValue, styles.statWarning]}>{categoryEvents.reduce((total, event) => total + (event._count?.showtimes ?? 0), 0)}</Text><Text style={styles.statLabel}>Funciones</Text></View>
         </View>
 
         <View style={styles.form}>
@@ -151,7 +161,7 @@ export default function AdminEventsScreen() {
         </View>
 
         <View style={styles.listHeader}>
-          <Text style={styles.sectionTitle}>Cartelera registrada</Text>
+          <Text style={styles.sectionTitle}>{categoryFilter === 'TEATRO' ? 'Obras registradas' : 'Cartelera registrada'}</Text>
           <Pressable accessibilityRole="button" accessibilityLabel="Actualizar eventos" onPress={() => void loadEvents()}><Ionicons name="refresh-outline" size={19} color={colors.primary} /></Pressable>
         </View>
         <View style={styles.filters}>

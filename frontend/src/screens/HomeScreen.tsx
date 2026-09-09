@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  Alert,
   Image,
   FlatList,
   Modal,
@@ -67,6 +68,29 @@ export default function HomeScreen() {
       return matchesCategory && matchesSearch && isAvailable;
     });
   }, [movies, search, category]);
+
+  const handleReserveMovie = (movie: CatalogMovie) => {
+    const showtime = movie.showtimes[0];
+
+    if (!showtime) {
+      Alert.alert(
+        'Función no disponible',
+        'Esta experiencia todavía no tiene horarios habilitados para reservar.',
+      );
+      return;
+    }
+
+    navigation.navigate('SeatSelection', {
+      type: 'cinema',
+      movieTitle: movie.title,
+      showtimeId: showtime.id,
+      startTime: showtime.startTime,
+      roomName: showtime.room.name,
+      price: Number(showtime.price),
+      seatLayout: showtime.room.seatLayout,
+      occupiedSeats: showtime.occupiedSeats,
+    });
+  };
 
   const recommendedMovies = useMemo(
     () => movies.filter((movie) => movie.status !== 'COMING_SOON' || movie.showtimes.length > 0).concat(
@@ -363,18 +387,7 @@ export default function HomeScreen() {
                   accessibilityRole="button"
                   accessibilityLabel={`Reservar ${movie.title}`}
                   style={styles.buyButton}
-                  disabled={!showtime}
-                  onPress={() =>
-                    navigation.navigate('SeatSelection', {
-                      movieTitle: movie.title,
-                      showtimeId: showtime.id,
-                      startTime: showtime.startTime,
-                      roomName: showtime.room.name,
-                      price,
-                      seatLayout: showtime.room.seatLayout,
-                      occupiedSeats: showtime.occupiedSeats,
-                    })
-                  }
+                  onPress={() => handleReserveMovie(movie)}
                 >
                   <Text style={styles.buyText}>{showtime ? 'Reservar' : 'Próximamente'}</Text>
                 </Pressable>
