@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Alert, Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../auth/AuthContext';
@@ -96,7 +96,12 @@ export default function AdminScannerScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.contentContainer}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
         <AppScreenHeader eyebrow="Panel administrativo" title="Escáner QR" subtitle="Valida entradas de cine y estadio en segundos." />
         <View style={styles.statsRow}>
           <View style={styles.statItem}><Text style={styles.statValue}>{scanCount}</Text><Text style={styles.statLabel}>Lecturas</Text></View>
@@ -148,14 +153,15 @@ export default function AdminScannerScreen() {
         ) : (
           <View style={styles.waitingBox}><Ionicons name="qr-code-outline" size={21} color={colors.primary} /><View><Text style={styles.waitingTitle}>Listo para validar</Text><Text style={styles.waitingText}>El resultado aparecerá aquí.</Text></View></View>
         )}
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.background },
-  container: { flex: 1, padding: 16, backgroundColor: colors.background },
+  container: { flex: 1, backgroundColor: colors.background },
+  contentContainer: { padding: 16, paddingBottom: 32 },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
   overline: { color: colors.primary, fontSize: 12, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1.4 },
   title: { color: colors.text, fontSize: 28, fontWeight: '800', marginTop: 6, fontFamily: typography.display },

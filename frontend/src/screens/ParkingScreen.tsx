@@ -98,7 +98,7 @@ export default function ParkingScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
-      <ScrollView contentContainerStyle={styles.container}>
+      <ScrollView contentContainerStyle={styles.container} nestedScrollEnabled keyboardShouldPersistTaps="handled">
         {selected ? (
           <SpotPickerMap
             garage={selected}

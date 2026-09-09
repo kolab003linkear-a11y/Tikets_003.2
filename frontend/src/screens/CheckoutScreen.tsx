@@ -5,7 +5,6 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { cancelReservation, confirmDemoPayment } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { colors, typography } from '../theme';
-import ProfileAvatar from '../components/ProfileAvatar';
 import AppButton from '../components/AppButton';
 import { paymentMethods, PaymentMethod } from '../components/parking/PaymentModal';
 
@@ -13,7 +12,7 @@ export default function CheckoutScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const { token } = useAuth();
-  const { reservationId, ticketCount, selectedSeats, total, showtimeId, movieTitle, startTime, roomName, price } = route.params;
+  const { reservationId, ticketCount, selectedSeats, total, showtimeId, movieTitle, startTime, roomName, price, date, time } = route.params;
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('CARD');
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -21,7 +20,9 @@ export default function CheckoutScreen() {
 
   const formattedDate = startTime
     ? new Date(startTime).toLocaleString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })
-    : 'Horario pendiente';
+    : date && time
+      ? `${date} • ${time}`
+      : 'Horario pendiente';
 
   const pay = async () => {
     setProcessing(true);
@@ -72,11 +73,8 @@ export default function CheckoutScreen() {
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.container}>
         <View style={styles.headerRow}>
-          <Pressable onPress={() => navigation.goBack()} style={styles.backButton}>
-            <Text style={styles.backText}>←</Text>
-          </Pressable>
           <Text style={styles.title}>Checkout</Text>
-          <ProfileAvatar />
+          <View style={styles.headerSpacer} />
         </View>
 
         <View style={styles.summaryCard}>
@@ -129,9 +127,8 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.background },
   container: { padding: 16, backgroundColor: colors.background },
   headerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
-  backButton: { width: 42, height: 42, borderRadius: 12, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' },
-  backText: { color: colors.text, fontSize: 24, fontWeight: '700' },
   title: { color: colors.text, fontSize: 24, fontWeight: '700', marginLeft: 12, fontFamily: typography.display },
+  headerSpacer: { width: 42 },
   summaryCard: { backgroundColor: colors.surface, borderRadius: 18, borderWidth: 1, borderColor: colors.border, padding: 18, marginBottom: 20 },
   summaryHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
   paymentHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 14 },

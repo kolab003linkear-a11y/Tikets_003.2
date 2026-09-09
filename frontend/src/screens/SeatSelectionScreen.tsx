@@ -83,6 +83,7 @@ export default function SeatSelectionScreen() {
     title,
     city,
     venue,
+    startTime,
     date,
     time,
 
@@ -697,6 +698,11 @@ export default function SeatSelectionScreen() {
         return;
       }
 
+      if (!token || !user?.id) {
+        navigation.navigate('Auth', { fromPurchase: true });
+        return;
+      }
+
       const cleanEmail = email.trim();
       const cleanName = fullName.trim();
       const cleanPhone = phone.trim();
@@ -870,7 +876,19 @@ export default function SeatSelectionScreen() {
 
             total,
 
-            showtimeId,
+            showtimeId: reservationShowtimeId,
+
+            startTime,
+
+            roomName:
+              isConcert || isTheater
+                ? `${venue ?? 'Evento'} - ${eventTitle}`
+                : undefined,
+
+            price:
+              isConcert
+                ? selectedConcertPrice
+                : seatPrice,
 
             movieTitle:
               eventTitle,
@@ -2642,26 +2660,7 @@ export default function SeatSelectionScreen() {
           />
 
           <Pressable
-            onPress={() =>
-              Alert.alert(
-                'Cancelar selección',
-                '¿Seguro que deseas cancelar tu selección?',
-                [
-                  {
-                    text: 'No',
-                    style: 'cancel',
-                  },
-                  {
-                    text: 'Sí, cancelar',
-                    style: 'destructive',
-                    onPress: () =>
-                      abandonPendingReservation(
-                        true,
-                      ),
-                  },
-                ],
-              )
-            }
+            onPress={() => void abandonPendingReservation(true)}
             disabled={
               reserving
             }

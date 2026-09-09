@@ -8,6 +8,11 @@ interface PaymentModalProps {
   onClose: () => void;
   totalAmount: number;
   onConfirmPayment: (method: PaymentMethod) => void;
+  onCancel?: () => void;
+  eventTitle?: string;
+  eventDate?: string;
+  eventVenue?: string;
+  seatNumber?: string;
   processing?: boolean;
   parkingOnly?: boolean;
   cancelLabel?: string;
@@ -29,6 +34,11 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   onClose,
   totalAmount,
   onConfirmPayment,
+  onCancel,
+  eventTitle,
+  eventDate,
+  eventVenue,
+  seatNumber,
   processing = false,
   parkingOnly = false,
   cancelLabel = 'Cancelar reserva',
@@ -53,6 +63,15 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
             <Text style={styles.amount}>${totalAmount.toFixed(2)} USD</Text>
           </View>
 
+          {eventTitle && (
+            <View style={styles.eventSummary}>
+              <Text style={styles.eventTitle}>{eventTitle}</Text>
+              {!!eventDate && <Text style={styles.eventDetail}>{eventDate}</Text>}
+              {!!eventVenue && <Text style={styles.eventDetail}>{eventVenue}</Text>}
+              {!!seatNumber && <Text style={styles.eventDetail}>Localidad: {seatNumber}</Text>}
+            </View>
+          )}
+
           <Text style={styles.methodLabel}>METODO DE PAGO</Text>
           <View style={styles.methods}>
             {paymentMethods.map((method) => (
@@ -64,7 +83,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
           </View>
 
           {!parkingOnly && (
-            <TouchableOpacity disabled={processing} onPress={onClose} style={styles.cancelBtn}>
+            <TouchableOpacity disabled={processing} onPress={onCancel ?? onClose} style={styles.cancelBtn}>
               <Text style={styles.cancelText}>{cancelLabel}</Text>
             </TouchableOpacity>
           )}
@@ -94,6 +113,9 @@ const styles = StyleSheet.create({
   methodTextActive: { color: colors.text, fontWeight: 'bold' },
   label: { color: colors.textSecondary, fontSize: 14 },
   amount: { color: colors.success, fontSize: 20, fontWeight: 'bold' },
+  eventSummary: { backgroundColor: colors.surfaceRaised, borderRadius: radii.small, borderWidth: 1, borderColor: colors.border, padding: 12, gap: 4 },
+  eventTitle: { color: colors.text, fontSize: 16, fontWeight: '800' },
+  eventDetail: { color: colors.textSecondary, fontSize: 12 },
   payBtn: { backgroundColor: colors.primary, padding: 14, borderRadius: radii.control, alignItems: 'center', ...shadows.button },
   payBtnDisabled: { opacity: 0.6 },
   cancelBtn: { backgroundColor: colors.surfaceRaised, borderWidth: 1, borderColor: colors.border, padding: 14, borderRadius: radii.control, alignItems: 'center' },

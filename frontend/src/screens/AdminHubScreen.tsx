@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../auth/AuthContext';
 import { colors, typography } from '../theme';
 import AdminEventsScreen from './AdminEventsScreen';
+import AdminTheatersScreen from './AdminTheatersScreen';
 import AdminScannerScreen from './AdminScannerScreen';
 import AdminScheduleScreen from './AdminScheduleScreen';
 import AdminStadiumsScreen from './AdminStadiumsScreen';
@@ -19,6 +20,7 @@ type AdminSection =
   | 'dashboard'
   | 'scanner'
   | 'events'
+  | 'theaters'
   | 'schedule'
   | 'stadiums'
   | 'teams'
@@ -37,6 +39,7 @@ export default function AdminHubScreen() {
         { key: 'dashboard', label: 'Dashboard', icon: 'stats-chart-outline' },
         { key: 'scanner', label: 'Escáner', icon: 'scan-outline' },
         { key: 'events', label: 'Eventos', icon: 'film-outline' },
+        { key: 'theaters', label: 'Teatros', icon: 'easel-outline' },
         { key: 'schedule', label: 'Salas', icon: 'calendar-outline' },
         { key: 'stadiums', label: 'Estadios', icon: 'football-outline' },
         { key: 'teams', label: 'Equipos', icon: 'shield-outline' },
@@ -48,6 +51,7 @@ export default function AdminHubScreen() {
       ]
     : [{ key: 'scanner', label: 'Escáner', icon: 'scan-outline' }];
   const [section, setSection] = useState<AdminSection>(isAdmin ? 'dashboard' : 'scanner');
+  const [menuOpen, setMenuOpen] = useState(false);
   const [moduleError, setModuleError] = useState('');
   const [moduleLoading, setModuleLoading] = useState(false);
   const [summaryLoading, setSummaryLoading] = useState(false);
@@ -174,17 +178,43 @@ export default function AdminHubScreen() {
         <View style={styles.toolbarActions}><View style={styles.roleBadge}><Ionicons name="shield-checkmark-outline" size={13} color={colors.success} /><Text style={styles.roleText}>{isAdmin ? 'ADMIN' : 'SCANNER'}</Text></View><ProfileAvatar /></View>
       </View>
       <View style={styles.selector}>
-        {sections.map((item) => (
-          <Pressable key={item.key} accessibilityRole="button" accessibilityState={{ selected: section === item.key }} onPress={() => setSection(item.key)} style={styles.selectorItem}>
-            <Ionicons name={item.icon} size={17} color={section === item.key ? colors.text : colors.textSecondary} />
-            <Text style={[styles.selectorText, section === item.key && styles.selectorTextActive]}>{item.label}</Text>
-            {section === item.key && <View style={styles.activeLine} />}
-          </Pressable>
-        ))}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ expanded: menuOpen }}
+          onPress={() => setMenuOpen((open) => !open)}
+          style={styles.selectorTrigger}
+        >
+          <View style={styles.selectorTriggerCopy}>
+            <Ionicons name={sections.find((item) => item.key === section)?.icon ?? 'grid-outline'} size={18} color={colors.primary} />
+            <Text style={styles.selectorTriggerText}>{sections.find((item) => item.key === section)?.label ?? 'Menú'}</Text>
+          </View>
+          <Ionicons name={menuOpen ? 'chevron-up' : 'chevron-down'} size={18} color={colors.textSecondary} />
+        </Pressable>
+        {menuOpen && (
+          <ScrollView
+            style={styles.selectorMenu}
+            contentContainerStyle={styles.selectorMenuContent}
+            nestedScrollEnabled
+            showsVerticalScrollIndicator={false}
+          >
+            {sections.map((item) => (
+              <Pressable
+                key={item.key}
+                accessibilityRole="button"
+                accessibilityState={{ selected: section === item.key }}
+                onPress={() => { setSection(item.key); setMenuOpen(false); }}
+                style={[styles.selectorItem, section === item.key && styles.selectorItemActive]}
+              >
+                <Ionicons name={item.icon} size={17} color={section === item.key ? colors.primary : colors.textSecondary} />
+                <Text style={[styles.selectorText, section === item.key && styles.selectorTextActive]}>{item.label}</Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+        )}
       </View>
       <View style={styles.content}>
         {section === 'dashboard' && isAdmin && (
-          <ScrollView style={styles.dashboardScroll} contentContainerStyle={styles.dashboardContainer} showsVerticalScrollIndicator={false}>
+          <ScrollView style={styles.dashboardScroll} contentContainerStyle={styles.dashboardContainer} showsVerticalScrollIndicator={false} nestedScrollEnabled keyboardShouldPersistTaps="handled">
             <View style={styles.dashboardHeader}>
               <View>
                 <Text style={styles.kicker}>Sistema operativo</Text>
@@ -236,6 +266,7 @@ export default function AdminHubScreen() {
         )}
         {section === 'scanner' && <AdminScannerScreen />}
         {section === 'events' && <AdminEventsScreen />}
+        {section === 'theaters' && <AdminTheatersScreen />}
         {section === 'schedule' && <AdminScheduleScreen />}
         {section === 'stadiums' && <AdminStadiumsScreen />}
         {section === 'teams' && <AdminTeamsScreen />}
@@ -248,7 +279,7 @@ export default function AdminHubScreen() {
           {!!moduleError && <Text style={styles.error}>{moduleError}</Text>}
           {moduleItems.map((item) => <View key={item.key} style={styles.moduleRow}><View style={styles.moduleCopy}><Text style={styles.moduleLabel}>{item.label}</Text><Text style={styles.moduleDescription}>{item.description}</Text></View><Switch accessibilityLabel={`Activar ${item.label}`} value={modules[item.key]} onValueChange={(enabled) => void toggleModule(item.key, enabled)} trackColor={{ false: colors.border, true: colors.primary + '88' }} thumbColor={modules[item.key] ? colors.primary : colors.textSecondary} /></View>)}
         </View>}
-        {section === 'admins' && isAdmin && <ScrollView contentContainerStyle={styles.adminsPanel}>
+        {section === 'admins' && isAdmin && <ScrollView contentContainerStyle={styles.adminsPanel} nestedScrollEnabled keyboardShouldPersistTaps="handled">
           <Text style={styles.sectionTitle}>Agregar administrador</Text>
           <Text style={styles.formHint}>Crea una cuenta con permisos completos del centro administrativo.</Text>
           <TextInput placeholder="Nombre completo" placeholderTextColor={colors.textSecondary} value={adminDraft.fullName} onChangeText={(fullName) => setAdminDraft({ ...adminDraft, fullName })} style={styles.adminInput} />
@@ -274,14 +305,19 @@ const styles = StyleSheet.create({
   roleBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: colors.success + '18', borderRadius: 999, paddingHorizontal: 9, paddingVertical: 6 },
   roleText: { color: colors.success, fontSize: 10, fontWeight: '800' },
   toolbarActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  selector: { flexDirection: 'row', flexWrap: 'wrap', borderBottomWidth: 1, borderBottomColor: colors.border, paddingHorizontal: 8 },
-  selectorItem: { width: '25%', alignItems: 'center', justifyContent: 'center', gap: 5, paddingVertical: 10, position: 'relative' },
+  selector: { borderBottomWidth: 1, borderBottomColor: colors.border, paddingHorizontal: 16, paddingBottom: 10 },
+  selectorTrigger: { minHeight: 48, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.borderStrong, borderRadius: 12, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  selectorTriggerCopy: { flexDirection: 'row', alignItems: 'center', gap: 9 },
+  selectorTriggerText: { color: colors.text, fontSize: 14, fontWeight: '800' },
+  selectorMenu: { maxHeight: 420, marginTop: 8, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 12 },
+  selectorMenuContent: { padding: 6, gap: 2 },
+  selectorItem: { minHeight: 42, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 10, borderRadius: 8 },
+  selectorItemActive: { backgroundColor: colors.primary + '18' },
   selectorText: { color: colors.textSecondary, fontSize: 12, fontWeight: '700' },
   selectorTextActive: { color: colors.text },
-  activeLine: { position: 'absolute', bottom: -1, left: 12, right: 12, height: 2, borderRadius: 2, backgroundColor: colors.primary },
-  content: { flex: 1 },
-  dashboardScroll: { flex: 1 },
-  dashboardContainer: { padding: 18, gap: 16 },
+  content: { flex: 1, minHeight: 0 },
+  dashboardScroll: { flex: 1, minHeight: 0 },
+  dashboardContainer: { padding: 18, paddingBottom: 32, gap: 16, flexGrow: 1 },
   dashboardHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   kicker: { color: colors.primary, fontSize: 10, fontWeight: '800', letterSpacing: 1.1, textTransform: 'uppercase' },
   refreshButton: { width: 38, height: 38, borderRadius: 10, backgroundColor: colors.primary + '15', alignItems: 'center', justifyContent: 'center' },
@@ -299,7 +335,7 @@ const styles = StyleSheet.create({
   todoRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 4 },
   todoText: { color: colors.text, fontSize: 13, flexShrink: 1 },
   modulesPanel: { padding: 18, gap: 14 },
-  adminsPanel: { padding: 18, gap: 12 },
+  adminsPanel: { padding: 18, paddingBottom: 32, gap: 12, flexGrow: 1 },
   adminInput: { minHeight: 48, backgroundColor: colors.input, borderColor: colors.borderStrong, borderWidth: 1, borderRadius: 12, color: colors.text, paddingHorizontal: 14 },
   createAdminButton: { minHeight: 48, borderRadius: 12, backgroundColor: colors.primary, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 4 },
   createAdminText: { color: colors.text, fontSize: 14, fontWeight: '800' },

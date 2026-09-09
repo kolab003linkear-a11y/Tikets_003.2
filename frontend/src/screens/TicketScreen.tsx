@@ -1,9 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, Dimensions, NativeScrollEvent, NativeSyntheticEvent, Platform, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { Animated, Dimensions, NativeScrollEvent, NativeSyntheticEvent, Platform, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useRoute } from '@react-navigation/native';
 import QRCode from 'react-native-qrcode-svg';
 import { colors, typography } from '../theme';
-import ProfileAvatar from '../components/ProfileAvatar';
 
 const screenWidth = Dimensions.get('window').width;
 
@@ -15,7 +14,6 @@ type TicketEntry = {
 };
 
 export default function TicketScreen() {
-  const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const {
     tickets: ticketsParam,
@@ -76,12 +74,9 @@ export default function TicketScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
-        <Pressable accessibilityRole="button" accessibilityLabel="Volver al inicio" style={styles.homeButton} onPress={() => navigation.popToTop()}>
-          <Text style={styles.homeText}>Inicio</Text>
-        </Pressable>
-        <View style={styles.profileButton}><ProfileAvatar /></View>
-
+      <View
+        style={styles.container}
+      >
         {tickets.length > 1 && (
           <Text style={styles.counter}>
             Entrada {activeIndex + 1} de {tickets.length} · desliza para ver las demás
@@ -108,9 +103,13 @@ export default function TicketScreen() {
                   {ticket.seatNumber && ticket.seatNumber.includes(',') ? 'Butacas' : 'Butaca'}: {ticket.seatNumber ?? '—'}
                 </Text>
                 <Text style={styles.accessStatus}>ACCESO AUTORIZADO · {ticket.status ?? status}</Text>
-                <View style={styles.qrBox} accessibilityLabel="Código QR de la entrada">
-                  <QRCode value={ticket.qrPayload ?? ticket.ticketId} size={156} color={colors.background} backgroundColor={colors.text} />
-                </View>
+                {index === activeIndex ? (
+                  <View style={styles.qrBox} accessibilityLabel="Código QR de la entrada">
+                    <QRCode value={ticket.qrPayload ?? ticket.ticketId ?? `ticket-${index}`} size={156} color={colors.background} backgroundColor={colors.text} />
+                  </View>
+                ) : (
+                  <View style={styles.qrBox} accessibilityLabel="Código QR de la entrada" />
+                )}
                 <Text style={styles.eventInfo}>{formattedDate}</Text>
                 <Text style={styles.eventInfo}>{roomName ?? 'Sala pendiente'}</Text>
                 <Text style={styles.info}>Ticket ID: {ticket.ticketId}</Text>
@@ -134,9 +133,6 @@ export default function TicketScreen() {
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.background },
   container: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 20, backgroundColor: colors.background },
-  homeButton: { position: 'absolute', top: 50, left: 20, backgroundColor: colors.surface, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 10, zIndex: 1 },
-  homeText: { color: colors.text, fontWeight: '700' },
-  profileButton: { position: 'absolute', top: 48, right: 20, zIndex: 1 },
   counter: { color: colors.textSecondary, fontSize: 12, fontWeight: '700', marginBottom: 10 },
   // Sin un ancho explícito aquí, el ScrollView se encoge al tamaño de su
   // contenido dentro de `container` (que centra con alignItems: 'center'),

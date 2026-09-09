@@ -242,7 +242,11 @@ async function main() {
 
   const teamsById = new Map();
   for (const t of teamDefs) {
-    const createdTeam = await prisma.team.upsert({
+    const existingTeam = await prisma.team.findUnique({
+      where: { name: t.name },
+      select: { id: true, name: true },
+    });
+    const createdTeam = existingTeam ?? await prisma.team.upsert({
       where: { id: t.id },
       update: { name: t.name, city: t.city },
       create: { id: t.id, name: t.name, city: t.city },
@@ -377,10 +381,12 @@ async function main() {
 
   const favoriteTeamIds = ['team-barcelona-sc', 'team-liga-de-quito', 'team-independiente-del-valle'];
   for (const teamId of favoriteTeamIds) {
+    const resolvedTeamId = teamsById.get(teamId)?.id;
+    if (!resolvedTeamId) continue;
     await prisma.userFavoriteTeam.upsert({
-      where: { userId_teamId: { userId: client.id, teamId } },
+      where: { userId_teamId: { userId: client.id, teamId: resolvedTeamId } },
       update: {},
-      create: { userId: client.id, teamId },
+      create: { userId: client.id, teamId: resolvedTeamId },
     });
   }
 

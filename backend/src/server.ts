@@ -1629,7 +1629,7 @@ app.get('/api/tickets', authMiddleware, async (req, res, next) => {
     const authenticatedUser = (req as Request & { user: { sub: string } }).user;
     const [tickets, stadiumTickets, parkingTickets, busTickets] = await Promise.all([
       prisma.ticket.findMany({
-        where: { reservation: { userId: authenticatedUser.sub } },
+        where: { reservation: { userId: authenticatedUser.sub, status: ReservationStatus.PAID } },
         include: {
           reservation: {
             include: { showtime: { include: { movie: true, room: true } } },

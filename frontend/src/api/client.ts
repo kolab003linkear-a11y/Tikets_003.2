@@ -145,6 +145,11 @@ export type AdminShowtime = {
   room: { id: string; name: string; capacity: number };
 };
 
+type AdminShowtimeResponse = Omit<AdminShowtime, 'movieEvent'> & {
+  movie?: AdminShowtime['movieEvent'];
+  movieEvent?: AdminShowtime['movieEvent'];
+};
+
 export type AdminShowtimeInput = {
   movieId: string;
   roomId: string;
@@ -634,19 +639,25 @@ export function updateAdminRoom(token: string, roomId: string, room: AdminRoomIn
 }
 
 export function getAdminShowtimes(token: string) {
-  return request<{ showtimes: AdminShowtime[] }>('/api/admin/showtimes', { headers: { Authorization: `Bearer ${token}` } });
+  return request<{ showtimes: AdminShowtimeResponse[] }>('/api/admin/showtimes', { headers: { Authorization: `Bearer ${token}` } }).then(({ showtimes }) => ({
+    showtimes: showtimes.map(({ movie, ...showtime }) => ({ ...showtime, movieEvent: showtime.movieEvent ?? movie! })),
+  }));
 }
 
 export function createAdminShowtime(token: string, showtime: AdminShowtimeInput) {
-  return request<{ showtime: AdminShowtime }>('/api/admin/showtimes', {
+  return request<{ showtime: AdminShowtimeResponse }>('/api/admin/showtimes', {
     method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: JSON.stringify(showtime),
-  });
+  }).then(({ showtime: createdShowtime }) => ({
+    showtime: { ...createdShowtime, movieEvent: createdShowtime.movieEvent ?? createdShowtime.movie! },
+  }));
 }
 
 export function updateAdminShowtime(token: string, showtimeId: string, showtime: AdminShowtimeInput) {
-  return request<{ showtime: AdminShowtime }>(`/api/admin/showtimes/${showtimeId}`, {
+  return request<{ showtime: AdminShowtimeResponse }>(`/api/admin/showtimes/${showtimeId}`, {
     method: 'PATCH', headers: { Authorization: `Bearer ${token}` }, body: JSON.stringify(showtime),
-  });
+  }).then(({ showtime: updatedShowtime }) => ({
+    showtime: { ...updatedShowtime, movieEvent: updatedShowtime.movieEvent ?? updatedShowtime.movie! },
+  }));
 }
 
 export function getMe(token: string) {

@@ -5,6 +5,8 @@ import {
   Text,
   StyleSheet,
   Pressable,
+  Animated,
+  PanResponder,
 } from 'react-native';
 
 import {
@@ -158,6 +160,7 @@ function HomeTabs() {
     <Tab.Navigator
       screenOptions={({ route }: any) => ({
         headerShown: false,
+        tabBarHideOnKeyboard: true,
         tabBarAccessibilityLabel: `Pestaña ${route.name}`,
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.textSecondary,
@@ -246,21 +249,64 @@ function AppContent() {
 
 function HomeShortcut() {
   const navigation = useNavigation<any>();
+  const position = React.useRef(new Animated.ValueXY()).current;
+  const panResponder = React.useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => false,
+      onMoveShouldSetPanResponder: (_event, gestureState) => Math.abs(gestureState.dx) > 4 || Math.abs(gestureState.dy) > 4,
+      onPanResponderGrant: () => {
+        position.extractOffset();
+      },
+      onPanResponderMove: (_event, gestureState) => {
+        position.x.setValue(gestureState.dx);
+        position.y.setValue(gestureState.dy);
+      },
+      onPanResponderRelease: () => position.flattenOffset(),
+      onPanResponderTerminate: () => position.flattenOffset(),
+      onPanResponderTerminationRequest: () => false,
+    }),
+  ).current;
 
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel="Ir al inicio"
-      style={({ pressed }) => [styles.homeShortcut, pressed && styles.homeShortcutPressed]}
-      onPress={() => navigation.navigate('HomeTabs', { screen: 'Inicio' })}
+    <Animated.View
+      {...panResponder.panHandlers}
+      style={[styles.homeShortcut, position.getTranslateTransform()]}
     >
-      <Ionicons name="home" size={20} color={colors.text} />
-      <Text style={styles.homeShortcutText}>Inicio</Text>
-    </Pressable>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Ir al inicio"
+        onPress={() => navigation.navigate('HomeTabs', { screen: 'Inicio' })}
+        style={({ pressed }) => [styles.homeShortcutContent, pressed && styles.homeShortcutPressed]}
+      >
+        <Ionicons name="home" size={20} color={colors.text} />
+        <Text style={styles.homeShortcutText}>Inicio</Text>
+      </Pressable>
+    </Animated.View>
   );
 }
 
 export default function App() {
+  React.useEffect(() => {
+    if (typeof document === 'undefined') return;
+
+    const style = document.createElement('style');
+    style.textContent = `
+      html, body, #root {
+        scrollbar-width: none;
+      }
+      html::-webkit-scrollbar,
+      body::-webkit-scrollbar,
+      #root::-webkit-scrollbar {
+        display: none;
+        width: 0;
+        height: 0;
+      }
+    `;
+    document.head.appendChild(style);
+
+    return () => style.remove();
+  }, []);
+
   return (
     <AuthProvider>
       <ModuleProvider>
@@ -350,7 +396,7 @@ const styles = StyleSheet.create({
   homeShortcut: {
     position: 'absolute',
     right: 18,
-    bottom: 22,
+    bottom: 88,
     minHeight: 46,
     borderRadius: 23,
     paddingHorizontal: 16,
@@ -363,6 +409,14 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.28,
     shadowRadius: 10,
     elevation: 6,
+  },
+  homeShortcutContent: {
+    minHeight: 46,
+    borderRadius: 23,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
   },
   homeShortcutPressed: {
     opacity: 0.82,
